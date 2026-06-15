@@ -1,0 +1,348 @@
+# Kinetic Age AI Companion — Tech Stack Document
+
+## 1. Product Summary
+
+A voice + text AI companion inside the Kinetic Age app for guided strength training. Targets a broad audience with a focus on accessibility for older adults. The companion announces exercises, motivates during sets, checks in between sets, adapts the session based on user feedback, and summarizes progress. No camera. No pose detection. Just conversation.
+
+---
+
+## 2. Core Tech Stack
+
+### 2.1 App Framework — React Native (Expo Managed or Bare)
+
+| Attribute | Detail |
+|-----------|--------|
+| Language | JavaScript / TypeScript |
+| Platforms | iOS + Android from one codebase |
+| Why | JS-based — whole team can work on it. If existing Kinetic Age app is React Native, we plug in directly. |
+
+**Key Libraries:**
+- `expo-av` — audio recording + playback
+- `expo-audio` — microphone access for voice input
+- `react-native-reanimated` — smooth UI animations
+- `expo-speech` — free built-in TTS fallback for prototyping
+
+---
+
+### 2.2 AI Brain — Anthropic Claude API (claude-sonnet-4)
+
+| Attribute | Detail |
+|-----------|--------|
+| Provider | Anthropic |
+| Model | claude-sonnet-4 |
+| Role | Full workout conversation, session memory, adaptive responses, routine generation |
+| Personality | Defined entirely via system prompt |
+| Cost | Per-token (input + output) |
+
+**How it's used:**
+- System prompt defines companion personality (warm physio assistant, not gym-bro)
+- Session history passed each turn for conversational continuity
+- Generates personalized weekly routines from user profile
+- Adapts sets/reps mid-session based on user check-in responses
+- Produces session summaries stored for future reference
+
+**Token management strategy:**
+- Short-term: Last 5-8 turns in full
+- Session summary: Generated after each session (2-3 sentences)
+- Long-term profile context: User preferences, conditions, history highlights
+
+---
+
+### 2.3 Voice Input — Deepgram (Speech-to-Text)
+
+| Attribute | Detail |
+|-----------|--------|
+| Provider | Deepgram |
+| Type | Real-time streaming STT |
+| Why | Fast, accurate, good React Native SDK, low latency |
+| Fallback | OpenAI Whisper API (slightly slower, very accurate) |
+
+**Integration:** User speaks → Deepgram converts to text → sent to Claude API via backend.
+
+---
+
+### 2.4 Voice Output — ElevenLabs (Text-to-Speech)
+
+| Attribute | Detail |
+|-----------|--------|
+| Provider | ElevenLabs |
+| Type | Streaming TTS |
+| Why | Best voice quality, sounds human. Streaming API so audio starts before full response is ready. |
+| Fallback | expo-speech (free, built-in, lower quality — good for prototyping) |
+
+**Key detail:** We pick one voice and it becomes the companion's identity. Streaming is critical — without it, user waits in silence which kills the companion feeling.
+
+---
+
+### 2.5 Backend — Node.js + Express
+
+| Attribute | Detail |
+|-----------|--------|
+| Runtime | Node.js |
+| Framework | Express |
+| Language | TypeScript (shared types with frontend) |
+| Role | REST API, relays Claude/ElevenLabs calls, stores session data, keeps API keys server-side |
+
+**Structure:**
+```
+server/
+├── routes/
+│   ├── session.js        # Workout session endpoints
+│   ├── profile.js        # User profile CRUD
+│   ├── routine.js        # Routine generation + storage
+│   ├── exercise.js       # Exercise library
+│   └── companion.js      # Claude conversation relay
+├── services/
+│   ├── claude.js         # Claude API wrapper
+│   ├── elevenlabs.js     # TTS wrapper
+│   └── deepgram.js       # STT wrapper
+├── middleware/
+│   ├── auth.js           # JWT verification (Firebase Auth or Passport.js)
+│   └── rateLimit.js      # Per-user rate limiting
+└── db/
+    ├── models/           # Mongoose schemas
+    └── connection.js     # MongoDB Atlas connection
+```
+
+---
+
+### 2.6 Database — MongoDB (Atlas)
+
+| Attribute | Detail |
+|-----------|--------|
+| Provider | MongoDB Atlas |
+| Engine | MongoDB (document database) |
+| Auth | Firebase Auth (standalone) or Passport.js |
+| Free Tier | 512MB free cluster — generous for MVP |
+| ODM | Mongoose + TypeScript |
+| Stores | User profile, workout history, session check-in data, routine plans, exercise library |
+
+**Why MongoDB over Supabase/PostgreSQL:**
+- Document model maps naturally to workout sessions and user profiles (nested JSON-like objects)
+- Flexible schema for MVP — data models will evolve rapidly without migration headaches
+- JavaScript-native — Mongoose + TypeScript is highly productive for Node.js teams
+- Scales horizontally with built-in sharding when you grow
+- No SQL to learn — queries are JavaScript objects
+
+**Collections (MVP):**
+```javascript
+users: { name, age, fitness_level, goals, conditions, days_per_week, created_at }
+routines: { user_id, plan (embedded exercises/sets/reps), generated_at, active }
+sessions: { user_id, routine_id, started_at, completed_at, summary_text, adaptations }
+session_turns: { session_id, role, content, timestamp }
+exercises: { name, description, muscles, instructions, image_url, difficulty, contraindications }
+```
+
+**Future expansion collections:**
+```javascript
+progress_metrics: { user_id, exercise_id, date, reps, perceived_difficulty }
+achievements: { user_id, type, earned_at }
+companion_preferences: { user_id, voice_id, language, motivation_style }
+```
+
+**Authentication:**
+- Firebase Auth (standalone — auth only, not Firestore) for easy email/Google/Apple sign-in
+- Or Passport.js + JWT for a self-contained solution
+- Either way, JWT tokens verified on the Express backend
+
+---
+
+## 3. Additional Libraries & Tools (Agreed Additions)
+
+### 3.1 State Management — Zustand
+
+| Attribute | Detail |
+|-----------|--------|
+| Why | Lightweight, no boilerplate, scales well. Avoids Context re-render issues during frequent workout state changes. |
+| Replaces | Raw React Context + useReducer |
+
+**Workout session state machine:**
+```
+idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → (loop or next exercise) → session_summary → idle
+```
+
+---
+
+### 3.2 Navigation — React Navigation
+
+| Attribute | Detail |
+|-----------|--------|
+| Why | Industry standard for React Native. Needed for tab structure (Home, Session, Library, Profile). |
+
+---
+
+### 3.3 Retry Layer — async-retry / p-retry
+
+| Attribute | Detail |
+|-----------|--------|
+| Why | When chaining Deepgram → Claude → ElevenLabs, any hop can hiccup. Simple retry with exponential backoff prevents sessions from dying on transient network blips. |
+| Where | Backend service layer |
+
+---
+
+### 3.4 WebSocket-Ready Architecture (Post-MVP)
+
+| Attribute | Detail |
+|-----------|--------|
+| Why | For real-time streaming conversations (user speaks, Claude streams back, audio plays as it generates). |
+| Approach | Structure backend with a `/ws/session` endpoint in mind. REST for MVP, WebSocket swap later. |
+| Library | Socket.io or ws |
+
+**Not needed for weeks 1-4. But keeping session communication in its own module means the swap is clean when the time comes.**
+
+---
+
+## 4. Architecture Overview
+
+```
+┌────────────────────────────────────────────────────────────┐
+│         MOBILE APP (React Native + TypeScript)              │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │  Voice Input  │  │  Chat UI     │  │  Session View  │  │
+│  │  (Deepgram)   │  │  (Fallback)  │  │  (Workout)     │  │
+│  └──────┬───────┘  └──────┬───────┘  └───────┬────────┘  │
+│         │                  │                   │           │
+│  ┌──────▼──────────────────▼───────────────────▼────────┐ │
+│  │              Zustand State Management                 │ │
+│  │  • Session state machine                             │ │
+│  │  • Conversation history                              │ │
+│  │  • User profile                                      │ │
+│  └──────────────────────────┬───────────────────────────┘ │
+│                              │                             │
+├──────────────────────────────┼─────────────────────────────┤
+                               │ REST API (WebSocket later)
+├──────────────────────────────┼─────────────────────────────┤
+│                              ▼                             │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │         Backend (Node.js + Express + TypeScript)      │ │
+│  │  • /api/companion — Claude conversation relay        │ │
+│  │  • /api/session — session CRUD                       │ │
+│  │  • /api/routine — routine generation                 │ │
+│  │  • /api/tts — ElevenLabs streaming relay             │ │
+│  │  • Retry layer (p-retry) on all external calls       │ │
+│  └──────────────────────────┬───────────────────────────┘ │
+│                              │                             │
+│  ┌───────────┐  ┌───────────┴──┐  ┌────────────────────┐ │
+│  │ MongoDB   │  │ Claude API   │  │ ElevenLabs API     │ │
+│  │ (Atlas +  │  │ (AI Brain)   │  │ (TTS Streaming)    │ │
+│  │  Auth)    │  └──────────────┘  └────────────────────┘ │
+│  └───────────┘                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 5. What We're NOT Building
+
+- No camera, no pose detection, no rep counting via vision
+- No lip-synced avatar animation
+- No wearable / Apple Watch integration
+- No custom ML model — we use existing APIs throughout
+- No HeyGen/Anam interactive avatar (dropped in favor of voice-only)
+
+---
+
+## 6. API Cost Estimates (Monthly, MVP ~500 users)
+
+| API | Usage Estimate | Monthly Cost |
+|-----|----------------|--------------|
+| Anthropic Claude (sonnet) | ~10,000 conversation turns | $15-50 |
+| Deepgram STT | ~500 sessions × 15 min | $20-60 |
+| ElevenLabs TTS | ~500 sessions × voice output | $30-100 |
+| MongoDB Atlas | Database | $0-57 |
+| Firebase Auth | Authentication | $0 (free up to 50k MAUs) |
+| Node.js Hosting (Railway/Render) | API server | $5-20 |
+| **Total estimated** | | **$70-310/month** |
+
+---
+
+## 7. Skills to Learn
+
+| Skill | Estimated Ramp-Up |
+|-------|-------------------|
+| Deepgram API — STT in React Native | 2 days (good docs) |
+| ElevenLabs API — TTS + streaming audio playback | 2-3 days |
+| Audio recording + playback (expo-av) | 1-2 days |
+| Microphone access (expo-audio) | 1 day |
+| Conversation state management (session history → Claude) | Already know Claude API, just extension |
+| MongoDB + Mongoose setup | 1-2 days (great docs, JS-native) |
+| Firebase Auth or Passport.js | 1-2 days |
+| Zustand | Half a day (very simple API) |
+
+---
+
+## 8. Timeline
+
+### Week 1: Foundation
+- Claude chat working in a basic React Native screen
+- Deepgram + ElevenLabs working in isolation (record voice, get text back, play audio)
+- System prompt first draft — companion personality and session flow
+- App structure, navigation (React Navigation), MongoDB + auth set up
+- Zustand store scaffolded for session state machine
+
+### Week 2: Core Loop
+- Voice pipeline connected: user speaks → Deepgram → Claude → ElevenLabs → audio plays
+- Full workout session working end to end with multiple exercises
+- Between-set check-ins adapt the session based on user input
+- Routine generation working — user fills profile, gets a weekly plan
+- Text chat fallback + MongoDB saving session data
+- Retry layer on backend external API calls
+
+### Week 3: Polish + Content
+- Exercise library content added
+- Session summary feature
+- Companion personality dialed in — iterate heavily on the prompt
+- UI cleaned up, feels like a real app
+- Handle edge cases — user says they're in pain, user goes quiet, missed reps
+
+### Week 4: Testing + Demo
+- Test with real users if possible — even family members who are older
+- Fix bugs, final prompt tuning
+- Record the demo — full workout session with the companion
+- Prepare presentation
+
+---
+
+## 9. Expansion Roadmap (Post-MVP)
+
+| Feature | When | Tech Needed |
+|---------|------|-------------|
+| WebSocket streaming conversations | Post-demo | Socket.io / ws |
+| Progress analytics + charts | Month 2 | Victory Native (charting) |
+| Push notifications ("Time for your workout!") | Month 2 | Expo Notifications |
+| Multi-language support | Month 2-3 | Swap system prompt + TTS voice |
+| Social features (family tracking) | Month 3 | MongoDB real-time change streams |
+| Clinical dashboard (physio team review) | Month 3-4 | React web app (Next.js) |
+| Subscription/payments | Month 2 | RevenueCat |
+| Wearable integration | Month 4+ | Apple HealthKit / Google Fit |
+| Custom voice cloning | Month 3+ | ElevenLabs voice cloning |
+
+---
+
+## 10. Key Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| Voice recognition accuracy with elderly speech | Always keep text fallback visible; Deepgram handles accents well |
+| Audio latency (4+ network hops) | ElevenLabs streaming; add "thinking" audio cue; test on mobile data |
+| Prompt quality determines UX | Allocate real iteration time in weeks 2-3; test with actual seniors |
+| Token costs at scale | Summarize older history; only keep last 5-8 turns verbatim |
+| Existing app is native Swift/Kotlin | Clarify with manager day 1; if native, build standalone React Native prototype |
+| ElevenLabs cost at scale | Monitor per-user cost; consider expo-speech for non-critical utterances |
+| Network drops mid-session | Cache current exercise plan locally; show text instructions as fallback |
+
+---
+
+## 11. Blocking Question
+
+**Ask the manager on day 1:** Is the existing Kinetic Age app built in React Native, or is it native iOS/Android?
+
+- If React Native → build inside it directly
+- If native → build a standalone React Native prototype and present as v1 MVP before integration
+
+---
+
+*Document updated: June 2026*
+*Direction: Voice + Text AI Companion (no camera/pose detection)*
