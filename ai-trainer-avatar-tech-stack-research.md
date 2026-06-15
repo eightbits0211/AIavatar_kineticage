@@ -30,7 +30,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 |-----------|--------|
 | Provider | Anthropic |
 | Model | claude-sonnet-4 |
-| Role | Full workout conversation, session memory, adaptive responses, routine generation |
+| Role | Conversational coaching: explains workouts, motivates, answers questions. NEVER generates workout content. |
 | Personality | Defined entirely via system prompt |
 | Cost | Per-token (input + output) |
 
@@ -83,27 +83,41 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 | Runtime | Node.js |
 | Framework | Express |
 | Language | TypeScript (shared types with frontend) |
-| Role | REST API, relays Claude/ElevenLabs calls, stores session data, keeps API keys server-side |
+| Role | REST API, hosts the Rules Engine, relays Claude/ElevenLabs calls, stores session data, keeps API keys server-side |
 
 **Structure:**
 ```
 server/
 ├── routes/
-│   ├── session.js        # Workout session endpoints
-│   ├── profile.js        # User profile CRUD
-│   ├── routine.js        # Routine generation + storage
-│   ├── exercise.js       # Exercise library
-│   └── companion.js      # Claude conversation relay
+│   ├── session.ts        # Workout session endpoints
+│   ├── profile.ts        # User profile CRUD
+│   ├── bundles.ts        # Bundle generation via Rules Engine
+│   ├── exercises.ts      # Exercise library
+│   ├── companion.ts      # Claude conversation relay
+│   ├── personalize.ts    # Persona assignment + metrics
+│   ├── dashboard.ts      # Aggregated dashboard data
+│   └── dailyCheckin.ts   # Daily check-in
 ├── services/
-│   ├── claude.js         # Claude API wrapper
-│   ├── elevenlabs.js     # TTS wrapper
-│   └── deepgram.js       # STT wrapper
+│   ├── rulesEngine/      # DETERMINISTIC workout generation (NOT Claude)
+│   │   ├── filterStage.ts
+│   │   ├── categoryStage.ts
+│   │   ├── personaModifier.ts
+│   │   ├── bundleAssembly.ts
+│   │   └── index.ts
+│   ├── claude.ts         # AI companion (explain & motivate ONLY)
+│   ├── progression.ts    # Per-exercise progression tracking
+│   ├── persona.ts        # Persona assignment rules
+│   ├── gamification.ts   # XP, streaks, badges
+│   ├── elevenlabs.ts     # TTS wrapper
+│   └── deepgram.ts       # STT wrapper
 ├── middleware/
-│   ├── auth.js           # JWT verification (Firebase Auth or Passport.js)
-│   └── rateLimit.js      # Per-user rate limiting
-└── db/
-    ├── models/           # Mongoose schemas
-    └── connection.js     # MongoDB Atlas connection
+│   ├── auth.ts           # Firebase Auth JWT verification
+│   └── rateLimit.ts      # Per-user rate limiting
+├── models/               # Mongoose schemas
+├── prompts/              # Claude system prompt layers
+└── config/
+    ├── db.ts             # MongoDB Atlas connection
+    └── env.ts            # Environment variables
 ```
 
 ---
@@ -117,10 +131,10 @@ server/
 | Auth | Firebase Auth (standalone) or Passport.js |
 | Free Tier | 512MB free cluster — generous for MVP |
 | ODM | Mongoose + TypeScript |
-| Stores | User profile, workout history, session check-in data, routine plans, exercise library |
+| Stores | User profiles, exercise library (80-120 exercises), bundles, sessions, progression tracking, gamification, daily check-ins |
 
 **Why MongoDB over Supabase/PostgreSQL:**
-- Document model maps naturally to workout sessions and user profiles (nested JSON-like objects)
+- Document model maps naturally to workout sessions, bundles, and user profiles (nested JSON-like objects)
 - Flexible schema for MVP — data models will evolve rapidly without migration headaches
 - JavaScript-native — Mongoose + TypeScript is highly productive for Node.js teams
 - Scales horizontally with built-in sharding when you grow
@@ -128,18 +142,13 @@ server/
 
 **Collections (MVP):**
 ```javascript
-users: { name, age, fitness_level, goals, conditions, days_per_week, created_at }
-routines: { user_id, plan (embedded exercises/sets/reps), generated_at, active }
-sessions: { user_id, routine_id, started_at, completed_at, summary_text, adaptations }
-session_turns: { session_id, role, content, timestamp }
-exercises: { name, description, muscles, instructions, image_url, difficulty, contraindications }
-```
-
-**Future expansion collections:**
-```javascript
-progress_metrics: { user_id, exercise_id, date, reps, perceived_difficulty }
-achievements: { user_id, type, earned_at }
-companion_preferences: { user_id, voice_id, language, motivation_style }
+users: { firebase_uid, name, age, gender, fitness_goal, activity_level, equipment, injuries, workout_duration, persona_tags[], companion_preferences, calculated_metrics, gamification, pain_history }
+exercises: { exercise_id, name, category_tags[], muscle_groups, equipment_required, location_compatible, contraindications, substitution_group, default_set_rep_range{per_category}, instructions_text, difficulty_level, image_url }
+bundles: { user_id, title, is_recommended, estimated_duration, calorie_burn, exercises[], rationale, focus, generation_context }
+sessions: { user_id, bundle_id, status, exercises[{sets, feedback}], pain_events, xp_awarded, progression_flags }
+exercise_progression: { user_id, exercise_id, substitution_group, history[], current_prescription, progression_state }
+session_turns: { session_id, role, content, input_mode, state_at_time, action_intent }
+daily_checkins: { user_id, date, energy_level, soreness[] }
 ```
 
 **Authentication:**
@@ -197,52 +206,68 @@ idle → session_starting → exercise_intro → set_active → set_complete →
 ## 4. Architecture Overview
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│         MOBILE APP (React Native + TypeScript)              │
-├────────────────────────────────────────────────────────────┤
-│                                                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐  │
-│  │  Voice Input  │  │  Chat UI     │  │  Session View  │  │
-│  │  (Deepgram)   │  │  (Fallback)  │  │  (Workout)     │  │
-│  └──────┬───────┘  └──────┬───────┘  └───────┬────────┘  │
-│         │                  │                   │           │
-│  ┌──────▼──────────────────▼───────────────────▼────────┐ │
-│  │              Zustand State Management                 │ │
-│  │  • Session state machine                             │ │
-│  │  • Conversation history                              │ │
-│  │  • User profile                                      │ │
-│  └──────────────────────────┬───────────────────────────┘ │
-│                              │                             │
-├──────────────────────────────┼─────────────────────────────┤
-                               │ REST API (WebSocket later)
-├──────────────────────────────┼─────────────────────────────┤
-│                              ▼                             │
-│  ┌──────────────────────────────────────────────────────┐ │
-│  │         Backend (Node.js + Express + TypeScript)      │ │
-│  │  • /api/companion — Claude conversation relay        │ │
-│  │  • /api/session — session CRUD                       │ │
-│  │  • /api/routine — routine generation                 │ │
-│  │  • /api/tts — ElevenLabs streaming relay             │ │
-│  │  • Retry layer (p-retry) on all external calls       │ │
-│  └──────────────────────────┬───────────────────────────┘ │
-│                              │                             │
-│  ┌───────────┐  ┌───────────┴──┐  ┌────────────────────┐ │
-│  │ MongoDB   │  │ Claude API   │  │ ElevenLabs API     │ │
-│  │ (Atlas +  │  │ (AI Brain)   │  │ (TTS Streaming)    │ │
-│  │  Auth)    │  └──────────────┘  └────────────────────┘ │
-│  └───────────┘                                            │
-└────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│              MOBILE APP (React Native + TypeScript)                │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
+│  │  Voice Input  │  │  Chat UI     │  │  Bundle Selection   │   │
+│  │  (Deepgram)   │  │  (Persistent)│  │  + Workout Session  │   │
+│  └──────┬───────┘  └──────┬───────┘  └──────────┬──────────┘   │
+│         │                  │                      │              │
+│  ┌──────▼──────────────────▼──────────────────────▼───────────┐ │
+│  │              Zustand State Management                       │ │
+│  │  • Session state machine    • Bundle options               │ │
+│  │  • Conversation history     • Gamification (XP, streak)    │ │
+│  │  • User profile + personas                                 │ │
+│  └────────────────────────────┬───────────────────────────────┘ │
+│                                │                                 │
+├────────────────────────────────┼─────────────────────────────────┤
+                                 │ REST API
+├────────────────────────────────┼─────────────────────────────────┤
+│                                ▼                                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │         Backend (Node.js + Express + TypeScript)            │ │
+│  │                                                             │ │
+│  │  ┌─────────────────────────────────────────────────────┐   │ │
+│  │  │  RULES ENGINE (deterministic, NOT Claude)           │   │ │
+│  │  │  Filter → Category → Persona → Bundle Assembly      │   │ │
+│  │  │  Produces 3-4 bundles, 1 recommended. No weights.   │   │ │
+│  │  └─────────────────────────────────────────────────────┘   │ │
+│  │                                                             │ │
+│  │  ┌─────────────────────────────────────────────────────┐   │ │
+│  │  │  AI SERVICE (Claude — explain & motivate ONLY)      │   │ │
+│  │  │  Rationale text, coaching, summaries, motivation    │   │ │
+│  │  └─────────────────────────────────────────────────────┘   │ │
+│  │                                                             │ │
+│  │  • Progression Service (per-exercise tracking)             │ │
+│  │  • Gamification Service (XP, streak, badges)               │ │
+│  │  • Persona Service (assignment + re-evaluation)            │ │
+│  │  • Retry layer (p-retry) on all external calls             │ │
+│  └──────────────────────────┬─────────────────────────────────┘ │
+│                              │                                   │
+│  ┌───────────┐  ┌───────────┴──┐  ┌────────────────────┐       │
+│  │ MongoDB   │  │ Claude API   │  │ Deepgram +         │       │
+│  │ (Atlas)   │  │ (explain     │  │ ElevenLabs         │       │
+│  │           │  │  only)       │  │ (voice pipeline)   │       │
+│  └───────────┘  └──────────────┘  └────────────────────┘       │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. What We're NOT Building
+## 5. What We're NOT Building (MVP)
 
 - No camera, no pose detection, no rep counting via vision
 - No lip-synced avatar animation
 - No wearable / Apple Watch integration
-- No custom ML model — we use existing APIs throughout
-- No HeyGen/Anam interactive avatar (dropped in favor of voice-only)
+- No custom ML model — Rules Engine is deterministic TypeScript, AI uses existing APIs
+- No nutrition logging / meal planning (beyond calorie estimate)
+- No social features (friends, leaderboards, challenges)
+- No multi-language support
+- No always-on/wake-word voice listening (press-to-talk only)
+- No admin CMS for exercise library (JSON seed reviewed by trainer is sufficient)
+- The AI NEVER generates exercises or prescribes weights — that's the Rules Engine
 
 ---
 
@@ -275,35 +300,46 @@ idle → session_starting → exercise_intro → set_active → set_complete →
 
 ---
 
-## 8. Timeline
+## 8. Timeline (Kickoff: 15 June → Demo: 17 July)
 
-### Week 1: Foundation
-- Claude chat working in a basic React Native screen
-- Deepgram + ElevenLabs working in isolation (record voice, get text back, play audio)
-- System prompt first draft — companion personality and session flow
-- App structure, navigation (React Navigation), MongoDB + auth set up
-- Zustand store scaffolded for session state machine
+### Week 1: Foundation (Jun 15-19)
+- Project scaffold, navigation, auth screens
+- MongoDB schemas + Firebase Auth integration
+- Claude service scaffold with system prompt + guardrails
+- Exercise library seeded (JSON, trainer-reviewed) — **BLOCKER for Rules Engine**
+- Deepgram + ElevenLabs working in isolation
+- Zustand stores scaffolded
 
-### Week 2: Core Loop
-- Voice pipeline connected: user speaks → Deepgram → Claude → ElevenLabs → audio plays
-- Full workout session working end to end with multiple exercises
-- Between-set check-ins adapt the session based on user input
-- Routine generation working — user fills profile, gets a weekly plan
-- Text chat fallback + MongoDB saving session data
-- Retry layer on backend external API calls
+### Week 2: Core Loop (Jun 22-26)
+- Voice pipeline connected: speak → Deepgram → Claude → ElevenLabs → audio
+- Onboarding flow complete, persona assignment + metrics calculation
+- Rules Engine: Filter + Category stages functional
+- Bundle selection UI (3-4 options, 1 recommended)
+- Text chat working end-to-end
+- **Scope checkpoint at end of Week 2** — confirm remaining plan is realistic
 
-### Week 3: Polish + Content
-- Exercise library content added
-- Session summary feature
-- Companion personality dialed in — iterate heavily on the prompt
-- UI cleaned up, feels like a real app
-- Handle edge cases — user says they're in pain, user goes quiet, missed reps
+### Week 3: Full Engine + Session (Jun 29 - Jul 3)
+- Rules Engine: Persona Modifier + Bundle Assembly stages complete
+- Full workout session working: select bundle → exercise loop → completion
+- Progression logic tracking per-exercise
+- XP/streaks/badges functional
+- AI companion: exercise explanations, motivational messaging, post-workout summary
 
-### Week 4: Testing + Demo
-- Test with real users if possible — even family members who are older
-- Fix bugs, final prompt tuning
-- Record the demo — full workout session with the companion
-- Prepare presentation
+### Week 4: Polish + Integration (Jul 6-10)
+- Dashboard with history, streak, XP, badges, weekly progress, calories
+- Companion personality dialed in — iterate prompt per persona
+- Safety: pain handling, medical deferral, AI guardrail validation
+- Voice interaction during active sessions (press-to-talk)
+- Daily check-ins
+- Handle edge cases
+
+### Week 5: Testing + Demo (Jul 13-17)
+- Full regression testing
+- Test with real users across different persona combinations
+- Bug fixes, final prompt tuning
+- Build demo data/seed accounts
+- Record demo: onboarding → bundles → session with voice → dashboard
+- Prepare presentation + fallback plan
 
 ---
 
@@ -325,26 +361,29 @@ idle → session_starting → exercise_intro → set_active → set_complete →
 
 ## 10. Key Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Voice recognition accuracy with elderly speech | Always keep text fallback visible; Deepgram handles accents well |
-| Audio latency (4+ network hops) | ElevenLabs streaming; add "thinking" audio cue; test on mobile data |
-| Prompt quality determines UX | Allocate real iteration time in weeks 2-3; test with actual seniors |
-| Token costs at scale | Summarize older history; only keep last 5-8 turns verbatim |
-| Existing app is native Swift/Kotlin | Clarify with manager day 1; if native, build standalone React Native prototype |
-| ElevenLabs cost at scale | Monitor per-user cost; consider expo-speech for non-critical utterances |
-| Network drops mid-session | Cache current exercise plan locally; show text instructions as fallback |
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| AI generates content that contradicts guardrails (suggests weight, invents exercise) | High — safety/trust | Strict prompt guardrails + separate response-validation layer that strips disallowed content |
+| 4.5-week timeline insufficient for full scope | High — demo delay | Week 2 scope checkpoint; voice can be descoped to text-only for demo if needed |
+| Exercise library incomplete or not reviewed for safety | High — user safety | Prioritize library seeding Week 1; require trainer/SME sign-off before Rules Engine work |
+| STT/TTS latency degrades voice experience | Medium — reliability | Use streaming; 3-second p95 target; test with real accents/environments early |
+| Persona assignment produces unexpected combinations | Medium — bad recommendations | Fixed priority order (Injury > Equipment > Goal > Persona); test all documented combinations |
+| Users perceive calorie/BMI estimates as medical advice | Medium — liability | Persistent visible disclaimers; AI avoids prescriptive framing |
+| Gamification feels punitive (streak breaks = churn) | Medium — retention | Grace-day model + "Comeback" badge + recovery framing |
+| Network drops mid-session | Medium — broken UX | Cache current bundle locally; text fallback; session resume within 30 min |
 
 ---
 
-## 11. Blocking Question
+## 11. Critical Path & Blockers
 
-**Ask the manager on day 1:** Is the existing Kinetic Age app built in React Native, or is it native iOS/Android?
-
-- If React Native → build inside it directly
-- If native → build a standalone React Native prototype and present as v1 MVP before integration
+1. **Exercise Library seeding (Week 1)** — hard blocker for Rules Engine development
+2. **Persona assignment rules (Week 1-2)** — must be finalized before Bundle Assembly can be tested
+3. **AI guardrail design (Week 2)** — must precede AI integration to avoid rework
+4. **Voice integration (Week 4)** — depends on text chat (Week 2-3) being stable
+5. **Demo data (Week 4)** — depends on full pipeline being functional
 
 ---
 
 *Document updated: June 2026*
-*Direction: Voice + Text AI Companion (no camera/pose detection)*
+*Aligned to KineticAge PRD v1.0 — Target demo: 17 July 2026*
+*Direction: Rules Engine (deterministic workouts) + AI Companion (voice + text coaching)*

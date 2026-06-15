@@ -33,7 +33,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 #### Acceptance Criteria
 
 1. WHEN a new user opens the App for the first time after account creation, THE App SHALL present onboarding as a guided conversation (text by default, with optional voice) rather than a static form, while still collecting all required structured fields
-2. THE onboarding flow SHALL collect the following required fields in sequential steps: age (integer, 16-100), height (cm or ft/in, user-selectable unit), weight (kg or lb, user-selectable unit), gender (Male/Female/Other/Prefer not to say), fitness goal (single-select: Strength, Hypertrophy, Mobility, General Fitness, Weight Loss, Home Workout), activity level (Sedentary/Lightly Active/Moderately Active/Very Active), workout location (Gym/Home/Outdoors/Hybrid), available equipment (multi-select from: None, Dumbbells, Barbell, Resistance Bands, Kettlebell, Pull-up Bar, Bench, Machines, Cardio Equipment), injury information (multi-select + free text: None, Knee, Lower Back, Shoulder, Wrist, Ankle, Other), and preferred workout duration (15/30/45/60 minutes)
+2. THE onboarding flow SHALL collect the following required fields in sequential steps: age (integer, 16-100), height (cm or ft/in, user-selectable unit), weight (kg or lb, user-selectable unit), gender (Male/Female/Other/Prefer not to say), fitness goal (single-select: Strength, Hypertrophy, Mobility, General Fitness, Weight Loss, Home Workout), activity level (Sedentary/Lightly Active/Moderately Active/Very Active), workout location (Gym/Home/Outdoors/Hybrid), available equipment (multi-select from: None, Dumbbells, Barbell, Resistance Bands, Kettlebell, Pull-up Bar, Bench, Machines, Cardio Equipment), injury information (multi-select + free text: None, Knee, Lower Back, Shoulder, Wrist, Ankle, Other), preferred workout duration (15/30/45/60 minutes), and prior program experience ("Have you followed a structured workout program before?" — Yes/No)
 3. THE App SHALL display a progress indicator throughout (e.g., "Step 4 of 10") with an estimated completion time of 3-5 minutes
 4. THE App SHALL validate all inputs client-side before submission (age 16-100, height/weight within plausible ranges) and prompt confirmation for unusually high/low values
 5. IF the user provides an age below 16, THEN THE App SHALL display an age-appropriate message and SHALL NOT permit them to proceed
@@ -122,7 +122,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 4. THE user SHALL mark each exercise as complete, skipped, or note "felt hard"/"felt easy" upon finishing
 5. WHEN all exercises are completed, THE session SHALL be marked status = full; XP awarded per gamification rules; AI provides a post-workout summary
 6. IF the user exits mid-session and has completed ≥50% of exercises, THEN the session SHALL be marked status = partial with partial XP awarded
-7. IF the user exits mid-session with <50% completion, THEN the session SHALL be marked status = abandoned (no XP, but progress saved for resume)
+7. IF the user exits mid-session with <50% completion, THEN the session SHALL be marked status = abandoned (no XP, but progress saved); IF the user returns within 30 minutes, THE App SHALL offer to resume the session from where they left off
 8. THE State_Machine SHALL follow: idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → (loop or summary) → idle
 
 ### Requirement 8: Progression Logic
