@@ -79,14 +79,15 @@ When modifying the system prompt, edit files in `server/src/prompts/`.
 Follow the steps defined in `development-workflow.md`:
 1. Project scaffolding
 2. Database & Auth
-3. Basic Claude chat
+3. Basic Claude chat & AI service (explain/motivate only)
 4. Voice (STT & TTS)
-5. Workout session state machine
-6. Routine generation
-7. Onboarding & personalization
-8. Gamification
-9. Exercise library & content
-10. Polish & edge cases
+5. Rules Engine & Bundle System (deterministic, NOT Claude)
+6. Workout session state machine
+7. Progression logic
+8. Onboarding & persona assignment
+9. Gamification
+10. Exercise library & content
+11. Polish & edge cases
 
 Do not skip steps or build later features before earlier ones are working.
 
