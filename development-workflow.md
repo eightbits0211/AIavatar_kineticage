@@ -9,13 +9,14 @@ main                         ← Stable, always working. Only receives merges fr
 ├── dev                      ← Integration branch. Features merge here first.
 ├── feature/setup            ← Project scaffolding
 ├── feature/auth             ← Firebase Auth + MongoDB
-├── feature/claude-chat      ← Basic Claude conversation
+├── feature/claude-chat      ← Basic Claude conversation (explain/motivate only)
 ├── feature/voice            ← Deepgram + ElevenLabs
+├── feature/rules-engine     ← Deterministic workout generator (4-stage pipeline)
 ├── feature/session          ← Workout session state machine
-├── feature/routines         ← Routine generation
-├── feature/onboarding       ← Profile + personalization
-├── feature/gamification     ← XP, streaks, charts
-├── feature/exercise-library ← Exercise content + images
+├── feature/progression      ← Per-exercise progression tracking
+├── feature/onboarding       ← Profile + persona assignment
+├── feature/gamification     ← XP, streaks, badges, dashboard
+├── feature/exercise-library ← Exercise content seeding + UI
 ├── feature/daily-checkins   ← Daily check-in flow
 ├── feature/polish           ← UI cleanup, edge cases
 └── fix/[description]        ← Bug fix branches
@@ -349,7 +350,7 @@ AIavatar_kineticage/
 
 ---
 
-### Step 9: Exercise Library & Content
+### Step 10: Exercise Library & Content
 **Branch:** `feature/exercise-library`
 **Who:** 1 person
 **Duration:** 1-2 days
@@ -365,7 +366,7 @@ AIavatar_kineticage/
 
 ---
 
-### Step 10: Polish & Edge Cases
+### Step 11: Polish & Edge Cases
 **Branch:** `feature/polish`
 **Who:** Whole team
 **Duration:** 2-3 days
@@ -387,10 +388,10 @@ AIavatar_kineticage/
 
 | Week | Dev 1 (Mobile Lead) | Dev 2 (Backend Lead) | Dev 3 (Voice/Integration) |
 |------|--------------------|--------------------|--------------------------|
-| 1 | Step 1 (scaffold) + Step 3 (chat UI) + Navigation | Step 2 (auth + MongoDB) + Step 3 (Claude service) | Step 4 (Deepgram + ElevenLabs in isolation) |
-| 2 | Step 5 (session UI + state machine) | Step 5 (session endpoints) + Step 6 (routines) | Step 4 continued (full voice pipeline connected) |
-| 3 | Step 7 (onboarding screens) + Step 8 (gamification UI) | Step 7 (personalization engine) + Step 8 (gamification service) | Step 9 (exercise library) + Step 8 (daily check-ins) |
-| 4 | Step 10 (UI polish + edge cases) | Step 10 (prompt tuning + error handling) | Step 10 (real device testing + demo recording) |
+| 1 | Step 1 (scaffold) + Step 3 (chat UI) + Navigation | Step 2 (auth + MongoDB) + Step 3 (Claude service + guardrails) | Step 4 (Deepgram + ElevenLabs in isolation) |
+| 2 | Step 5 (bundle selection UI) + Step 6 (session UI + state machine) | Step 5 (Rules Engine: Filter + Category + Persona + Assembly) + Step 6 (session endpoints) | Step 4 continued (full voice pipeline connected) |
+| 3 | Step 8 (onboarding screens) + Step 9 (gamification UI + dashboard) | Step 7 (progression logic) + Step 8 (persona assignment + metrics) + Step 9 (gamification service) | Step 10 (exercise library seeding) + daily check-ins |
+| 4-5 | Step 11 (UI polish + edge cases) + demo flows | Step 11 (prompt tuning + error handling + safety validation) | Step 11 (real device testing + demo recording) |
 
 ---
 
