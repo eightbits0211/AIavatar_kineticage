@@ -2,74 +2,68 @@ export type FitnessLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export type FitnessGoal =
   | 'strength'
-  | 'weight_loss'
-  | 'muscle_gain'
+  | 'hypertrophy'
   | 'mobility'
-  | 'injury_recovery'
-  | 'general_fitness';
+  | 'general_fitness'
+  | 'weight_loss'
+  | 'home_workout';
 
-export type HealthCondition =
-  | 'neck_pain'
-  | 'shoulder_issues'
-  | 'upper_back_pain'
-  | 'lower_back_pain'
-  | 'hip_issues'
-  | 'knee_issues'
-  | 'ankle_issues'
-  | 'wrist_issues'
-  | 'heart_condition'
-  | 'high_blood_pressure';
+export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active';
+
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
+
+export type InjuryArea = 'none' | 'knee' | 'lower_back' | 'shoulder' | 'wrist' | 'ankle' | 'other';
 
 export type Equipment =
   | 'none'
   | 'dumbbells'
-  | 'resistance_bands'
   | 'barbell'
+  | 'resistance_bands'
   | 'kettlebell'
   | 'pull_up_bar'
   | 'bench'
-  | 'exercise_mat';
+  | 'machines'
+  | 'cardio_equipment';
 
-export type WorkoutLocation = 'home' | 'gym' | 'office';
+export type WorkoutLocation = 'gym' | 'home' | 'outdoors' | 'hybrid';
 
-export type InteractionLevel = 'high' | 'medium' | 'low';
+export type WorkoutDuration = 15 | 30 | 45 | 60;
 
-export type MotivationStyle = 'gentle' | 'energetic' | 'coach';
+export type Talkativeness = 'minimal' | 'balanced' | 'high';
 
-export type UserPersonaType =
-  | 'beginner'
+export type InSessionVerbosity = 'quiet' | 'standard' | 'detailed';
+
+export type PersonaTag =
+  | 'complete_beginner'
   | 'regular_gym_goer'
   | 'weight_loss_seeker'
-  | 'muscle_gain_user'
   | 'home_workout_user'
-  | 'office_worker'
-  | 'ai_companion_seeker'
+  | 'office_professional'
   | 'injury_recovery_user'
-  | 'inconsistent_user';
+  | 'ai_companion_seeker'
+  | 'inconsistent_enthusiast';
 
 export interface WorkoutPreferences {
-  days_per_week: number;
-  session_duration: 15 | 30 | 45 | 60;
+  workout_duration: WorkoutDuration;
   location: WorkoutLocation;
+  talkativeness: Talkativeness;
+  in_session_verbosity: InSessionVerbosity;
 }
 
 export interface CompanionPreferences {
   voice_id: string;
-  interaction_level: InteractionLevel;
-  motivation_style: MotivationStyle;
-}
-
-export interface UserPersona {
-  type: UserPersonaType;
-  confidence: number;
-  assigned_at: Date;
-  last_evaluated: Date;
+  talkativeness: Talkativeness;
+  in_session_verbosity: InSessionVerbosity;
 }
 
 export interface CalculatedMetrics {
   bmi: number;
-  calorie_needs: number;
+  bmi_category: 'underweight' | 'normal' | 'overweight' | 'obese';
+  bmr: number;
+  tdee: number;
+  tdee_range: { low: number; high: number };
   max_heart_rate: number;
+  target_zone: { low: number; high: number };
 }
 
 export interface Gamification {
@@ -78,8 +72,9 @@ export interface Gamification {
   current_streak: number;
   longest_streak: number;
   last_workout_date: Date | null;
-  achievements: Array<{
-    type: string;
+  grace_days_used_this_week: number;
+  badges: Array<{
+    badge_id: string;
     earned_at: Date;
   }>;
 }
@@ -99,18 +94,21 @@ export interface UserProfile {
   age: number;
   height_cm: number;
   weight_kg: number;
-  gender: 'male' | 'female' | 'other';
-  fitness_level: FitnessLevel;
-  fitness_experience: string;
-  goals: FitnessGoal[];
-  conditions: HealthCondition[];
+  gender: Gender;
+  fitness_goal: FitnessGoal;
+  activity_level: ActivityLevel;
+  workout_location: WorkoutLocation;
   equipment: Equipment[];
-  workout_preferences: WorkoutPreferences;
+  injuries: InjuryArea[];
+  injury_notes: string;
+  workout_duration: WorkoutDuration;
+  prior_program_experience: boolean;
+  persona_tags: PersonaTag[];
   companion_preferences: CompanionPreferences;
-  persona: UserPersona;
   calculated_metrics: CalculatedMetrics;
   gamification: Gamification;
   pain_history: PainEvent[];
+  onboarding_completed: boolean;
   created_at: Date;
   updated_at: Date;
 }

@@ -1,8 +1,8 @@
-export type SessionStatus = 'active' | 'completed' | 'abandoned';
+export type SessionStatus = 'in_progress' | 'full' | 'partial' | 'abandoned';
 
-export type ExerciseStatus = 'completed' | 'skipped' | 'pain_stopped';
+export type ExerciseCompletion = 'completed' | 'skipped' | 'pain_stopped';
 
-export type Difficulty = 'easy' | 'moderate' | 'tough';
+export type ExerciseFeedback = 'felt_easy' | 'felt_normal' | 'felt_hard' | null;
 
 export type SessionState =
   | 'idle'
@@ -16,21 +16,23 @@ export type SessionState =
 
 export type InputMode = 'voice' | 'text';
 
-export interface SetData {
+export interface SessionExerciseSet {
   set_number: number;
-  target_reps: number;
+  target_rep_min: number;
+  target_rep_max: number;
   actual_reps: number | null;
-  difficulty: Difficulty | null;
-  adaptation_applied: string | null;
+  completed: boolean;
   completed_at: Date | null;
 }
 
 export interface SessionExercise {
   exercise_id: string;
   exercise_name: string;
-  status: ExerciseStatus | 'in_progress' | 'pending';
+  status: ExerciseCompletion | 'in_progress' | 'pending';
+  feedback: ExerciseFeedback;
   skip_reason: string | null;
-  sets: SetData[];
+  sets: SessionExerciseSet[];
+  rest_seconds: number;
 }
 
 export interface SessionPainEvent {
@@ -39,34 +41,21 @@ export interface SessionPainEvent {
   timestamp: Date;
 }
 
-export interface SessionSummary {
-  text: string;
-  total_sets: number;
-  total_reps: number;
-  adaptations_count: number;
-  recovery_recommendation: string;
-}
-
-export interface PostWorkoutFeedback {
-  overall_difficulty: 1 | 2 | 3 | 4 | 5;
-  energy_level: 'low' | 'medium' | 'high';
-}
-
 export interface Session {
   _id: string;
   user_id: string;
-  routine_id: string;
+  bundle_id: string;
   started_at: Date;
   completed_at: Date | null;
-  ended_early: boolean;
   status: SessionStatus;
-  exercises_planned: number;
-  exercises_completed: number;
   exercises: SessionExercise[];
   pain_events: SessionPainEvent[];
-  summary: SessionSummary | null;
-  post_workout_feedback: PostWorkoutFeedback | null;
   xp_awarded: number;
+  progression_flags: Array<{
+    exercise_id: string;
+    type: 'rep_increase' | 'set_increase' | 'deload';
+    details: string;
+  }>;
 }
 
 export interface SessionTurn {
@@ -77,5 +66,6 @@ export interface SessionTurn {
   content: string;
   input_mode: InputMode;
   state_at_time: SessionState;
+  action_intent: string | null;
   timestamp: Date;
 }

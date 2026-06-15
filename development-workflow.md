@@ -211,19 +211,20 @@ AIavatar_kineticage/
 
 ---
 
-### Step 3: Basic Claude Chat
+### Step 3: Basic Claude Chat & AI Service
 **Branch:** `feature/claude-chat`
 **Who:** 1 person
-**Duration:** 1 day
+**Duration:** 1-2 days
 
 **Tasks:**
 - Create `server/src/services/claude.ts` (Anthropic SDK wrapper)
-- Write base system prompt (companion personality, Layer 1)
+- Write the base system prompt (Layer 1: personality + guardrails — AI never invents exercises or prescribes weights)
 - Create `POST /api/companion/message` endpoint
 - On mobile: build simple chat screen (text input + message list)
 - Wire: type message → backend → Claude → display response
+- Implement safety validation layer: strip any weight numbers or exercise content from responses
 
-**Definition of Done:** Can text the companion and get intelligent, in-character responses.
+**Definition of Done:** Can text the companion and get intelligent, in-character responses. AI never prescribes weights or invents exercises.
 
 ---
 
@@ -259,56 +260,79 @@ AIavatar_kineticage/
 
 ---
 
-### Step 5: Workout Session State Machine
+### Step 5: Rules Engine & Bundle System
+**Branch:** `feature/rules-engine`
+**Who:** 1-2 people
+**Duration:** 3-4 days
+
+**Tasks:**
+- Build `server/src/services/rulesEngine/filterStage.ts` — filter exercises by equipment, location, injuries
+- Build `server/src/services/rulesEngine/categoryStage.ts` — apply goal-specific set/rep/rest rules
+- Build `server/src/services/rulesEngine/personaModifier.ts` — apply persona-based additions (priority order: Injury > Equipment > Goal > Persona)
+- Build `server/src/services/rulesEngine/bundleAssembly.ts` — assemble 3-4 bundles, score for is_recommended, ensure variety
+- Build `POST /api/bundles/generate` endpoint
+- Build Bundle Selection screen on mobile (3-4 cards, recommended highlighted)
+- AI generates rationale text for each bundle (using only structured data from rules engine)
+- Ensure NO specific weight values appear anywhere in the output
+
+**Definition of Done:** User profile → Rules Engine → 3-4 distinct bundles displayed with one recommended. AI rationale text explains each. No weights shown.
+
+---
+
+### Step 6: Workout Session State Machine
 **Branch:** `feature/session`
 **Who:** 1-2 people
 **Duration:** 2-3 days
 
 **Tasks:**
 - Build `sessionStore.ts` (Zustand) with full state machine
-- Build `WorkoutSessionScreen.tsx` — UI driven by current state
+- Build Workout Session screen — UI driven by current state
 - Wire state transitions to companion messages
-- Build `POST /api/session/start` and `POST /api/session/end` endpoints
-- Implement check-in flow: reps → difficulty → adaptation (+2/-2, floor 3)
-- Build rest timer with countdown
+- Build `POST /api/session/start` and `POST /api/session/:id/end`
+- User marks exercises: complete, skipped, "felt hard"/"felt easy"
+- Rest timer with countdown between sets
 - Store session data in MongoDB
+- AI provides post-workout summary (exercises completed, progression flags, streak, encouragement)
 
-**Definition of Done:** Complete a 3-exercise session: intro → sets → check-ins → adaptations → summary. All data persisted.
+**Definition of Done:** Select a bundle → complete all exercises with set tracking → session marked full → XP awarded → summary displayed.
 
 ---
 
-### Step 6: Routine Generation
-**Branch:** `feature/routines`
+### Step 7: Progression Logic
+**Branch:** `feature/progression`
 **Who:** 1 person
 **Duration:** 1-2 days
 
 **Tasks:**
-- Build `POST /api/routine/generate` (Claude generates weekly plan as structured JSON)
-- Store routine in MongoDB
-- Build "Start Workout" flow (loads today's exercises from active routine)
-- Build routine review/approval screen on mobile
+- Build `server/src/services/progression.ts` — track per-exercise completion history
+- Implement progression rules: 2 consecutive top-of-range completions → increase reps or add set
+- Implement deload rules: 2+ skips or "felt hard" → deprioritize, substitute
+- Wire progression data into bundle assembly stage
+- AI suggests "consider slightly heavier next time" (no number) when progression triggers
+- Store progression_flags on session records
 
-**Definition of Done:** Fill profile → get weekly plan → approve → start today's workout from plan.
+**Definition of Done:** After 2 sessions of hitting top rep range, next bundle shows increased prescription. After 2 skips, exercise substituted.
 
 ---
 
-### Step 7: Onboarding & Personalization
+### Step 8: Onboarding & Persona Assignment
 **Branch:** `feature/onboarding`
 **Who:** 1 person
 **Duration:** 2-3 days
 
 **Tasks:**
-- Build all onboarding screens (age, height/weight, conditions, goals, equipment, preferences)
-- Build `POST /api/personalize` — BMI, calories, max HR, persona assignment
-- Build companion preference screen (voice preview, motivation style)
-- Build plan review screen
-- Wire persona into Claude system prompt (dynamic Layer 2)
+- Build all onboarding screens as a guided conversation (age, height/weight, gender, goal, activity level, location, equipment, injuries, duration, prior experience)
+- Build `POST /api/personalize` — calculate BMI/TDEE/MHR/Target Zone + assign persona tags (2-4 per user, not mutually exclusive)
+- Build companion preference screen (voice selection, talkativeness: Minimal/Balanced/High, in-session verbosity: Quiet/Standard/Detailed)
+- Build "Welcome Plan" screen showing first 3-4 generated bundles
+- Wire persona tags into both Rules Engine and Claude system prompt
+- Display calculated metrics summary with disclaimers
 
-**Definition of Done:** New user goes through onboarding → gets assigned persona → sees personalized plan → approves → lands on dashboard.
+**Definition of Done:** New user completes conversational onboarding → persona tags assigned → metrics calculated → first 3-4 bundles generated and displayed with one recommended.
 
 ---
 
-### Step 8: Gamification
+### Step 9: Gamification
 **Branch:** `feature/gamification`
 **Who:** 1 person
 **Duration:** 2 days
