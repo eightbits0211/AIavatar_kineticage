@@ -79,6 +79,72 @@ Follow the steps defined in `development-workflow.md`:
 
 Do not skip steps or build later features before earlier ones are working.
 
+## File & Code Safety
+
+1. **Never overwrite an entire file when only a few lines need changing.** Use targeted edits. Other developers may have made changes you don't see.
+2. **Always read a file before editing it.** Do not assume you know what's in it from a previous context.
+3. **Never delete files without explicit user confirmation.**
+4. **Create files only in the correct folder** per the project structure in system-design.md. Ask if unsure.
+5. **Do not install new packages** without stating what you're installing and why. Only use packages from the agreed tech stack unless the user approves a new one.
+6. **Do not introduce new patterns** if the codebase already has an established way of doing something. Match existing code style (naming, exports, error handling, file structure).
+
+## API & External Services
+
+1. **Never guess API signatures.** If you don't know how a Deepgram/ElevenLabs/Claude endpoint works, say so or look it up. Wrong API usage wastes time debugging.
+2. **Always wrap external API calls with p-retry** in the backend services layer.
+3. **All API calls from mobile go through OUR backend.** Never call Claude, Deepgram, or ElevenLabs directly from React Native code.
+4. **Use environment variables for all secrets and configuration.** Never hardcode API keys, URLs, or voice IDs.
+5. **Stream audio from ElevenLabs** — do not wait for the full response before starting playback.
+
+## Error Handling
+
+1. **Every async function must have error handling.** try/catch in services, error middleware in Express, user-facing error messages on mobile.
+2. **Fail gracefully to the user.** If voice fails → show text fallback. If Claude fails → retry → then "I'm having trouble, try again."
+3. **Never swallow errors silently.** At minimum, log them. Preferably surface them to the user in a friendly way.
+4. **Validate all user input** on both mobile (before sending) and backend (before processing).
+
+## State Machine Discipline
+
+1. **All session behavior is driven by the state machine.** The UI, companion messages, and data collection all follow from the current state.
+2. **Never skip states.** The transition order is fixed: idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → (loop or summary) → idle.
+3. **State transitions must be explicit** — triggered by user action or timer completion, never implicitly assumed.
+4. **When adding new session behavior**, decide which state it belongs to first, then implement within that state.
+
+## Claude System Prompt Rules
+
+1. **The system prompt is assembled from layers** — never put everything in one massive string.
+2. **Keep the prompt concise.** Every token costs money. A 20-turn session at ~2,650 tokens/turn = ~$0.16. Verbose prompts multiply costs.
+3. **Test prompt changes with at least 5 varied inputs** before committing. Bad prompts break the entire UX.
+4. **Never include user PII (email, password) in Claude prompts.** Only include: name, age, conditions, persona, session history.
+5. **Always include safety guardrails** in the system prompt: pain = stop, no medical advice, defer to clinical team.
+
+## Mobile-Specific Rules
+
+1. **Use Zustand stores, not React Context,** for state that changes frequently (session state, chat history).
+2. **Use React Navigation for all routing.** No custom navigation logic.
+3. **UI components must be accessible:** minimum 48x48dp touch targets, 16sp minimum font, 4.5:1 contrast ratio.
+4. **Avoid anonymous inline styles.** Use a theme file for colors, spacing, and typography.
+5. **Audio recording uses expo-av.** Microphone permissions must be requested before recording starts.
+
+## Backend-Specific Rules
+
+1. **Express routes are thin.** They validate input, call a service, and return the response. Business logic lives in services.
+2. **Mongoose models define the schema.** Never use raw `db.collection()` calls.
+3. **One file per route** in `server/src/routes/`.
+4. **One file per service** in `server/src/services/`.
+5. **Rate limit all endpoints** — 60 requests/min per user.
+6. **Auth middleware runs on every route** except `/api/auth/signup` and `/api/auth/login`.
+
+## What NOT To Do
+
+- Do NOT add tests unless explicitly asked. We'll add them later.
+- Do NOT set up CI/CD or deployment pipelines yet.
+- Do NOT add analytics, logging services, or monitoring.
+- Do NOT build an admin panel or web dashboard.
+- Do NOT add social features, sharing, or multi-user interactions.
+- Do NOT implement push notifications until Step 8 (gamification).
+- Do NOT refactor or reorganize code that's already working unless asked.
+
 ## Reference Documents
 
 - #[[file:ai-trainer-avatar-tech-stack-research.md]] — Full tech stack details
