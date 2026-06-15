@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db';
+import profileRoutes from './routes/profile';
+import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
 
@@ -11,18 +13,18 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(rateLimitMiddleware);
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes (will be added in subsequent steps)
-// app.use('/api/auth', authRoutes);
-// app.use('/api/profile', profileRoutes);
+// Routes
+app.use('/api/profile', profileRoutes);
 // app.use('/api/companion', companionRoutes);
 // app.use('/api/session', sessionRoutes);
-// app.use('/api/routine', routineRoutes);
+// app.use('/api/bundles', bundleRoutes);
 // app.use('/api/exercises', exerciseRoutes);
 // app.use('/api/tts', ttsRoutes);
 // app.use('/api/stt', sttRoutes);
@@ -30,6 +32,7 @@ app.get('/health', (req, res) => {
 // app.use('/api/gamification', gamificationRoutes);
 // app.use('/api/daily-checkin', dailyCheckinRoutes);
 // app.use('/api/personalize', personalizeRoutes);
+// app.use('/api/dashboard', dashboardRoutes);
 
 // Start server
 const startServer = async () => {
