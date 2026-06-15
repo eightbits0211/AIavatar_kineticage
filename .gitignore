@@ -15,5 +15,14 @@ build/
 .vscode/
 .idea/
 
+# Expo
+mobile/.expo/
+mobile/ios/
+mobile/android/
+
 # Docx files (generated from markdown)
 *.docx
+
+# Logs
+*.log
+npm-debug.log*
