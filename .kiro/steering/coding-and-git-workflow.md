@@ -44,6 +44,17 @@ This is a monorepo with:
 5. **Mongoose schemas** define all database models. Do not write raw MongoDB queries.
 6. **Shared types** in `shared/types/` — both mobile and server import from here for consistency.
 
+## CRITICAL: Rules Engine vs AI Separation
+
+**This is the most important architectural rule in the entire project.**
+
+1. **The Workout Recommendation Engine is a DETERMINISTIC RULES SERVICE.** It is NOT Claude. It is NOT an LLM. It is pure TypeScript logic that generates workouts from user profile + exercise library.
+2. **The AI (Claude) NEVER invents exercises, prescribes weights, or generates workout content.** It ONLY explains, motivates, answers questions, and adjusts tone.
+3. **The Rules Engine runs four stages:** Filter (equipment/location/injuries) → Category (goal-specific rules) → Persona Modifier (persona-based additions) → Bundle Assembly (3-4 options).
+4. **No specific weights are ever shown to the user.** Only exercise name, sets, rep range, and rest interval.
+5. **Claude generates rationale text** explaining why a bundle was recommended, using ONLY structured data from the Rules Engine as input — never inventing content.
+6. **If Claude is unavailable, bundles still display** with a generic fallback rationale. Generation NEVER blocks on AI availability.
+
 ## Claude System Prompt
 
 The system prompt is assembled in layers:
