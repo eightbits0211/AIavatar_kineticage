@@ -1,0 +1,362 @@
+[
+  {
+    "exercise_id": "ex_001",
+    "name": "Barbell Back Squat",
+    "category_tags": ["strength", "hypertrophy", "general_fitness"],
+    "muscle_groups": { "primary": ["quadriceps", "glutes"], "secondary": ["hamstrings", "core"] },
+    "equipment_required": ["barbell"],
+    "location_compatible": ["gym"],
+    "contraindications": ["knee", "lower_back"],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 3, "rep_max": 6, "rest_seconds": 150 },
+      "hypertrophy": { "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90 },
+      "general_fitness": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 60 }
+    },
+    "instructions_text": "Stand with feet shoulder-width apart, bar resting on upper traps. Brace your core, push hips back and bend knees to lower until thighs are parallel to the floor. Drive through your heels to stand back up. Keep chest up and knees tracking over toes throughout.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_002",
+    "name": "Goblet Squat",
+    "category_tags": ["strength", "hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["quadriceps", "glutes"], "secondary": ["core", "upper_back"] },
+    "equipment_required": ["dumbbells"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["knee"],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 5, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 },
+      "home_workout": { "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45 }
+    },
+    "instructions_text": "Hold a dumbbell vertically at chest height with both hands cupping the top end. Stand with feet slightly wider than shoulder-width. Squat down keeping elbows inside your knees and chest tall. Push through your heels to return to standing.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_003",
+    "name": "Bodyweight Squat",
+    "category_tags": ["general_fitness", "home_workout", "weight_loss", "mobility"],
+    "muscle_groups": { "primary": ["quadriceps", "glutes"], "secondary": ["hamstrings", "core"] },
+    "equipment_required": ["none"],
+    "location_compatible": ["gym", "home", "outdoors"],
+    "contraindications": ["knee"],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "general_fitness": { "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45 },
+      "home_workout": { "sets": 3, "rep_min": 15, "rep_max": 20, "rest_seconds": 30 },
+      "weight_loss": { "sets": 4, "rep_min": 15, "rep_max": 20, "rest_seconds": 20 },
+      "mobility": { "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 30 }
+    },
+    "instructions_text": "Stand with feet shoulder-width apart, toes slightly turned out. Extend arms forward for balance. Lower your hips back and down as if sitting into a chair. Go as deep as comfortable while keeping your heels on the floor. Stand back up by pushing through your whole foot.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_004",
+    "name": "Barbell Bench Press",
+    "category_tags": ["strength", "hypertrophy"],
+    "muscle_groups": { "primary": ["chest"], "secondary": ["triceps", "front_delts"] },
+    "equipment_required": ["barbell", "bench"],
+    "location_compatible": ["gym"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "horizontal_push",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 3, "rep_max": 6, "rest_seconds": 180 },
+      "hypertrophy": { "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90 }
+    },
+    "instructions_text": "Lie on a flat bench with eyes under the bar. Grip the bar slightly wider than shoulder-width. Unrack and lower the bar to mid-chest with control. Press the bar back up to full arm extension. Keep shoulder blades pinched together and feet flat on the floor throughout.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_005",
+    "name": "Dumbbell Bench Press",
+    "category_tags": ["strength", "hypertrophy", "general_fitness"],
+    "muscle_groups": { "primary": ["chest"], "secondary": ["triceps", "front_delts"] },
+    "equipment_required": ["dumbbells", "bench"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "horizontal_push",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 5, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 }
+    },
+    "instructions_text": "Lie on a flat bench holding a dumbbell in each hand at chest level. Press both dumbbells up until arms are extended. Lower with control back to the starting position. Keep a slight arch in your lower back and feet planted firmly.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_006",
+    "name": "Push-Up",
+    "category_tags": ["general_fitness", "home_workout", "weight_loss", "hypertrophy"],
+    "muscle_groups": { "primary": ["chest"], "secondary": ["triceps", "front_delts", "core"] },
+    "equipment_required": ["none"],
+    "location_compatible": ["gym", "home", "outdoors"],
+    "contraindications": ["wrist", "shoulder"],
+    "substitution_group": "horizontal_push",
+    "default_set_rep_range": {
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 45 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 20, "rest_seconds": 30 },
+      "weight_loss": { "sets": 4, "rep_min": 12, "rep_max": 20, "rest_seconds": 20 },
+      "hypertrophy": { "sets": 4, "rep_min": 10, "rep_max": 15, "rest_seconds": 60 }
+    },
+    "instructions_text": "Start in a plank position with hands slightly wider than shoulder-width. Lower your body until your chest nearly touches the floor. Keep your body in a straight line from head to heels. Push back up to the starting position. If full push-ups are too difficult, start with knees on the ground.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_007",
+    "name": "Barbell Deadlift",
+    "category_tags": ["strength", "hypertrophy"],
+    "muscle_groups": { "primary": ["hamstrings", "glutes", "lower_back"], "secondary": ["core", "forearms", "upper_back"] },
+    "equipment_required": ["barbell"],
+    "location_compatible": ["gym"],
+    "contraindications": ["lower_back"],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 3, "rep_max": 5, "rest_seconds": 180 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 120 }
+    },
+    "instructions_text": "Stand with feet hip-width apart, bar over mid-foot. Hinge at hips and grip the bar just outside your knees. Flatten your back, brace your core, and drive through your feet to stand up. Keep the bar close to your body throughout. Reverse the movement to lower the bar back down with control.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_008",
+    "name": "Romanian Deadlift (Dumbbell)",
+    "category_tags": ["strength", "hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["hamstrings", "glutes"], "secondary": ["lower_back", "core"] },
+    "equipment_required": ["dumbbells"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["lower_back"],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "strength": { "sets": 3, "rep_min": 6, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 45 }
+    },
+    "instructions_text": "Stand holding dumbbells in front of your thighs with a slight bend in your knees. Hinge at your hips, pushing them back while lowering the dumbbells along your legs. Keep your back flat and feel a stretch in your hamstrings. Return to standing by squeezing your glutes at the top.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_009",
+    "name": "Single-Leg Glute Bridge",
+    "category_tags": ["general_fitness", "home_workout", "mobility"],
+    "muscle_groups": { "primary": ["glutes", "hamstrings"], "secondary": ["core"] },
+    "equipment_required": ["none"],
+    "location_compatible": ["gym", "home", "outdoors"],
+    "contraindications": [],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 45 },
+      "home_workout": { "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 30 },
+      "mobility": { "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 30 }
+    },
+    "instructions_text": "Lie on your back with knees bent and feet flat on the floor. Extend one leg straight out. Push through the heel of your grounded foot to lift your hips until your body forms a straight line from shoulders to knee. Lower with control and repeat. Switch legs after completing all reps.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_010",
+    "name": "Overhead Press (Barbell)",
+    "category_tags": ["strength", "hypertrophy"],
+    "muscle_groups": { "primary": ["front_delts", "side_delts"], "secondary": ["triceps", "core", "upper_back"] },
+    "equipment_required": ["barbell"],
+    "location_compatible": ["gym"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "vertical_push",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 3, "rep_max": 6, "rest_seconds": 150 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90 }
+    },
+    "instructions_text": "Stand with feet shoulder-width apart, holding the bar at shoulder height with hands just outside shoulders. Brace your core and press the bar overhead until arms are fully extended. Lower the bar back to shoulders with control. Avoid arching your lower back excessively.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_011",
+    "name": "Dumbbell Shoulder Press",
+    "category_tags": ["strength", "hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["front_delts", "side_delts"], "secondary": ["triceps", "core"] },
+    "equipment_required": ["dumbbells"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "vertical_push",
+    "default_set_rep_range": {
+      "strength": { "sets": 3, "rep_min": 5, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 45 }
+    },
+    "instructions_text": "Sit or stand holding a dumbbell in each hand at shoulder height with palms facing forward. Press both dumbbells overhead until arms are fully extended. Lower back to shoulder height with control. Keep your core tight to avoid arching your back.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_012",
+    "name": "Pike Push-Up",
+    "category_tags": ["home_workout", "general_fitness"],
+    "muscle_groups": { "primary": ["front_delts", "side_delts"], "secondary": ["triceps", "core"] },
+    "equipment_required": ["none"],
+    "location_compatible": ["gym", "home", "outdoors"],
+    "contraindications": ["shoulder", "wrist"],
+    "substitution_group": "vertical_push",
+    "default_set_rep_range": {
+      "home_workout": { "sets": 3, "rep_min": 6, "rep_max": 10, "rest_seconds": 45 },
+      "general_fitness": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 45 }
+    },
+    "instructions_text": "Start in a downward dog position with hips high and hands shoulder-width apart. Bend your elbows to lower the top of your head toward the floor. Push back up to the starting position. The more vertical your torso, the harder it is on your shoulders.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_013",
+    "name": "Barbell Row",
+    "category_tags": ["strength", "hypertrophy"],
+    "muscle_groups": { "primary": ["upper_back", "lats"], "secondary": ["biceps", "rear_delts", "core"] },
+    "equipment_required": ["barbell"],
+    "location_compatible": ["gym"],
+    "contraindications": ["lower_back"],
+    "substitution_group": "horizontal_pull",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 4, "rep_max": 6, "rest_seconds": 150 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90 }
+    },
+    "instructions_text": "Hinge forward at the hips with a slight bend in your knees, holding the bar with an overhand grip. Pull the bar to your lower chest, squeezing your shoulder blades together at the top. Lower with control. Keep your back flat and avoid using momentum.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_014",
+    "name": "Dumbbell Row",
+    "category_tags": ["strength", "hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["upper_back", "lats"], "secondary": ["biceps", "rear_delts"] },
+    "equipment_required": ["dumbbells"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": [],
+    "substitution_group": "horizontal_pull",
+    "default_set_rep_range": {
+      "strength": { "sets": 3, "rep_min": 5, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 45 }
+    },
+    "instructions_text": "Place one knee and hand on a bench for support. Hold a dumbbell in the other hand with arm extended. Pull the dumbbell to your hip, leading with your elbow. Squeeze your shoulder blade at the top, then lower with control. Complete all reps on one side, then switch.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_015",
+    "name": "Inverted Row",
+    "category_tags": ["home_workout", "general_fitness"],
+    "muscle_groups": { "primary": ["upper_back", "lats"], "secondary": ["biceps", "rear_delts", "core"] },
+    "equipment_required": ["pull_up_bar"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": [],
+    "substitution_group": "horizontal_pull",
+    "default_set_rep_range": {
+      "home_workout": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 45 },
+      "general_fitness": { "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 60 }
+    },
+    "instructions_text": "Set a bar at waist height (or use a sturdy table edge). Hang underneath with arms extended and body straight. Pull your chest to the bar by squeezing your shoulder blades together. Lower with control. The more horizontal your body, the harder it is.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_016",
+    "name": "Pull-Up",
+    "category_tags": ["strength", "hypertrophy", "home_workout"],
+    "muscle_groups": { "primary": ["lats", "upper_back"], "secondary": ["biceps", "core"] },
+    "equipment_required": ["pull_up_bar"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "vertical_pull",
+    "default_set_rep_range": {
+      "strength": { "sets": 4, "rep_min": 3, "rep_max": 6, "rest_seconds": 150 },
+      "hypertrophy": { "sets": 3, "rep_min": 6, "rep_max": 10, "rest_seconds": 90 },
+      "home_workout": { "sets": 3, "rep_min": 5, "rep_max": 10, "rest_seconds": 60 }
+    },
+    "instructions_text": "Hang from a bar with hands slightly wider than shoulder-width, palms facing away. Pull yourself up until your chin clears the bar. Lower with control to a full hang. Avoid swinging or using momentum. If too difficult, use a resistance band for assistance.",
+    "difficulty_level": "advanced",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_017",
+    "name": "Lat Pulldown",
+    "category_tags": ["strength", "hypertrophy", "general_fitness"],
+    "muscle_groups": { "primary": ["lats", "upper_back"], "secondary": ["biceps", "rear_delts"] },
+    "equipment_required": ["machines"],
+    "location_compatible": ["gym"],
+    "contraindications": ["shoulder"],
+    "substitution_group": "vertical_pull",
+    "default_set_rep_range": {
+      "strength": { "sets": 3, "rep_min": 6, "rep_max": 8, "rest_seconds": 120 },
+      "hypertrophy": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 }
+    },
+    "instructions_text": "Sit at a lat pulldown machine with thighs secured under the pads. Grip the bar wider than shoulder-width. Pull the bar down to your upper chest while squeezing your shoulder blades together. Return the bar up with control. Avoid leaning too far back.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_018",
+    "name": "Resistance Band Pull-Apart",
+    "category_tags": ["home_workout", "general_fitness", "mobility"],
+    "muscle_groups": { "primary": ["rear_delts", "upper_back"], "secondary": ["rotator_cuff"] },
+    "equipment_required": ["resistance_bands"],
+    "location_compatible": ["gym", "home", "outdoors"],
+    "contraindications": [],
+    "substitution_group": "vertical_pull",
+    "default_set_rep_range": {
+      "home_workout": { "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 30 },
+      "general_fitness": { "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 30 },
+      "mobility": { "sets": 2, "rep_min": 15, "rep_max": 20, "rest_seconds": 20 }
+    },
+    "instructions_text": "Hold a resistance band with both hands at shoulder height, arms extended in front of you. Pull the band apart by squeezing your shoulder blades together until your arms are out to your sides. Return slowly to the starting position. Keep a slight bend in your elbows.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_019",
+    "name": "Dumbbell Bicep Curl",
+    "category_tags": ["hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["biceps"], "secondary": ["forearms"] },
+    "equipment_required": ["dumbbells"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": [],
+    "substitution_group": "bicep_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 60 },
+      "general_fitness": { "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 45 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 30 }
+    },
+    "instructions_text": "Stand holding a dumbbell in each hand with arms at your sides, palms facing forward. Curl the dumbbells up toward your shoulders by bending at the elbows. Squeeze at the top, then lower with control. Keep your elbows pinned to your sides — avoid swinging.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_020",
+    "name": "Tricep Dips (Bench)",
+    "category_tags": ["hypertrophy", "general_fitness", "home_workout"],
+    "muscle_groups": { "primary": ["triceps"], "secondary": ["chest", "front_delts"] },
+    "equipment_required": ["bench"],
+    "location_compatible": ["gym", "home"],
+    "contraindications": ["shoulder", "wrist"],
+    "substitution_group": "tricep_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 60 },
+      "general_fitness": { "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 45 },
+      "home_workout": { "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 30 }
+    },
+    "instructions_text": "Sit on the edge of a bench with hands gripping the edge beside your hips. Slide your hips off the bench with legs extended (or bent for easier version). Lower your body by bending elbows to about 90 degrees. Push back up to straight arms. Keep your back close to the bench.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  }
+]

@@ -15,8 +15,14 @@ export const env = {
   firebasePrivateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
   firebaseClientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
 
-  // Anthropic (Claude)
+  // Anthropic (Claude) — for production
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+
+  // Google Gemini — disabled (workspace account quota issues)
+  geminiApiKey: process.env.GEMINI_API_KEY || '',
+
+  // Groq — free tier for development
+  groqApiKey: process.env.GROQ_API_KEY || '',
 
   // Deepgram
   deepgramApiKey: process.env.DEEPGRAM_API_KEY || '',
