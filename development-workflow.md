@@ -384,14 +384,43 @@ AIavatar_kineticage/
 
 ---
 
-## 5. Team Split (3 People × 4 Weeks)
+## 5. Team Split Options
+
+### Option A: 3-Person Team (5 Weeks)
 
 | Week | Dev 1 (Mobile Lead) | Dev 2 (Backend Lead) | Dev 3 (Voice/Integration) |
 |------|--------------------|--------------------|--------------------------|
-| 1 | Step 1 (scaffold) + Step 3 (chat UI) + Navigation | Step 2 (auth + MongoDB) + Step 3 (Claude service + guardrails) | Step 4 (Deepgram + ElevenLabs in isolation) |
-| 2 | Step 5 (bundle selection UI) + Step 6 (session UI + state machine) | Step 5 (Rules Engine: Filter + Category + Persona + Assembly) + Step 6 (session endpoints) | Step 4 continued (full voice pipeline connected) |
-| 3 | Step 8 (onboarding screens) + Step 9 (gamification UI + dashboard) | Step 7 (progression logic) + Step 8 (persona assignment + metrics) + Step 9 (gamification service) | Step 10 (exercise library seeding) + daily check-ins |
-| 4-5 | Step 11 (UI polish + edge cases) + demo flows | Step 11 (prompt tuning + error handling + safety validation) | Step 11 (real device testing + demo recording) |
+| 1 | Step 1 (scaffold) + Navigation + Auth screens | Step 2 (MongoDB schemas + Firebase Auth middleware) + Step 3 (Claude service + guardrails) | Step 4 (Deepgram STT + ElevenLabs TTS in isolation) |
+| 2 | Step 5 (bundle selection UI — 3-4 cards, recommended highlight) + Step 6 (session screen + Zustand state machine) | Step 5 (Rules Engine: all 4 stages) + Step 6 (session start/end endpoints, exercise status updates) | Step 4 continued (full voice pipeline: record → STT → Claude → TTS → playback) |
+| 3 | Step 8 (onboarding screens — guided conversation flow) + Step 9 (dashboard + gamification UI: XP bar, streak badge, progress charts) | Step 7 (progression service — per-exercise tracking, 2-session rule) + Step 8 (persona assignment + metric calculations) + Step 9 (gamification service: XP, streaks, badges, grace-day logic) | Step 10 (exercise library: JSON seed + seed script + browse screens) + Step 9 (daily check-in endpoint) |
+| 4 | Connect all screens end-to-end + Voice button in session + Chat UI persistent | Prompt tuning per persona (run 10+ test conversations) + Safety validation testing + Error handling for all failure modes | Real device testing (iOS + Android) on mobile data + Exercise image sourcing |
+| 5 | UI polish (animations, loading states, transitions) + Demo flow hardening | Bug fixes + Final prompt iteration + Demo data/seed accounts | Full regression testing + Demo recording + Presentation prep |
+
+**Key dependencies:**
+- Week 1: Exercise library seed (Dev 3) blocks Rules Engine work (Dev 2) in Week 2
+- Week 2: Rules Engine (Dev 2) must be done before bundle selection UI (Dev 1) can be fully tested
+- Week 3: Persona assignment (Dev 2) must be done before onboarding can trigger bundle generation
+- Week 4: Voice pipeline (Dev 3) must be stable before session voice integration (Dev 1)
+
+---
+
+### Option B: 2-Person Team (5 Weeks)
+
+| Week | Person A (Mobile + Integration) | Person B (Backend + Rules Engine) |
+|------|-------------------------------|----------------------------------|
+| 1 | Step 1 (scaffold both projects) + Auth screens + Onboarding UI (all screens, validation, progress indicator) | Step 2 (MongoDB schemas, Firebase Auth middleware, profile route) + Exercise library JSON seed (80-120 exercises) |
+| 2 | Bundle selection screen (3-4 cards, recommended highlight, detail view) + Workout session screen + Zustand state machine | Rules Engine (Filter + Category + Persona Modifier + Bundle Assembly) + POST /api/bundles/generate endpoint + Step 3 (Claude service + companion route) |
+| 3 | Dashboard (history, streak, XP, badges, weekly progress, calories) + Chat UI (persistent, accessible from any screen) + Voice recording hook (expo-av) | Progression service + Gamification service (XP, streaks, badges, grace-day) + Persona assignment + Metrics calculation + Daily check-in endpoint |
+| 4 | Connect voice pipeline end-to-end (mic → STT → Claude → TTS → speaker) + Connect all screens to backend APIs + Session resume logic | Deepgram + ElevenLabs service integration + Prompt tuning per persona (10+ test sessions) + Safety validation layer testing |
+| 5 | UI polish + Animations + Error states + Offline fallback (cache bundle locally) + Demo flow | Bug fixes + Demo data/seed accounts + Final prompt iteration + Demo recording |
+
+**Rules for parallel work:**
+1. Each person works on separate feature branches — never the same files
+2. Person A works in `mobile/src/`, Person B works in `server/src/`
+3. Shared types in `shared/types/` are the contract — if one person needs a new field, add it and notify the other
+4. API contract (`shared/types/api.ts`) is the handshake — Person A builds UI expecting that format, Person B implements endpoints returning it
+5. Both pull from `dev` before starting new branches
+6. Merge to `dev` frequently (at least every 2 days) to avoid divergence
 
 ---
 
