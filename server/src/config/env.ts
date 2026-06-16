@@ -18,8 +18,11 @@ export const env = {
   // Anthropic (Claude) — for production
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
 
-  // Google Gemini — for development
+  // Google Gemini — disabled (workspace account quota issues)
   geminiApiKey: process.env.GEMINI_API_KEY || '',
+
+  // Groq — free tier for development
+  groqApiKey: process.env.GROQ_API_KEY || '',
 
   // Deepgram
   deepgramApiKey: process.env.DEEPGRAM_API_KEY || '',

@@ -1,23 +1,23 @@
 /**
  * AI Companion Service
  *
- * Currently uses Google Gemini (free tier) for development.
+ * Currently uses Groq (free tier, Llama model) for development.
  * Switch to Anthropic Claude for production demo.
  *
  * SWITCHING TO CLAUDE (before demo):
  * 1. Get Anthropic API key from console.anthropic.com (add $5-10 credit)
  * 2. Add ANTHROPIC_API_KEY to .env
- * 3. Replace the sendCompanionMessage() implementation below with the Claude version
- *    (swap GoogleGenerativeAI for Anthropic SDK, adjust the API call format)
+ * 3. Replace the Groq implementation below with Anthropic SDK
+ *    (swap Groq for Anthropic, adjust the API call format)
  *
  * The rest of the codebase (prompts, routes, frontend) stays UNCHANGED.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 import { env } from '../config/env';
 import pRetry from 'p-retry';
 
-const genAI = new GoogleGenerativeAI(env.geminiApiKey);
+const groq = new Groq({ apiKey: env.groqApiKey });
 
 interface Message {
   role: 'user' | 'assistant';
@@ -38,25 +38,27 @@ export async function sendCompanionMessage(
   conversationHistory: Message[],
   userMessage: string
 ): Promise<CompanionResponse> {
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: systemPrompt,
-  });
-
-  // Convert conversation history to Gemini format
-  const history = conversationHistory.map(msg => ({
-    role: msg.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: msg.content }],
-  }));
-
-  const chat = model.startChat({ history });
+  const messages = [
+    { role: 'system' as const, content: systemPrompt },
+    ...conversationHistory.map(msg => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    })),
+    { role: 'user' as const, content: userMessage },
+  ];
 
   const response = await pRetry(
     async () => {
-      const result = await chat.sendMessage(userMessage);
-      const text = result.response.text();
+      const result = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        max_tokens: 300,
+        temperature: 0.7,
+      });
+
+      const text = result.choices[0]?.message?.content;
       if (!text) {
-        throw new Error('Empty response from Gemini');
+        throw new Error('Empty response from Groq');
       }
       return text;
     },
