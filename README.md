@@ -49,3 +49,5 @@ npx expo start
 - [System Design](./system-design.md)
 - [Development Workflow](./development-workflow.md)
 - [Requirements](/.kiro/specs/ai-companion-workout/requirements.md)
+- [MVP Sprint Plan (Google Sheet)](https://docs.google.com/spreadsheets/d/1KPKkFdosmel64x8E4ffpjbLUP-zJZJdOKdf4kVfOGZM/edit?usp=sharing)
+- [Switching to Claude (before demo)](./docs/switching-to-claude.md)
