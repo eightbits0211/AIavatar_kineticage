@@ -47,6 +47,7 @@ export interface IUser extends Document {
     session_id: mongoose.Types.ObjectId;
   }>;
   onboarding_completed: boolean;
+  is_guest: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -55,7 +56,7 @@ const UserSchema = new Schema<IUser>(
   {
     firebase_uid: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
-    email: { type: String, required: true },
+    email: { type: String, default: '' },
     age: { type: Number, min: 16, max: 100 },
     height_cm: { type: Number },
     weight_kg: { type: Number },
@@ -107,6 +108,7 @@ const UserSchema = new Schema<IUser>(
       },
     ],
     onboarding_completed: { type: Boolean, default: false },
+    is_guest: { type: Boolean, default: false },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }
 );

@@ -1,0 +1,12 @@
+Sprint 4: Gamification + Dashboard,,,,,,,,
+"Sprint Goal: A user earns XP and streaks for their workouts and sees this reflected on a complete dashboard, alongside AI motivational messaging.",,,,,,,,
+,,,,,,,,
+Story ID,Epic,Feature,Story Title,User Story,Dependencies,Priority,Complexity,Sprint Goal
+US-09.1.1,Gamification,XP System,Earn XP for completing workouts,"As a user, I want to earn XP for completing workouts so that my effort is recognized and tracked.",Depends on Completion Tracking (US-07.5.1).,High,Medium,Gamification + Dashboard
+US-09.3.1,Gamification,Streaks,Build and maintain a workout streak,"As a user, I want to build a streak by working out consistently so that I'm motivated to keep coming back.",Depends on Completion Tracking (US-07.5.1).,High,Medium,Gamification + Dashboard
+US-09.2.1,Gamification,Levels,Level up as I earn XP,"As a user, I want my accumulated XP to translate into levels so that I have a sense of long-term progression.",Depends on XP System (US-09.1.1).,Medium,Small,Gamification + Dashboard
+US-09.4.1,Gamification,Achievements,Earn achievement badges,"As a user, I want to earn badges for milestones so that I have additional goals to look forward to beyond just XP.",Depends on Completion Tracking (US-07.5.1) and Streaks (US-09.3.1).,Medium,Medium,Gamification + Dashboard
+US-08.1.1,Dashboard,Today's Workout Widget,See today's workout on my dashboard,"As a user, I want to see today's recommended workout on my dashboard so that I can start training without extra navigation.",Depends on Workout Recommendation Engine (EPIC-05) and Completion Tracking (US-07.5.1).,High,Medium,Gamification + Dashboard
+US-08.2.1,Dashboard,XP Points Display,See my XP on my dashboard,"As a user, I want to see my XP total and progress on my dashboard so that I feel a sense of accomplishment.","Depends on XP System (EPIC-09, US-09.1.1).",Medium,Small,Gamification + Dashboard
+US-08.3.1,Dashboard,Streaks Display,See my streaks on my dashboard,"As a user, I want to see my current and longest streaks so that I'm motivated to keep showing up.","Depends on Streaks (EPIC-09, US-09.3.1).",Medium,Small,Gamification + Dashboard
+US-06.2.1,AI Avatar,Motivational Prompts,Receive motivational prompts,"As a user, I want to receive motivational messages tied to my real activity so that I feel encouraged rather than nagged by generic content.",Depends on Completion Tracking (EPIC-07) and Adjustable Talkativeness (US-06.4.1).,Medium,Medium,Gamification + Dashboard

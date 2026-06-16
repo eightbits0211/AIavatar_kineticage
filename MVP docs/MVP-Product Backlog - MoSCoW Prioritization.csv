@@ -1,0 +1,42 @@
+Category,Feature / Capability,Rationale
+Must-Have (MVP),Google Login,"Primary, low-friction authentication path required for any returning-user experience."
+Must-Have (MVP),Guest Login,Removes signup friction for first-time trial; explicitly requested entry point.
+Must-Have (MVP),Profile Data Collection,Foundational input for every personalization feature in the product.
+Must-Have (MVP),BMI Calculation,Core explicitly-specified health metric; simple to compute and high perceived value.
+Must-Have (MVP),Maximum Heart Rate Calculation,Core explicitly-specified health metric; required input for Training Zone.
+Must-Have (MVP),Training Zone Recommendation,Core explicitly-specified health metric; directly informs workout intensity guidance.
+Must-Have (MVP),Persona Classification Engine,Central to the product's personalization thesis; required input to the recommendation engine.
+Must-Have (MVP),Persona-Driven Personalization Hooks,"Without this, persona classification has no effect on the user experience."
+Must-Have (MVP),Multi-Plan Generation,Explicitly specified core mechanic of the Workout Recommendation Engine.
+Must-Have (MVP),Best-Match Recommendation,Explicitly specified; reduces decision fatigue and demonstrates intelligence of the engine.
+Must-Have (MVP),Personalization Logic,"Without this, plan generation is generic and the core value proposition is not demonstrated."
+Must-Have (MVP),Voice-Based Coaching,Core differentiator of the AI Avatar concept; explicitly specified.
+Must-Have (MVP),Interactive Conversation,"Core differentiator; the ""AI Avatar"" promise depends on two-way interaction being available."
+Must-Have (MVP),Adjustable Talkativeness,Explicitly specified; also mitigates risk of the AI feeling intrusive to early testers.
+Must-Have (MVP),Exercise Instructions Display,Required for users to safely and correctly perform any recommended exercise.
+Must-Have (MVP),Workout Timer,"Essential for guiding pacing through sets, reps, and rest without manual tracking."
+Must-Have (MVP),Pause / Resume,Baseline expectation for any workout session experience; prevents lost progress.
+Must-Have (MVP),Completion Tracking,"Feeds gamification, dashboard, and progress tracking; without it those features have no data."
+Must-Have (MVP),Today's Workout Widget,Primary dashboard entry point into the core workout loop.
+Must-Have (MVP),XP Points Display,Minimum viable expression of the gamification loop on the dashboard.
+Must-Have (MVP),Streaks Display,Minimum viable expression of the gamification loop on the dashboard.
+Must-Have (MVP),XP System,Core gamification mechanic explicitly specified.
+Must-Have (MVP),Streaks,Core gamification mechanic explicitly specified; key retention driver.
+Must-Have (MVP),Completed Workouts Log,Baseline progress-tracking requirement; required for dashboard history widget.
+Must-Have (MVP),Goal Progress Tracking,Directly ties back to the user's stated Fitness Goal; core to perceived value.
+Nice-to-Have,Voice/Text Onboarding Input,Voice input enhances the onboarding experience but text-only onboarding is fully functional without it.
+Nice-to-Have,Motivational Prompts,Enhances engagement but the core coaching/recommendation loop functions without proactive motivational messaging.
+Nice-to-Have,Workout Progress Indicator,Improves UX clarity during a session but is not required for the session to function correctly.
+Nice-to-Have,Workout History Summary,Convenience surfacing of data that is already available in the full History screen.
+Nice-to-Have,Progress Overview,Convenience surfacing of data that is already available in the Goal Progress detail screen.
+Nice-to-Have,Levels,Adds depth to XP but is not required for the core gamification loop (XP + streaks) to be motivating.
+Nice-to-Have,Achievements,Adds a secondary motivation layer but XP and streaks alone deliver the primary gamification value for MVP.
+Nice-to-Have,Historical Data View,Deeper trend browsing is valuable but the basic Completed Workouts Log covers the essential need.
+Nice-to-Have,Fitness Improvement Insights,"Adds polish and delight but requires sufficient historical data to be meaningful, making it a lower priority for initial launch."
+Future Roadmap,Real-time camera-based form checking,High technical complexity (computer vision) and cost; not required to validate the core coaching/personalization hypothesis.
+Future Roadmap,"Wearable device integrations (Apple Watch, Garmin, Whoop, etc.)",Each integration is a substantial standalone effort; valuable for richer health data once core loop is validated.
+Future Roadmap,Always-on / wake-word voice listening,Privacy and cost-intensive; press-to-talk delivers the hands-free benefit with far less complexity for MVP.
+Future Roadmap,"Social features (friends, leaderboards, shared challenges)","Adds backend complexity (privacy, moderation); secondary to validating the individual coaching relationship."
+Future Roadmap,Nutrition logging / meal planning,Significant scope on its own; not part of the defined MVP core feature set.
+Future Roadmap,Multi-language support,Adds translation and AI-prompt complexity; English-only is sufficient to validate the core experience.
+Future Roadmap,Advanced long-term AI Companion memory/relationship depth,Deeper conversational memory across months is a meaningful post-MVP investment once basic AI Avatar engagement is validated.

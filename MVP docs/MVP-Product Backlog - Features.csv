@@ -1,0 +1,35 @@
+Feature ID,Epic ID,Epic Name,Feature Name,Description,# User Stories
+FEAT-01.1,EPIC-01,User Authentication,Google Login,OAuth-based sign-in using a Google account.,1
+FEAT-01.2,EPIC-01,User Authentication,Guest Login,"Anonymous, no-credential entry into the app with local/session-based identity.",1
+FEAT-02.1,EPIC-02,User Onboarding,Profile Data Collection,"Collect Age, Gender, Height, Weight, Fitness Goal, Activity Level, Exercise Preferences.",1
+FEAT-02.2,EPIC-02,User Onboarding,Voice/Text Onboarding Input,Allow onboarding questions to be answered via voice or typed text.,1
+FEAT-03.1,EPIC-03,Health Metrics,BMI Calculation,Compute and display Body Mass Index from height and weight.,1
+FEAT-03.2,EPIC-03,Health Metrics,Maximum Heart Rate Calculation,Compute MHR using 220 - Age.,1
+FEAT-03.3,EPIC-03,Health Metrics,Training Zone Recommendation,Compute and display the 60-80% MHR target training zone.,1
+FEAT-04.1,EPIC-04,User Personas,Persona Classification Engine,Rules-based engine assigning one or more personas based on onboarding inputs and behavior.,1
+FEAT-04.2,EPIC-04,User Personas,Persona-Driven Personalization Hooks,"Expose persona tags to downstream features (workout engine, AI Avatar tone).",1
+FEAT-05.1,EPIC-05,Workout Recommendation Engine,Multi-Plan Generation,Generate 3-4 distinct workout plan options per recommendation cycle.,1
+FEAT-05.2,EPIC-05,Workout Recommendation Engine,Best-Match Recommendation,Highlight exactly one recommended workout among the generated options.,1
+FEAT-05.3,EPIC-05,Workout Recommendation Engine,Personalization Logic,"Tailor plan generation using Goal, Fitness Level, Persona, and User Inputs.",1
+FEAT-06.1,EPIC-06,AI Avatar,Voice-Based Coaching,Text-to-speech delivery of coaching cues during workouts and conversation.,1
+FEAT-06.2,EPIC-06,AI Avatar,Motivational Prompts,Context-aware motivational messaging tied to user activity and milestones.,1
+FEAT-06.3,EPIC-06,AI Avatar,Interactive Conversation,Two-way text/voice chat with the AI Avatar at any time.,1
+FEAT-06.4,EPIC-06,AI Avatar,Adjustable Talkativeness,User-configurable setting controlling AI proactivity and verbosity.,1
+FEAT-07.1,EPIC-07,Workout Session,Exercise Instructions Display,Show step-by-step exercise instructions during a session.,1
+FEAT-07.2,EPIC-07,Workout Session,Workout Timer,"Countdown/count-up timers for exercises, sets, and rest periods.",1
+FEAT-07.3,EPIC-07,Workout Session,Workout Progress Indicator,Visual indicator of progress through the current session.,1
+FEAT-07.4,EPIC-07,Workout Session,Pause / Resume,Allow the user to pause and resume an active session without losing state.,1
+FEAT-07.5,EPIC-07,Workout Session,Completion Tracking,Record session completion status and write results to history.,1
+FEAT-08.1,EPIC-08,Dashboard,Today's Workout Widget,Surface the current day's recommended workout on the dashboard.,1
+FEAT-08.2,EPIC-08,Dashboard,XP Points Display,Show current XP total and progress on the dashboard.,1
+FEAT-08.3,EPIC-08,Dashboard,Streaks Display,Show current and longest streaks on the dashboard.,1
+FEAT-08.4,EPIC-08,Dashboard,Workout History Summary,Show a condensed recent workout history on the dashboard.,1
+FEAT-08.5,EPIC-08,Dashboard,Progress Overview,Show a summary view of progress toward the user's fitness goal.,1
+FEAT-09.1,EPIC-09,Gamification,XP System,Award and track experience points for user actions.,1
+FEAT-09.2,EPIC-09,Gamification,Levels,Translate accumulated XP into user levels with level-up moments.,1
+FEAT-09.3,EPIC-09,Gamification,Streaks,Track consecutive workout activity with grace-day logic.,1
+FEAT-09.4,EPIC-09,Gamification,Achievements,Award badges for defined milestones and behaviors.,1
+FEAT-10.1,EPIC-10,Progress Tracking,Completed Workouts Log,Persist and list all completed workout sessions.,1
+FEAT-10.2,EPIC-10,Progress Tracking,Historical Data View,Allow the user to browse historical activity over time (weekly/monthly).,1
+FEAT-10.3,EPIC-10,Progress Tracking,Goal Progress Tracking,Show progress made toward the user's stated fitness goal.,1
+FEAT-10.4,EPIC-10,Progress Tracking,Fitness Improvement Insights,"Surface trend insights (e.g., consistency, volume) over time.",1
