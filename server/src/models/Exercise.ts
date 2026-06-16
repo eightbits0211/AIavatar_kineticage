@@ -41,6 +41,8 @@ const ExerciseSchema = new Schema<IExercise>({
   image_url: { type: String, default: '' },
 });
 
-ExerciseSchema.index({ difficulty_level: 1, equipment_required: 1, category_tags: 1 });
+ExerciseSchema.index({ difficulty_level: 1 });
+ExerciseSchema.index({ category_tags: 1 });
+ExerciseSchema.index({ equipment_required: 1 });
 
 export const Exercise = mongoose.model<IExercise>('Exercise', ExerciseSchema);
