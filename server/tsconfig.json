@@ -18,6 +18,6 @@
       "@shared/*": ["../shared/types/*"]
     }
   },
-  "include": ["src/**/*", "seeds/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
