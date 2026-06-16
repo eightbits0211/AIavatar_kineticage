@@ -1,0 +1,11 @@
+Epic ID,Epic Name,Epic Goal,# Features,# User Stories
+EPIC-01,User Authentication,"Allow users to securely access the app via Google or as a Guest, minimizing onboarding friction.",2,2
+EPIC-02,User Onboarding,Collect the profile and preference data needed to personalize the fitness experience from first launch.,2,2
+EPIC-03,Health Metrics,"Calculate and present foundational health metrics (BMI, MHR, Training Zone) derived from onboarding data.",3,3
+EPIC-04,User Personas,Classify users into one or more behavioral/fitness personas to drive personalization across the app.,2,2
+EPIC-05,Workout Recommendation Engine,"Generate personalized, multi-option workout plans and surface one best recommendation per session.",3,3
+EPIC-06,AI Avatar,"Deliver voice- and text-based AI coaching that motivates, explains, and converses with the user at an adjustable talkativeness level.",4,4
+EPIC-07,Workout Session,"Guide the user through an active workout with instructions, timers, pause/resume, and completion tracking.",5,5
+EPIC-08,Dashboard,"Provide a home-screen summary of today's plan, XP, streaks, history, and progress.",5,5
+EPIC-09,Gamification,"Drive engagement and retention through XP, levels, streaks, and achievements.",4,4
+EPIC-10,Progress Tracking,"Let users review completed workouts, historical data, and progress toward their fitness goal over time.",4,4

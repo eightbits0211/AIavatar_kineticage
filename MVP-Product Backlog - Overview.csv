@@ -1,0 +1,18 @@
+KineticAge — MVP Product Backlog,
+AI-Powered Fitness Companion with Voice-Guided AI Avatar Coaching,
+,
+Hierarchy,Epic → Feature → User Story → Tasks → Dependencies → Priority → Estimated Complexity
+Sheets in this workbook,"Overview, Epics, Features, User Stories, MoSCoW Prioritization, Sprint 1 through Sprint 5, All Tasks"
+Epics,10 epics covering all 10 core MVP feature areas
+Features,34 features
+User Stories,"34 user stories, each with Given/When/Then acceptance criteria and a Definition of Done"
+Sprints,"5 sprints; every user story is scheduled exactly once, sequenced by dependency order"
+Import-ready,"Each row in 'User Stories', 'All Tasks', and the Sprint sheets is structured for direct import into Jira, Notion, ClickUp, or Linear (one row = one issue/task)"
+Priority scale,High / Medium / Low — reflects criticality to the MVP demo and core user value
+Complexity scale,"Small / Medium / Large — relative effort sizing, not a fixed time estimate"
+,
+How to read the Sprint sheets,
+"Each Sprint sheet lists the User Stories assigned to that sprint along with their Feature, Epic, Priority, Complexity, and Sprint Goal.",
+,
+Story point / velocity estimates are intentionally omitted — use the Complexity column with your team's own historical velocity to size sprints during sprint planning.,
+Sprint sequencing follows dependency order: Authentication & Onboarding & Health Metrics (Sprint 1) must exist before Personas & the Recommendation Engine (Sprint 2) can be personalized; the Workout Session & AI Avatar foundation (Sprint 3) must exist before Gamification events have data to act on (Sprint 4); Progress Tracking and remaining dashboard widgets close out the MVP (Sprint 5).,
