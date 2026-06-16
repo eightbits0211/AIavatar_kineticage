@@ -2,9 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db';
+import authRoutes from './routes/auth';
 import profileRoutes from './routes/profile';
 import personalizeRoutes from './routes/personalize';
-import authRoutes from './routes/auth';
+import bundleRoutes from './routes/bundles';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -26,16 +27,15 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/personalize', personalizeRoutes);
+app.use('/api/bundles', bundleRoutes);
 // app.use('/api/companion', companionRoutes);
 // app.use('/api/session', sessionRoutes);
-// app.use('/api/bundles', bundleRoutes);
 // app.use('/api/exercises', exerciseRoutes);
 // app.use('/api/tts', ttsRoutes);
 // app.use('/api/stt', sttRoutes);
 // app.use('/api/progress', progressRoutes);
 // app.use('/api/gamification', gamificationRoutes);
 // app.use('/api/daily-checkin', dailyCheckinRoutes);
-// app.use('/api/personalize', personalizeRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 
 // Start server
