@@ -40,7 +40,7 @@ const BundleSchema = new Schema<IBundle>({
     high: { type: Number, required: true },
   },
   exercises: [{
-    exercise_id: { type: Schema.Types.ObjectId, ref: 'Exercise' },
+    exercise_id: { type: String },
     name: String,
     sets: Number,
     rep_min: Number,
