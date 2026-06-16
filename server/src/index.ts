@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { connectDB } from './config/db';
 import profileRoutes from './routes/profile';
 import personalizeRoutes from './routes/personalize';
+import bundleRoutes from './routes/bundles';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -24,6 +25,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/profile', profileRoutes);
 app.use('/api/personalize', personalizeRoutes);
+app.use('/api/bundles', bundleRoutes);
 // app.use('/api/companion', companionRoutes);
 // app.use('/api/session', sessionRoutes);
 // app.use('/api/bundles', bundleRoutes);

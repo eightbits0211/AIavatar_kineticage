@@ -41,7 +41,7 @@ export async function generateBundles(options: GenerateBundlesOptions): Promise<
   const { user, recentMuscleGroups = [] } = options;
 
   // Load full exercise library from database
-  const allExercises = await Exercise.find({}).lean() as IExercise[];
+  const allExercises = await Exercise.find({}).lean() as unknown as IExercise[];
 
   if (allExercises.length === 0) {
     throw new Error('Exercise library is empty. Run the seed script first.');
