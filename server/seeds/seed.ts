@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import { Exercise } from '../src/models/Exercise';
 import exercises1 from './exercises.json';
 import exercises2 from './exercises-part2.json';
+import exercises3 from './exercises-part3.json';
 
 dotenv.config();
 
@@ -22,7 +23,7 @@ async function seed() {
   await mongoose.connect(mongoUri);
   console.log('✅ Connected\n');
 
-  const allExercises = [...exercises1, ...exercises2];
+  const allExercises = [...exercises1, ...exercises2, ...exercises3];
 
   console.log(`Seeding ${allExercises.length} exercises...`);
 

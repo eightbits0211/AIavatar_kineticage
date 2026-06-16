@@ -1,0 +1,1793 @@
+[
+  {
+    "exercise_id": "ex_041",
+    "name": "Incline Dumbbell Press",
+    "category_tags": [
+      "hypertrophy",
+      "strength"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "chest",
+        "front_delts"
+      ],
+      "secondary": [
+        "triceps"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells",
+      "bench"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "shoulder"
+    ],
+    "substitution_group": "horizontal_push",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      }
+    },
+    "instructions_text": "Set bench to 30-45 degrees. Press dumbbells from shoulder height to full extension above upper chest. Lower with control. Keeps emphasis on upper chest.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_042",
+    "name": "Cable Chest Fly",
+    "category_tags": [
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "chest"
+      ],
+      "secondary": [
+        "front_delts"
+      ]
+    },
+    "equipment_required": [
+      "machines"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "shoulder"
+    ],
+    "substitution_group": "chest_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Stand between cable stacks with handles at chest height. Step forward. Bring handles together in front of chest with slight elbow bend. Squeeze at center, return with control.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_043",
+    "name": "Hammer Curl",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "biceps",
+        "forearms"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [],
+    "substitution_group": "bicep_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Hold dumbbells with palms facing each other (neutral grip). Curl up keeping palms inward throughout. Lower with control. Targets brachialis and forearms.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_044",
+    "name": "Skull Crushers",
+    "category_tags": [
+      "hypertrophy",
+      "strength"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "triceps"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "barbell",
+      "bench"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "wrist"
+    ],
+    "substitution_group": "tricep_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      }
+    },
+    "instructions_text": "Lie on bench holding barbell with narrow grip above forehead. Bend elbows to lower bar toward forehead. Extend back up. Keep elbows pointing at ceiling throughout.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_045",
+    "name": "Tricep Pushdown (Cable)",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "triceps"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "machines"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [],
+    "substitution_group": "tricep_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Stand facing cable machine with rope or bar attachment at top. Push down by extending elbows until arms are straight. Keep elbows pinned to sides. Return with control.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_046",
+    "name": "Diamond Push-Up",
+    "category_tags": [
+      "home_workout",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "triceps",
+        "chest"
+      ],
+      "secondary": [
+        "front_delts"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "wrist"
+    ],
+    "substitution_group": "tricep_isolation",
+    "default_set_rep_range": {
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Get into push-up position with hands close together, thumbs and index fingers forming a diamond shape. Lower chest to hands. Push back up. Harder than regular push-ups.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_047",
+    "name": "Sumo Deadlift",
+    "category_tags": [
+      "strength",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes",
+        "hamstrings",
+        "quadriceps"
+      ],
+      "secondary": [
+        "core",
+        "lower_back"
+      ]
+    },
+    "equipment_required": [
+      "barbell"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "lower_back"
+    ],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Stand with wide stance and toes turned out. Grip bar between legs with narrow grip. Drive through heels to stand. Keep chest proud throughout. Easier on lower back than conventional.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_048",
+    "name": "Hip Thrust (Barbell)",
+    "category_tags": [
+      "strength",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "barbell",
+      "bench"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Sit with upper back against a bench, barbell across hips. Drive through heels to lift hips until body forms straight line from shoulders to knees. Squeeze glutes at top. Lower with control.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_049",
+    "name": "Glute Bridge",
+    "category_tags": [
+      "general_fitness",
+      "home_workout",
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Lie on back with knees bent and feet flat. Push through heels to lift hips until body forms straight line from shoulders to knees. Squeeze glutes at top. Lower with control.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_050",
+    "name": "Leg Curl (Machine)",
+    "category_tags": [
+      "hypertrophy",
+      "strength"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "hamstrings"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "machines"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "hamstring_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      }
+    },
+    "instructions_text": "Lie face down on leg curl machine with pad on back of ankles. Curl legs up by bending knees. Squeeze hamstrings at top. Lower slowly.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_051",
+    "name": "Leg Extension (Machine)",
+    "category_tags": [
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "machines"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "quad_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Sit in leg extension machine with shins behind pad. Extend legs fully by straightening knees. Squeeze quads at top. Lower with control.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_052",
+    "name": "Step-Ups",
+    "category_tags": [
+      "general_fitness",
+      "home_workout",
+      "weight_loss"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "bench"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "knee",
+      "ankle"
+    ],
+    "substitution_group": "lunge_pattern",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Stand facing a bench or sturdy platform. Step up with one foot, drive through that heel to stand on top. Step back down. Alternate legs or complete one side first.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_053",
+    "name": "Reverse Lunge",
+    "category_tags": [
+      "strength",
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee",
+      "ankle"
+    ],
+    "substitution_group": "lunge_pattern",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Stand tall. Step one foot back and lower back knee toward ground. Both knees at 90 degrees. Push through front heel to return to standing. Easier on knees than forward lunges.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_054",
+    "name": "Front Squat",
+    "category_tags": [
+      "strength",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "core"
+      ],
+      "secondary": [
+        "glutes",
+        "upper_back"
+      ]
+    },
+    "equipment_required": [
+      "barbell"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "knee",
+      "wrist"
+    ],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Rest barbell on front of shoulders with elbows high. Squat down keeping torso very upright. Requires good wrist and shoulder mobility. More quad-dominant than back squat.",
+    "difficulty_level": "advanced",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_055",
+    "name": "Box Squat",
+    "category_tags": [
+      "strength"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "barbell",
+      "bench"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "knee",
+      "lower_back"
+    ],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      }
+    },
+    "instructions_text": "Set a box or bench behind you at knee height. Squat back onto the box with control, pause briefly, then drive up. Teaches proper depth and hip mechanics.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_056",
+    "name": "Dumbbell Lateral Lunge",
+    "category_tags": [
+      "general_fitness",
+      "mobility",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "hip_flexors",
+        "adductors"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "lunge_pattern",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Hold dumbbells at sides. Step wide to one side, bending that knee and pushing hips back while keeping other leg straight. Push back to start. Alternate sides.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_057",
+    "name": "Arnold Press",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "front_delts",
+        "side_delts"
+      ],
+      "secondary": [
+        "triceps"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "shoulder"
+    ],
+    "substitution_group": "vertical_push",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Start with dumbbells at shoulder height, palms facing you. As you press up, rotate palms to face forward at the top. Reverse the rotation as you lower. Full range of motion for all deltoid heads.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_058",
+    "name": "Upright Row (Dumbbell)",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "side_delts",
+        "upper_back"
+      ],
+      "secondary": [
+        "biceps"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "shoulder"
+    ],
+    "substitution_group": "shoulder_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Hold dumbbells in front of thighs. Pull them straight up along your body, leading with elbows until they reach shoulder height. Lower with control. Keep the weight close to your body.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_059",
+    "name": "Rear Delt Fly (Dumbbell)",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "rear_delts"
+      ],
+      "secondary": [
+        "upper_back"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [],
+    "substitution_group": "shoulder_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Hinge forward at hips holding light dumbbells. Raise arms out to sides squeezing shoulder blades together. Lower with control. Keep slight bend in elbows throughout.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_060",
+    "name": "Shrugs (Dumbbell)",
+    "category_tags": [
+      "hypertrophy",
+      "strength"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "upper_back"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "neck"
+    ],
+    "substitution_group": "trap_isolation",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      }
+    },
+    "instructions_text": "Stand holding heavy dumbbells at sides. Shrug shoulders straight up toward ears. Hold briefly at top. Lower with control. Avoid rolling shoulders.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_061",
+    "name": "Farmer Walk",
+    "category_tags": [
+      "strength",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "forearms",
+        "core"
+      ],
+      "secondary": [
+        "upper_back",
+        "shoulders"
+      ]
+    },
+    "equipment_required": [
+      "dumbbells"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [],
+    "substitution_group": "carry",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Hold heavy dumbbells at sides. Walk forward with tall posture, shoulders back, core braced. Maintain even pace. Great for grip strength and overall stability.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_062",
+    "name": "Bicycle Crunch",
+    "category_tags": [
+      "general_fitness",
+      "home_workout",
+      "weight_loss"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "core"
+      ],
+      "secondary": [
+        "hip_flexors"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "neck",
+      "lower_back"
+    ],
+    "substitution_group": "core_rotation",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Lie on back with hands behind head. Lift shoulders off floor. Bring one knee toward chest while rotating opposite elbow toward it. Alternate sides in a pedaling motion.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_063",
+    "name": "Russian Twist",
+    "category_tags": [
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "core"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "lower_back"
+    ],
+    "substitution_group": "core_rotation",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Sit with knees bent, feet off floor, lean back slightly. Rotate torso side to side, touching the ground beside each hip. Keep core engaged throughout. Can hold a weight for added challenge.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_064",
+    "name": "Ab Wheel Rollout",
+    "category_tags": [
+      "strength",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "core"
+      ],
+      "secondary": [
+        "shoulders",
+        "lats"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "lower_back",
+      "shoulder"
+    ],
+    "substitution_group": "core_stability",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Kneel with an ab wheel (or use a towel on smooth floor). Roll forward extending arms, keeping core tight and back flat. Go as far as you can control. Pull back to start using your abs.",
+    "difficulty_level": "advanced",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_065",
+    "name": "Hanging Leg Raise",
+    "category_tags": [
+      "strength",
+      "hypertrophy"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "core",
+        "hip_flexors"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "pull_up_bar"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "lower_back",
+      "shoulder"
+    ],
+    "substitution_group": "core_stability",
+    "default_set_rep_range": {
+      "strength": {
+        "sets": 4,
+        "rep_min": 4,
+        "rep_max": 6,
+        "rest_seconds": 150
+      },
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      }
+    },
+    "instructions_text": "Hang from a bar with straight arms. Raise legs (bent or straight) until at least parallel to ground. Lower with control. Avoid swinging.",
+    "difficulty_level": "advanced",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_066",
+    "name": "Superman Hold",
+    "category_tags": [
+      "general_fitness",
+      "home_workout",
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "lower_back",
+        "glutes"
+      ],
+      "secondary": [
+        "shoulders"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "lower_back"
+    ],
+    "substitution_group": "back_extension",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Lie face down with arms extended overhead. Simultaneously lift arms, chest, and legs off the floor. Hold briefly. Lower with control. Strengthens posterior chain.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_067",
+    "name": "Back Extension (45 degree)",
+    "category_tags": [
+      "hypertrophy",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "lower_back",
+        "glutes"
+      ],
+      "secondary": [
+        "hamstrings"
+      ]
+    },
+    "equipment_required": [
+      "machines"
+    ],
+    "location_compatible": [
+      "gym"
+    ],
+    "contraindications": [
+      "lower_back"
+    ],
+    "substitution_group": "back_extension",
+    "default_set_rep_range": {
+      "hypertrophy": {
+        "sets": 3,
+        "rep_min": 8,
+        "rep_max": 12,
+        "rest_seconds": 75
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Position yourself in a 45-degree back extension station with hips on pad. Cross arms over chest. Lower torso toward floor. Raise back up until body is straight. Do not hyperextend.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_068",
+    "name": "Band Pull-Through",
+    "category_tags": [
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondary": [
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "resistance_bands"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [],
+    "substitution_group": "hip_hinge",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Anchor band low behind you. Straddle band facing away. Hinge at hips letting band pull hands back between legs. Drive hips forward to stand tall squeezing glutes. Great hip hinge learning tool.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_069",
+    "name": "Banded Squat",
+    "category_tags": [
+      "home_workout",
+      "weight_loss",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "resistance_bands"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "squat_pattern",
+    "default_set_rep_range": {
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Stand on band with feet shoulder-width. Hold band at shoulders. Squat down and stand back up. Band adds resistance at the top of the movement. Keep chest up.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_070",
+    "name": "Banded Row",
+    "category_tags": [
+      "home_workout",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "upper_back",
+        "lats"
+      ],
+      "secondary": [
+        "biceps"
+      ]
+    },
+    "equipment_required": [
+      "resistance_bands"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [],
+    "substitution_group": "horizontal_pull",
+    "default_set_rep_range": {
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Sit with legs extended, band looped around feet. Pull band toward your stomach squeezing shoulder blades together. Return with control. Keep back straight throughout.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_071",
+    "name": "High Knees",
+    "category_tags": [
+      "weight_loss",
+      "home_workout",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "hip_flexors",
+        "core"
+      ],
+      "secondary": [
+        "quadriceps",
+        "calves"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "cardio_core",
+    "default_set_rep_range": {
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Stand tall. Run in place driving knees up to hip height with each step. Pump arms. Maintain quick pace. Keep core engaged and land softly.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_072",
+    "name": "Jump Squats",
+    "category_tags": [
+      "weight_loss",
+      "general_fitness"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "quadriceps",
+        "glutes"
+      ],
+      "secondary": [
+        "calves",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee",
+      "ankle",
+      "lower_back"
+    ],
+    "substitution_group": "cardio_core",
+    "default_set_rep_range": {
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      }
+    },
+    "instructions_text": "Start in squat position. Explode upward jumping as high as possible. Land softly bending knees to absorb impact. Immediately go into next rep.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_073",
+    "name": "Skater Jumps",
+    "category_tags": [
+      "weight_loss",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes",
+        "quadriceps"
+      ],
+      "secondary": [
+        "calves",
+        "core"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee",
+      "ankle"
+    ],
+    "substitution_group": "cardio_core",
+    "default_set_rep_range": {
+      "weight_loss": {
+        "sets": 4,
+        "rep_min": 15,
+        "rep_max": 20,
+        "rest_seconds": 20
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Stand on one foot. Jump laterally to the other foot, landing softly with a slight knee bend. Swing arms for balance. Immediately jump back to the other side. Like speed skating.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_074",
+    "name": "Bear Crawl",
+    "category_tags": [
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "core",
+        "shoulders"
+      ],
+      "secondary": [
+        "quadriceps",
+        "hip_flexors"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "wrist"
+    ],
+    "substitution_group": "core_stability",
+    "default_set_rep_range": {
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Start on all fours with knees hovering just above floor. Move forward by stepping opposite hand and foot simultaneously. Keep hips level and core braced. Move slowly with control.",
+    "difficulty_level": "intermediate",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_075",
+    "name": "Inchworm",
+    "category_tags": [
+      "mobility",
+      "general_fitness",
+      "home_workout"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "hamstrings",
+        "core"
+      ],
+      "secondary": [
+        "shoulders",
+        "chest"
+      ]
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "wrist"
+    ],
+    "substitution_group": "hip_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      },
+      "general_fitness": {
+        "sets": 3,
+        "rep_min": 10,
+        "rep_max": 12,
+        "rest_seconds": 45
+      },
+      "home_workout": {
+        "sets": 3,
+        "rep_min": 12,
+        "rep_max": 15,
+        "rest_seconds": 30
+      }
+    },
+    "instructions_text": "Stand tall. Hinge forward and walk hands out to push-up position. Optionally do a push-up. Walk hands back to feet and stand. Great warm-up combining hamstring stretch and core work.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_076",
+    "name": "Pigeon Stretch",
+    "category_tags": [
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "glutes",
+        "hip_flexors"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [
+      "knee"
+    ],
+    "substitution_group": "hip_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "From all fours, bring one knee forward behind your wrist with shin angled. Extend other leg straight back. Lower hips toward floor. Hold for prescribed time. Deep hip opener. Note: reps = seconds.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_077",
+    "name": "Chest Stretch (Doorway)",
+    "category_tags": [
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "chest",
+        "front_delts"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [
+      "shoulder"
+    ],
+    "substitution_group": "chest_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Stand in a doorway with arm bent at 90 degrees against the frame at shoulder height. Lean forward gently until you feel a stretch across your chest. Hold. Switch sides. Note: reps = seconds per side.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_078",
+    "name": "Shoulder Pass-Through",
+    "category_tags": [
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "shoulders",
+        "rotator_cuff"
+      ],
+      "secondary": [
+        "chest"
+      ]
+    },
+    "equipment_required": [
+      "resistance_bands"
+    ],
+    "location_compatible": [
+      "gym",
+      "home"
+    ],
+    "contraindications": [],
+    "substitution_group": "shoulder_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Hold a band or stick with wide overhand grip. Keeping arms straight, raise it overhead and behind your back in one smooth arc. Return the same way. Go only as far as comfortable. Improves shoulder mobility.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_079",
+    "name": "Wrist Circles",
+    "category_tags": [
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "forearms"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [],
+    "substitution_group": "wrist_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Extend arms forward. Make slow circles with your wrists — clockwise then counter-clockwise. Do 10-15 each direction. Good warm-up before pressing exercises.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  },
+  {
+    "exercise_id": "ex_080",
+    "name": "Ankle Circles",
+    "category_tags": [
+      "mobility"
+    ],
+    "muscle_groups": {
+      "primary": [
+        "calves"
+      ],
+      "secondary": []
+    },
+    "equipment_required": [
+      "none"
+    ],
+    "location_compatible": [
+      "gym",
+      "home",
+      "outdoors"
+    ],
+    "contraindications": [],
+    "substitution_group": "ankle_mobility",
+    "default_set_rep_range": {
+      "mobility": {
+        "sets": 2,
+        "rep_min": 10,
+        "rep_max": 15,
+        "rest_seconds": 20
+      }
+    },
+    "instructions_text": "Stand on one foot (hold something for balance). Lift other foot and draw slow circles with your toes — clockwise then counter-clockwise. 10-15 each direction per foot.",
+    "difficulty_level": "beginner",
+    "image_url": ""
+  }
+]
