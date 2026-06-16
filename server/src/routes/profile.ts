@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { User } from '../models';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
+import { calculateMetrics, assignPersonaTags } from '../services/persona';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// PUT /api/profile — Update user profile
+// PUT /api/profile — Update user profile (recalculates metrics if relevant fields change)
 router.put('/', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findOneAndUpdate(
@@ -32,6 +33,26 @@ router.put('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     if (!user) {
       res.status(404).json({ error: 'Not Found', message: 'User profile not found' });
       return;
+    }
+
+    // Recalculate metrics if any relevant field was updated
+    const metricsFields = ['age', 'height_cm', 'weight_kg', 'gender', 'activity_level'];
+    const personaFields = ['fitness_goal', 'activity_level', 'workout_location', 'equipment', 'injuries', 'workout_duration', 'prior_program_experience'];
+
+    const updatedFields = Object.keys(req.body);
+    const needsMetricsRecalc = updatedFields.some(f => metricsFields.includes(f));
+    const needsPersonaRecalc = updatedFields.some(f => personaFields.includes(f));
+
+    if (needsMetricsRecalc && user.age && user.height_cm && user.weight_kg) {
+      user.calculated_metrics = calculateMetrics(user);
+    }
+
+    if (needsPersonaRecalc) {
+      user.persona_tags = assignPersonaTags(user);
+    }
+
+    if (needsMetricsRecalc || needsPersonaRecalc) {
+      await user.save();
     }
 
     res.json(user);
