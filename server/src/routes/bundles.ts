@@ -29,6 +29,15 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res: Response)
       return;
     }
 
+    // Get user-provided constraints (for regeneration with adjusted preferences)
+    const { energy_level, available_time } = req.body || {};
+
+    // If user provides a different time preference for this generation, temporarily override
+    const effectiveUser = { ...user.toObject() };
+    if (available_time && [15, 30, 45, 60].includes(available_time)) {
+      effectiveUser.workout_duration = available_time;
+    }
+
     // Get recent muscle groups from last session (if any)
     const recentSession = await mongoose.model('Session').findOne(
       { user_id: user._id, status: { $in: ['full', 'partial'] } },
@@ -39,7 +48,7 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res: Response)
       ?.flatMap((e: any) => e.muscle_groups || []) || [];
 
     // Run the Rules Engine
-    const result = await generateBundles({ user, recentMuscleGroups });
+    const result = await generateBundles({ user: effectiveUser as any, recentMuscleGroups });
 
     if (result.bundles.length === 0) {
       res.status(500).json({ error: 'Generation Failed', message: 'Could not generate bundles. Exercise library may be insufficient for your profile.' });
