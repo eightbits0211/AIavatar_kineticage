@@ -4,6 +4,7 @@ type PersonaTag =
   | 'complete_beginner'
   | 'regular_gym_goer'
   | 'weight_loss_seeker'
+  | 'strength_training_user'
   | 'home_workout_user'
   | 'office_professional'
   | 'injury_recovery_user'
@@ -47,6 +48,11 @@ export function assignPersonaTags(user: IUser): PersonaTag[] {
   // Weight Loss Seeker: Goal = Weight Loss (regardless of other signals)
   if (user.fitness_goal === 'weight_loss') {
     tags.push('weight_loss_seeker');
+  }
+
+  // Strength Training User: Goal = Strength (regardless of other signals)
+  if (user.fitness_goal === 'strength') {
+    tags.push('strength_training_user');
   }
 
   // Home Workout User: Location = Home + None or minimal equipment (bands/dumbbells only)

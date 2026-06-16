@@ -37,6 +37,7 @@ export type PersonaTag =
   | 'complete_beginner'
   | 'regular_gym_goer'
   | 'weight_loss_seeker'
+  | 'strength_training_user'
   | 'home_workout_user'
   | 'office_professional'
   | 'injury_recovery_user'

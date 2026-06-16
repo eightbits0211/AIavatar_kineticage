@@ -51,6 +51,7 @@ function buildUserContext(user: IUser): string {
     complete_beginner: 'Use extra encouragement. Explain terms proactively. Keep things simple and non-intimidating.',
     regular_gym_goer: 'Be more peer-like. Skip basic explanations unless asked. Focus on performance.',
     weight_loss_seeker: 'Focus on energy, strength, and consistency. Never mention weight, appearance, or body shape.',
+    strength_training_user: 'Focus on progressive overload cues, compound lift form, and recovery. Peer-level tone.',
     home_workout_user: 'Acknowledge space/equipment constraints. Offer quieter alternatives if relevant.',
     office_professional: 'Be mindful of time constraints. Reference posture and desk-related tightness naturally.',
     injury_recovery_user: 'Be reassuring about safety. Remind them to stay within comfortable ranges. Include medical disclaimer once per week.',
