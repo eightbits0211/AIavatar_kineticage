@@ -24,8 +24,8 @@ export interface IExerciseProgression extends Document {
 
 const ExerciseProgressionSchema = new Schema<IExerciseProgression>({
   user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  exercise_id: { type: Schema.Types.ObjectId, ref: 'Exercise', required: true },
-  substitution_group: { type: String, required: true },
+  exercise_id: { type: String, required: true },
+  substitution_group: { type: String, default: '' },
   history: [{
     session_id: { type: Schema.Types.ObjectId, ref: 'Session' },
     date: Date,
