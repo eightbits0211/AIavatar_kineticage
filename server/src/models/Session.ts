@@ -5,7 +5,10 @@ export interface ISession extends Document {
   bundle_id: mongoose.Types.ObjectId;
   started_at: Date;
   completed_at: Date | null;
+  paused_at: Date | null;
   status: 'in_progress' | 'full' | 'partial' | 'abandoned';
+  exercises_planned: number;
+  exercises_completed: number;
   exercises: Array<{
     exercise_id: mongoose.Types.ObjectId;
     exercise_name: string;
@@ -39,9 +42,12 @@ const SessionSchema = new Schema<ISession>({
   bundle_id: { type: Schema.Types.ObjectId, ref: 'Bundle', required: true },
   started_at: { type: Date, default: Date.now },
   completed_at: { type: Date, default: null },
+  paused_at: { type: Date, default: null },
   status: { type: String, enum: ['in_progress', 'full', 'partial', 'abandoned'], default: 'in_progress' },
+  exercises_planned: { type: Number, default: 0 },
+  exercises_completed: { type: Number, default: 0 },
   exercises: [{
-    exercise_id: { type: Schema.Types.ObjectId, ref: 'Exercise' },
+    exercise_id: { type: String },
     exercise_name: String,
     status: { type: String, enum: ['completed', 'skipped', 'pain_stopped', 'in_progress', 'pending'], default: 'pending' },
     feedback: { type: String, enum: ['felt_easy', 'felt_normal', 'felt_hard', null], default: null },
@@ -56,13 +62,13 @@ const SessionSchema = new Schema<ISession>({
     }],
   }],
   pain_events: [{
-    exercise_id: { type: Schema.Types.ObjectId, ref: 'Exercise' },
+    exercise_id: { type: String },
     body_area: String,
     timestamp: { type: Date, default: Date.now },
   }],
   xp_awarded: { type: Number, default: 0 },
   progression_flags: [{
-    exercise_id: { type: Schema.Types.ObjectId, ref: 'Exercise' },
+    exercise_id: { type: String },
     type: String,
     details: String,
   }],

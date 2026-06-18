@@ -1,0 +1,368 @@
+import { Router, Response } from 'express';
+import { AuthRequest, authMiddleware } from '../middleware/auth';
+import { User, Session, Bundle } from '../models';
+import mongoose from 'mongoose';
+
+const router = Router();
+
+/**
+ * POST /api/session/start
+ * Starts a new workout session from a selected bundle.
+ * Creates a Session record with all exercises from the bundle.
+ */
+router.post('/start', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { bundle_id } = req.body;
+
+    if (!bundle_id) {
+      res.status(400).json({ error: 'Bad Request', message: 'bundle_id is required' });
+      return;
+    }
+
+    const user = await User.findOne({ firebase_uid: req.uid });
+    if (!user) {
+      res.status(404).json({ error: 'Not Found', message: 'User not found' });
+      return;
+    }
+
+    const bundle = await Bundle.findById(bundle_id);
+    if (!bundle) {
+      res.status(404).json({ error: 'Not Found', message: 'Bundle not found' });
+      return;
+    }
+
+    // Check if there's an existing in-progress session (for resume)
+    const existingSession = await Session.findOne({
+      user_id: user._id,
+      status: 'in_progress',
+    });
+
+    if (existingSession) {
+      // Return existing session for resume
+      res.json({
+        session_id: existingSession._id,
+        resumed: true,
+        exercises: existingSession.exercises,
+        message: 'Resuming your previous session.',
+      });
+      return;
+    }
+
+    // Create new session with exercises from bundle
+    const session = new Session({
+      user_id: user._id,
+      bundle_id: bundle._id,
+      started_at: new Date(),
+      status: 'in_progress',
+      exercises: bundle.exercises.map((ex: any) => ({
+        exercise_id: ex.exercise_id,
+        exercise_name: ex.name,
+        status: 'pending',
+        feedback: null,
+        skip_reason: null,
+        sets: Array.from({ length: ex.sets }, (_, i) => ({
+          set_number: i + 1,
+          target_rep_min: ex.rep_min,
+          target_rep_max: ex.rep_max,
+          actual_reps: null,
+          completed: false,
+          completed_at: null,
+        })),
+        rest_seconds: ex.rest_seconds,
+      })),
+      pain_events: [],
+      xp_awarded: 0,
+      progression_flags: [],
+    });
+
+    await session.save();
+
+    res.status(201).json({
+      session_id: session._id,
+      resumed: false,
+      exercises: session.exercises,
+      message: `Let's go! ${bundle.title} — ${bundle.exercises.length} exercises.`,
+    });
+  } catch (error: any) {
+    console.error('Session start error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to start session' });
+  }
+});
+
+/**
+ * PUT /api/session/:id/exercise
+ * Updates an exercise's status within a session.
+ * Used for: marking complete, skipping, reporting pain, logging set reps, giving feedback.
+ */
+router.put('/:id/exercise', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { exercise_id, action, data } = req.body;
+
+    // action: 'complete_set' | 'complete_exercise' | 'skip' | 'pain' | 'feedback'
+    if (!exercise_id || !action) {
+      res.status(400).json({ error: 'Bad Request', message: 'exercise_id and action are required' });
+      return;
+    }
+
+    const session = await Session.findById(id);
+    if (!session) {
+      res.status(404).json({ error: 'Not Found', message: 'Session not found' });
+      return;
+    }
+
+    if (session.status !== 'in_progress') {
+      res.status(400).json({ error: 'Bad Request', message: 'Session is not in progress' });
+      return;
+    }
+
+    const exerciseIndex = session.exercises.findIndex(
+      (e: any) => e.exercise_id === exercise_id
+    );
+
+    if (exerciseIndex === -1) {
+      res.status(404).json({ error: 'Not Found', message: 'Exercise not found in session' });
+      return;
+    }
+
+    const exercise = session.exercises[exerciseIndex];
+
+    switch (action) {
+      case 'complete_set': {
+        // data: { set_number, actual_reps }
+        const { set_number, actual_reps } = data || {};
+        const setIndex = exercise.sets.findIndex((s: any) => s.set_number === set_number);
+        if (setIndex !== -1) {
+          exercise.sets[setIndex].actual_reps = actual_reps;
+          exercise.sets[setIndex].completed = true;
+          exercise.sets[setIndex].completed_at = new Date();
+        }
+        exercise.status = 'in_progress';
+        break;
+      }
+
+      case 'complete_exercise': {
+        // data: { feedback? } — "felt_easy" | "felt_normal" | "felt_hard"
+        exercise.status = 'completed';
+        if (data?.feedback) {
+          exercise.feedback = data.feedback;
+        }
+        break;
+      }
+
+      case 'skip': {
+        // data: { reason? }
+        exercise.status = 'skipped';
+        exercise.skip_reason = data?.reason || null;
+        break;
+      }
+
+      case 'pain': {
+        // data: { body_area }
+        exercise.status = 'pain_stopped';
+        session.pain_events.push({
+          exercise_id: exercise.exercise_id,
+          body_area: data?.body_area || 'unspecified',
+          timestamp: new Date(),
+        } as any);
+        break;
+      }
+
+      case 'feedback': {
+        // data: { feedback } — "felt_easy" | "felt_normal" | "felt_hard"
+        exercise.feedback = data?.feedback || null;
+        break;
+      }
+
+      default:
+        res.status(400).json({ error: 'Bad Request', message: `Unknown action: ${action}` });
+        return;
+    }
+
+    session.exercises[exerciseIndex] = exercise;
+    await session.save();
+
+    res.json({
+      exercise_id,
+      status: exercise.status,
+      feedback: exercise.feedback,
+      sets: exercise.sets,
+    });
+  } catch (error: any) {
+    console.error('Exercise update error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to update exercise' });
+  }
+});
+
+/**
+ * POST /api/session/:id/end
+ * Ends a session — calculates completion status and XP.
+ * Status: "full" (all done), "partial" (≥50%), "abandoned" (<50%)
+ */
+router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const session = await Session.findById(id);
+    if (!session) {
+      res.status(404).json({ error: 'Not Found', message: 'Session not found' });
+      return;
+    }
+
+    if (session.status !== 'in_progress') {
+      res.status(400).json({ error: 'Bad Request', message: 'Session is not in progress' });
+      return;
+    }
+
+    // Calculate completion
+    const totalExercises = session.exercises.length;
+    const completedExercises = session.exercises.filter(
+      (e: any) => e.status === 'completed'
+    ).length;
+    const completionRatio = completedExercises / totalExercises;
+
+    let status: 'full' | 'partial' | 'abandoned';
+    let xpAwarded = 0;
+
+    if (completionRatio === 1) {
+      status = 'full';
+      xpAwarded = 50; // Full workout = 50 XP
+    } else if (completionRatio >= 0.5) {
+      status = 'partial';
+      xpAwarded = 25; // Partial (≥50%) = 25 XP
+    } else {
+      status = 'abandoned';
+      xpAwarded = 0; // <50% = no XP
+    }
+
+    // First workout bonus (one-time 30 XP)
+    const user = await User.findById(session.user_id);
+    if (user) {
+      const previousSessions = await Session.countDocuments({
+        user_id: user._id,
+        status: { $in: ['full', 'partial'] },
+        _id: { $ne: session._id },
+      });
+
+      if (previousSessions === 0 && (status === 'full' || status === 'partial')) {
+        xpAwarded += 30; // First workout bonus
+      }
+
+      // Update user gamification
+      if (xpAwarded > 0) {
+        user.gamification.total_xp += xpAwarded;
+        user.gamification.level = Math.floor(user.gamification.total_xp / 200) + 1;
+        user.gamification.last_workout_date = new Date();
+
+        // Streak logic
+        const today = new Date().toDateString();
+        const lastWorkout = user.gamification.last_workout_date
+          ? new Date(user.gamification.last_workout_date).toDateString()
+          : null;
+
+        if (lastWorkout !== today) {
+          user.gamification.current_streak += 1;
+          if (user.gamification.current_streak > user.gamification.longest_streak) {
+            user.gamification.longest_streak = user.gamification.current_streak;
+          }
+        }
+
+        await user.save();
+      }
+    }
+
+    // Update session
+    session.status = status;
+    session.completed_at = new Date();
+    session.xp_awarded = xpAwarded;
+    session.exercises_completed = completedExercises;
+    session.exercises_planned = totalExercises;
+    await session.save();
+
+    res.json({
+      status,
+      exercises_completed: completedExercises,
+      exercises_planned: totalExercises,
+      completion_ratio: Math.round(completionRatio * 100),
+      xp_awarded: xpAwarded,
+      new_total_xp: user?.gamification.total_xp || 0,
+      level: user?.gamification.level || 1,
+      streak: {
+        current: user?.gamification.current_streak || 0,
+        longest: user?.gamification.longest_streak || 0,
+      },
+    });
+  } catch (error: any) {
+    console.error('Session end error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to end session' });
+  }
+});
+
+/**
+ * POST /api/session/:id/pause
+ * Pauses an active session (just marks the state — timer logic is client-side).
+ */
+router.post('/:id/pause', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const session = await Session.findById(req.params.id);
+    if (!session || session.status !== 'in_progress') {
+      res.status(404).json({ error: 'Not Found', message: 'No active session found' });
+      return;
+    }
+
+    // Store pause timestamp (used for resume window check)
+    (session as any).paused_at = new Date();
+    await session.save();
+
+    res.json({ message: 'Session paused', session_id: session._id });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to pause session' });
+  }
+});
+
+/**
+ * GET /api/session/active
+ * Returns the user's current in-progress session (if any) for resume.
+ */
+router.get('/active', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ firebase_uid: req.uid });
+    if (!user) {
+      res.status(404).json({ error: 'Not Found', message: 'User not found' });
+      return;
+    }
+
+    const session = await Session.findOne({
+      user_id: user._id,
+      status: 'in_progress',
+    });
+
+    if (!session) {
+      res.json({ has_active_session: false });
+      return;
+    }
+
+    // Check resume window (30 minutes)
+    const pausedAt = (session as any).paused_at;
+    if (pausedAt) {
+      const minutesSincePause = (Date.now() - new Date(pausedAt).getTime()) / 60000;
+      if (minutesSincePause > 30) {
+        // Expired — mark as abandoned
+        session.status = 'abandoned';
+        session.completed_at = new Date();
+        await session.save();
+        res.json({ has_active_session: false, expired: true });
+        return;
+      }
+    }
+
+    res.json({
+      has_active_session: true,
+      session,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to check active session' });
+  }
+});
+
+export default router;

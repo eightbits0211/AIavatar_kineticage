@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import profileRoutes from './routes/profile';
 import personalizeRoutes from './routes/personalize';
 import bundleRoutes from './routes/bundles';
+import sessionRoutes from './routes/session';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -28,6 +29,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/personalize', personalizeRoutes);
 app.use('/api/bundles', bundleRoutes);
+app.use('/api/session', sessionRoutes);
 // app.use('/api/companion', companionRoutes);
 // app.use('/api/session', sessionRoutes);
 // app.use('/api/exercises', exerciseRoutes);
