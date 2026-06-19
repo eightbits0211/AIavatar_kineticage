@@ -1,6 +1,13 @@
 import { Router, Response } from 'express';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { User, Session, Bundle } from '../models';
+import { evaluateProgression } from '../services/progression';
+import {
+  calculateSessionXP,
+  calculateLevel,
+  updateStreak,
+  evaluateBadges,
+} from '../services/gamification';
 import mongoose from 'mongoose';
 
 const router = Router();
@@ -196,7 +203,7 @@ router.put('/:id/exercise', authMiddleware, async (req: AuthRequest, res: Respon
 
 /**
  * POST /api/session/:id/end
- * Ends a session — calculates completion status and XP.
+ * Ends a session — calculates completion status, XP, streak, progression, and badges.
  * Status: "full" (all done), "partial" (≥50%), "abandoned" (<50%)
  */
 router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) => {
@@ -219,62 +226,95 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
     const completedExercises = session.exercises.filter(
       (e: any) => e.status === 'completed'
     ).length;
-    const completionRatio = completedExercises / totalExercises;
+    const completionRatio = totalExercises === 0 ? 0 : completedExercises / totalExercises;
 
     let status: 'full' | 'partial' | 'abandoned';
-    let xpAwarded = 0;
+    if (completionRatio === 1) status = 'full';
+    else if (completionRatio >= 0.5) status = 'partial';
+    else status = 'abandoned';
 
-    if (completionRatio === 1) {
-      status = 'full';
-      xpAwarded = 50; // Full workout = 50 XP
-    } else if (completionRatio >= 0.5) {
-      status = 'partial';
-      xpAwarded = 25; // Partial (≥50%) = 25 XP
-    } else {
-      status = 'abandoned';
-      xpAwarded = 0; // <50% = no XP
+    const user = await User.findById(session.user_id);
+
+    // Evaluate progression (returns flags for rep increases, deloads)
+    let progressionFlags: any[] = [];
+    if (status !== 'abandoned') {
+      session.status = status; // temporarily set so progression sees correct state
+      progressionFlags = await evaluateProgression(session);
+      session.progression_flags = progressionFlags;
     }
 
-    // First workout bonus (one-time 30 XP)
-    const user = await User.findById(session.user_id);
+    let xpResult = { xp_awarded: 0, breakdown: [] as any[] };
+    let streakResult: any = null;
+    let newBadges: any[] = [];
+
     if (user) {
+      // Check if this is the first workout
       const previousSessions = await Session.countDocuments({
         user_id: user._id,
         status: { $in: ['full', 'partial'] },
         _id: { $ne: session._id },
       });
+      const isFirstWorkout = previousSessions === 0;
 
-      if (previousSessions === 0 && (status === 'full' || status === 'partial')) {
-        xpAwarded += 30; // First workout bonus
-      }
+      // Calculate XP
+      xpResult = calculateSessionXP({
+        status,
+        isFirstWorkout,
+        progressionMilestones: progressionFlags.filter(
+          (f) => f.type === 'rep_increase' || f.type === 'set_increase'
+        ).length,
+      });
 
-      // Update user gamification
-      if (xpAwarded > 0) {
-        user.gamification.total_xp += xpAwarded;
-        user.gamification.level = Math.floor(user.gamification.total_xp / 200) + 1;
+      // Update streak (only for non-abandoned sessions)
+      if (status !== 'abandoned') {
+        streakResult = updateStreak(user);
+        user.gamification.current_streak = streakResult.current_streak;
+        user.gamification.longest_streak = streakResult.longest_streak;
+        user.gamification.grace_days_used_this_week = streakResult.grace_days_used_this_week;
         user.gamification.last_workout_date = new Date();
 
-        // Streak logic
-        const today = new Date().toDateString();
-        const lastWorkout = user.gamification.last_workout_date
-          ? new Date(user.gamification.last_workout_date).toDateString()
-          : null;
-
-        if (lastWorkout !== today) {
-          user.gamification.current_streak += 1;
-          if (user.gamification.current_streak > user.gamification.longest_streak) {
-            user.gamification.longest_streak = user.gamification.current_streak;
-          }
+        // Add streak milestone bonus XP
+        if (streakResult.bonus_xp > 0) {
+          xpResult.xp_awarded += streakResult.bonus_xp;
+          xpResult.breakdown.push({ source: `${streakResult.streak_milestone}-day streak`, amount: streakResult.bonus_xp });
         }
-
-        await user.save();
       }
+
+      // Apply XP
+      user.gamification.total_xp += xpResult.xp_awarded;
+      user.gamification.level = calculateLevel(user.gamification.total_xp);
+
+      // Evaluate badges
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const sessionsLast7Days = await Session.countDocuments({
+        user_id: user._id,
+        status: { $in: ['full', 'partial'] },
+        completed_at: { $gte: sevenDaysAgo },
+      });
+      const totalCompleted = previousSessions + (status !== 'abandoned' ? 1 : 0);
+
+      newBadges = evaluateBadges({
+        totalCompletedSessions: totalCompleted,
+        sessionsLast7Days: sessionsLast7Days + (status !== 'abandoned' ? 1 : 0),
+        currentStreak: user.gamification.current_streak,
+        daysSinceLastWorkoutBeforeThis: 0,
+        progressionMilestonesEver: progressionFlags.length,
+        goalCategorySessions: totalCompleted,
+        alreadyEarned: user.gamification.badges.map((b: any) => b.badge_id),
+      });
+
+      // Store new badges
+      for (const badge of newBadges) {
+        user.gamification.badges.push({ badge_id: badge.badge_id, earned_at: new Date() } as any);
+      }
+
+      await user.save();
     }
 
     // Update session
     session.status = status;
     session.completed_at = new Date();
-    session.xp_awarded = xpAwarded;
+    session.xp_awarded = xpResult.xp_awarded;
     session.exercises_completed = completedExercises;
     session.exercises_planned = totalExercises;
     await session.save();
@@ -284,13 +324,17 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
       exercises_completed: completedExercises,
       exercises_planned: totalExercises,
       completion_ratio: Math.round(completionRatio * 100),
-      xp_awarded: xpAwarded,
+      xp_awarded: xpResult.xp_awarded,
+      xp_breakdown: xpResult.breakdown,
       new_total_xp: user?.gamification.total_xp || 0,
       level: user?.gamification.level || 1,
       streak: {
         current: user?.gamification.current_streak || 0,
         longest: user?.gamification.longest_streak || 0,
+        milestone: streakResult?.streak_milestone || null,
       },
+      progression_flags: progressionFlags,
+      badges_earned: newBadges,
     });
   } catch (error: any) {
     console.error('Session end error:', error.message);
