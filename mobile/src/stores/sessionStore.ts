@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SessionState, SessionExercise, SetData } from '../../../shared/types';
+import { SessionState, SessionExercise, SessionExerciseSet } from '../../../shared/types';
 
 interface SessionStore {
   // State machine
@@ -16,7 +16,7 @@ interface SessionStore {
   startSession: (sessionId: string, exercises: SessionExercise[]) => void;
   nextExercise: () => void;
   nextSet: () => void;
-  completeSet: (data: Partial<SetData>) => void;
+  completeSet: (data: Partial<SessionExerciseSet>) => void;
   endSession: () => void;
   reset: () => void;
 }
