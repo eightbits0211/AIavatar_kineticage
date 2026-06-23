@@ -11,6 +11,9 @@ import companionRoutes from './routes/companion';
 import dailyCheckinRoutes from './routes/dailyCheckin';
 import dashboardRoutes from './routes/dashboard';
 import progressRoutes from './routes/progress';
+import sttRoutes from './routes/stt';
+import ttsRoutes from './routes/tts';
+import exerciseRoutes from './routes/exercises';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -38,9 +41,9 @@ app.use('/api/companion', companionRoutes);
 app.use('/api/daily-checkin', dailyCheckinRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/progress', progressRoutes);
-// app.use('/api/exercises', exerciseRoutes);
-// app.use('/api/tts', ttsRoutes);
-// app.use('/api/stt', sttRoutes);
+app.use('/api/stt', sttRoutes);
+app.use('/api/tts', ttsRoutes);
+app.use('/api/exercises', exerciseRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 
 // Start server
