@@ -17,7 +17,7 @@ export const useUserStore = create<UserStore>((set) => ({
   isAuthenticated: false,
   isOnboarded: false,
 
-  setUser: (user) => set({ user, isOnboarded: !!user.persona?.type }),
+  setUser: (user) => set({ user, isOnboarded: user.onboarding_completed }),
   setAuthenticated: (value) => set({ isAuthenticated: value }),
   setOnboarded: (value) => set({ isOnboarded: value }),
   logout: () => set({ user: null, isAuthenticated: false, isOnboarded: false }),

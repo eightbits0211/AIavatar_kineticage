@@ -1,23 +1,26 @@
 /**
  * AI Companion Service
  *
- * Currently uses Groq (free tier, Llama model) for development.
- * Switch to Anthropic Claude for production demo.
+ * Uses Google Gemini API (gemini-2.0-flash) for the AI companion.
+ * The file is still named claude.ts to avoid changing imports across the codebase.
  *
- * SWITCHING TO CLAUDE (before demo):
- * 1. Get Anthropic API key from console.anthropic.com (add $5-10 credit)
- * 2. Add ANTHROPIC_API_KEY to .env
- * 3. Replace the Groq implementation below with Anthropic SDK
- *    (swap Groq for Anthropic, adjust the API call format)
- *
- * The rest of the codebase (prompts, routes, frontend) stays UNCHANGED.
+ * The rest of the codebase (prompts, routes, frontend) stays UNCHANGED —
+ * only this file needed to change.
  */
 
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '../config/env';
 import pRetry from 'p-retry';
 
-const groq = new Groq({ apiKey: env.groqApiKey });
+const genAI = new GoogleGenerativeAI(env.geminiApiKey);
+
+const model = genAI.getGenerativeModel({
+  model: 'gemini-2.5-flash',
+  generationConfig: {
+    maxOutputTokens: 300,
+    temperature: 0.7,
+  },
+});
 
 interface Message {
   role: 'user' | 'assistant';
@@ -38,27 +41,24 @@ export async function sendCompanionMessage(
   conversationHistory: Message[],
   userMessage: string
 ): Promise<CompanionResponse> {
-  const messages = [
-    { role: 'system' as const, content: systemPrompt },
-    ...conversationHistory.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    })),
-    { role: 'user' as const, content: userMessage },
-  ];
+  // Build Gemini conversation history format
+  const history = conversationHistory.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' as const : 'user' as const,
+    parts: [{ text: msg.content }],
+  }));
 
   const response = await pRetry(
     async () => {
-      const result = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        max_tokens: 300,
-        temperature: 0.7,
+      const chat = model.startChat({
+        history,
+        systemInstruction: { role: 'user', parts: [{ text: systemPrompt }] },
       });
 
-      const text = result.choices[0]?.message?.content;
+      const result = await chat.sendMessage(userMessage);
+      const text = result.response.text();
+
       if (!text) {
-        throw new Error('Empty response from Groq');
+        throw new Error('Empty response from Gemini');
       }
       return text;
     },
