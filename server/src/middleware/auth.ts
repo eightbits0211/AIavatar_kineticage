@@ -2,22 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import admin from 'firebase-admin';
 import { env } from '../config/env';
 
-// Initialize Firebase Admin SDK only if real credentials are provided
-if (!admin.apps.length && !env.firebasePrivateKey.includes('REPLACE_WITH_REAL')) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: env.firebaseProjectId,
-        privateKey: env.firebasePrivateKey,
-        clientEmail: env.firebaseClientEmail,
-      }),
-    });
-    console.log('✅ Firebase Admin SDK initialized');
-  } catch (error) {
-    console.warn('⚠️ Firebase Admin SDK failed to initialize:', error);
-  }
-} else {
-  console.log('⚠️ Firebase Admin SDK not initialized - using placeholder credentials');
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: env.firebaseProjectId,
+      privateKey: env.firebasePrivateKey,
+      clientEmail: env.firebaseClientEmail,
+    }),
+  });
 }
 
 export interface AuthRequest extends Request {
@@ -37,14 +30,6 @@ export const authMiddleware = async (
   }
 
   const token = authHeader.split('Bearer ')[1];
-
-  // If Firebase Admin isn't properly configured, allow development access
-  if (env.firebasePrivateKey.includes('REPLACE_WITH_REAL')) {
-    console.log('⚠️ Development mode - bypassing Firebase auth verification');
-    req.uid = 'dev-user-123'; // Mock UID for development
-    next();
-    return;
-  }
 
   try {
     const decodedToken = await admin.auth().verifyIdToken(token);
