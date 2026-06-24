@@ -90,6 +90,7 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res: Response)
         exercises: bundle.exercises.map(e => ({
           exercise_id: e.exercise_id,
           name: e.name,
+          workout_phase: e.workout_phase,
           sets: e.sets,
           rep_min: e.rep_min,
           rep_max: e.rep_max,

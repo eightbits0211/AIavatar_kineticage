@@ -56,10 +56,21 @@ function isCompound(exercise: IExercise): boolean {
 export function categoryStage(input: CategoryInput): CategoryOutput {
   const { eligible, fitnessGoal } = input;
 
-  // Filter to exercises tagged with this category
-  const categoryExercises = eligible.filter(
-    ex => ex.category_tags.includes(fitnessGoal)
-  );
+  // Filter to exercises tagged with this category for PRIMARY exercises
+  // BUT always include warm-up, cool-down, core, and cardio_finisher phase exercises
+  // regardless of goal (they're needed for the bundle structure)
+  const categoryExercises = eligible.filter(ex => {
+    // If exercise is tagged with the user's goal, include it
+    if (ex.category_tags.includes(fitnessGoal)) return true;
+    // Always include exercises that serve structural roles in the bundle
+    const phases = (ex as any).workout_phase || [];
+    if (phases.includes('warm_up') || phases.includes('cool_down') ||
+        phases.includes('core') || phases.includes('cardio_finisher') ||
+        phases.includes('bmi_targeting') || phases.includes('balance_mobility')) {
+      return true;
+    }
+    return false;
+  });
 
   // Apply category-specific parameters from each exercise's default_set_rep_range
   const categorized: CategorizedExercise[] = categoryExercises.map(exercise => {
