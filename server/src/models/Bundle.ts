@@ -9,6 +9,7 @@ export interface IBundle extends Document {
   exercises: Array<{
     exercise_id: mongoose.Types.ObjectId;
     name: string;
+    workout_phase: string;
     sets: number;
     rep_min: number;
     rep_max: number;
@@ -42,6 +43,7 @@ const BundleSchema = new Schema<IBundle>({
   exercises: [{
     exercise_id: { type: String },
     name: String,
+    workout_phase: { type: String, enum: ['warm_up', 'primary', 'bmi_targeting', 'core', 'cardio_finisher', 'balance_mobility', 'cool_down'] },
     sets: Number,
     rep_min: Number,
     rep_max: Number,
