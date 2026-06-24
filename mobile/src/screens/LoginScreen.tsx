@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,29 +10,60 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 
 import AppButton from '../components/AppButton';
+import GoogleLogo from '../components/GoogleLogo';
+import AppleLogo from '../components/AppleLogo';
 import { colors, spacing, typography, borderRadius } from '../theme';
+import { googleConfig } from '../config/google';
 import {
   friendlyAuthError,
-  signInAsGuest,
   signInWithEmail,
+  signInWithGoogleIdToken,
   registerWithEmail,
 } from '../services/auth';
+
+// Required for the OAuth popup to dismiss correctly.
+WebBrowser.maybeCompleteAuthSession();
 
 type AuthMode = 'login' | 'signup';
 
 export default function AuthScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const initialMode: AuthMode = route.params?.mode === 'login' ? 'login' : 'signup';
 
-  const [mode, setMode] = useState<AuthMode>('signup');
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: googleConfig.webClientId,
+    iosClientId: googleConfig.iosClientId,
+    androidClientId: googleConfig.androidClientId || undefined,
+  });
+
+  // Handle the Google OAuth response.
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.params?.id_token;
+      if (idToken) {
+        setBusy(true);
+        signInWithGoogleIdToken(idToken)
+          .catch((e) => setError(friendlyAuthError(e)))
+          .finally(() => setBusy(false));
+      }
+    } else if (response?.type === 'error') {
+      setError('Google sign-in was cancelled or failed.');
+    }
+  }, [response]);
 
   const handleSubmit = async () => {
     setError('');
@@ -66,16 +98,19 @@ export default function AuthScreen() {
     }
   };
 
-  const handleGuest = async () => {
+  const handleGoogle = async () => {
     setError('');
-    setBusy(true);
-    try {
-      await signInAsGuest();
-    } catch (e) {
-      setError(friendlyAuthError(e));
-    } finally {
-      setBusy(false);
+    if (!request) {
+      Alert.alert('Google sign-in unavailable', 'Google client IDs are not configured yet.');
+      return;
     }
+    await promptAsync();
+  };
+
+  const handleApple = () => {
+    // Apple Sign In requires an Apple Developer account + expo-apple-authentication
+    // and only works on iOS devices. Wire it up once those are set up.
+    Alert.alert('Apple Sign In', 'Apple sign-in isn\'t set up yet.');
   };
 
   return (
@@ -185,11 +220,21 @@ export default function AuthScreen() {
         <View style={styles.socialContainer}>
           <Text style={styles.socialText}>or continue with</Text>
           <View style={styles.socialButtons}>
-            <Pressable style={styles.socialButton} onPress={handleGuest}>
-              <Text style={styles.socialButtonText}>🔓 Guest</Text>
+            <Pressable
+              style={[styles.socialButton, busy && styles.socialButtonDisabled]}
+              onPress={handleGoogle}
+              disabled={busy}
+            >
+              <GoogleLogo size={18} />
+              <Text style={styles.socialButtonText}>Google</Text>
             </Pressable>
-            <Pressable style={styles.socialButtonDark}>
-              <Text style={styles.socialButtonDarkText}>🍎 Apple</Text>
+            <Pressable
+              style={[styles.socialButtonDark, busy && styles.socialButtonDisabled]}
+              onPress={handleApple}
+              disabled={busy}
+            >
+              <AppleLogo size={18} color={colors.surface} />
+              <Text style={styles.socialButtonDarkText}>Apple</Text>
             </Pressable>
           </View>
         </View>
@@ -321,6 +366,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -336,6 +385,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   socialButtonDark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.text,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
@@ -344,6 +397,9 @@ const styles = StyleSheet.create({
   socialButtonDarkText: {
     ...typography.bodyBold,
     color: colors.surface,
+  },
+  socialButtonDisabled: {
+    opacity: 0.5,
   },
   submitButton: {
     marginBottom: spacing.lg,

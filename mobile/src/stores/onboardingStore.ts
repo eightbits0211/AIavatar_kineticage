@@ -16,15 +16,17 @@ export type OnboardingStep =
   | 'age'
   | 'height'
   | 'weight'
-  | 'fitness_level'
+  | 'gender'
   | 'goals'
   | 'activity_level' 
   | 'location'
   | 'equipment'
   | 'injuries'
   | 'duration'
+  | 'fitness_level'
   | 'experience'
   | 'preferences'
+  | 'summary'
   | 'complete';
 
 export interface ChatMessage {
@@ -39,6 +41,7 @@ export interface OnboardingData {
   age: number | null;
   height_cm: number | null;
   weight_kg: number | null;
+  gender: Gender | null;
   fitness_level: 'beginner' | 'intermediate' | 'advanced' | null;
   fitness_goal: FitnessGoal | null;
   activity_level: ActivityLevel | null;
@@ -51,11 +54,24 @@ export interface OnboardingData {
   talkativeness: Talkativeness | null;
 }
 
+/** The calculated metrics returned by POST /api/personalize. */
+export interface CalculatedMetrics {
+  bmi: number;
+  bmi_category: string;
+  tdee: number;
+  tdee_range: { low: number; high: number };
+  max_heart_rate: number;
+  target_zone: { low: number; high: number };
+}
+
 interface OnboardingStore {
   currentStep: OnboardingStep;
   messages: ChatMessage[];
   data: OnboardingData;
   isProcessing: boolean;
+  /** Metrics + persona tags from the backend, shown on the Health Metrics screen. */
+  metrics: CalculatedMetrics | null;
+  personaTags: string[];
 
   // Actions
   setStep: (step: OnboardingStep) => void;
@@ -63,6 +79,7 @@ interface OnboardingStore {
   updateData: (field: keyof OnboardingData, value: any) => void;
   nextStep: () => void;
   setProcessing: (processing: boolean) => void;
+  setPersonalization: (metrics: CalculatedMetrics, personaTags: string[]) => void;
   reset: () => void;
 }
 
@@ -71,6 +88,7 @@ const initialData: OnboardingData = {
   age: null,
   height_cm: null,
   weight_kg: null,
+  gender: null,
   fitness_level: null,
   fitness_goal: null,
   activity_level: null,
@@ -86,18 +104,20 @@ const initialData: OnboardingData = {
 const stepOrder: OnboardingStep[] = [
   'welcome',
   'name',
-  'age', 
+  'age',
   'height',
   'weight',
-  'fitness_level',
+  'gender',
   'goals',
   'activity_level',
   'location',
   'equipment',
   'injuries',
   'duration',
+  'fitness_level',
   'experience',
   'preferences',
+  'summary',
   'complete'
 ];
 
@@ -106,6 +126,8 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
   messages: [],
   data: initialData,
   isProcessing: false,
+  metrics: null,
+  personaTags: [],
 
   setStep: (step) => set({ currentStep: step }),
 
@@ -137,10 +159,14 @@ export const useOnboardingStore = create<OnboardingStore>((set, get) => ({
 
   setProcessing: (processing) => set({ isProcessing: processing }),
 
+  setPersonalization: (metrics, personaTags) => set({ metrics, personaTags }),
+
   reset: () => set({
     currentStep: 'welcome',
     messages: [],
     data: initialData,
     isProcessing: false,
+    metrics: null,
+    personaTags: [],
   }),
 }));

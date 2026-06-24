@@ -12,19 +12,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * Firebase web SDK configuration.
  *
  * These values are NOT secret — the Firebase web config is shipped to clients
- * by design. They are read from EXPO_PUBLIC_* env vars (inlined at build time)
- * so they stay out of source control. See mobile/.env.example.
- *
- * To run auth locally, create a mobile/.env file with the values from the
- * Firebase console → Project settings → Your apps → Web app config.
+ * by design. They are hardcoded so anyone who clones the repo gets auth
+ * working without needing a .env file.
  */
 export const firebaseConfig = {
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '',
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? '',
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ?? '',
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? '',
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
+  apiKey: 'AIzaSyBDoRZHeb1OKP2KeVXmJ5xShp4yfV2i7ko',
+  authDomain: 'aiavatar-de201.firebaseapp.com',
+  projectId: 'aiavatar-de201',
+  storageBucket: 'aiavatar-de201.firebasestorage.app',
+  messagingSenderId: '443799818657',
+  appId: '1:443799818657:web:091ba33b17c9bf45127be0',
 };
 
 // Check for placeholder values in development

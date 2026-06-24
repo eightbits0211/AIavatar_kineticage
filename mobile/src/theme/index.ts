@@ -28,13 +28,13 @@ export const spacing = {
 };
 
 export const typography = {
-  h1: { fontSize: 28, fontWeight: '700' as const, lineHeight: 34 },
-  h2: { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
-  h3: { fontSize: 18, fontWeight: '600' as const, lineHeight: 24 },
-  body: { fontSize: 16, fontWeight: '400' as const, lineHeight: 22 },
-  bodyBold: { fontSize: 16, fontWeight: '600' as const, lineHeight: 22 },
-  caption: { fontSize: 14, fontWeight: '400' as const, lineHeight: 18 },
-  small: { fontSize: 12, fontWeight: '400' as const, lineHeight: 16 },
+  h1: { fontSize: 28, fontFamily: 'Inter_700Bold', lineHeight: 34 },
+  h2: { fontSize: 22, fontFamily: 'Inter_600SemiBold', lineHeight: 28 },
+  h3: { fontSize: 18, fontFamily: 'Inter_600SemiBold', lineHeight: 24 },
+  body: { fontSize: 16, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+  bodyBold: { fontSize: 16, fontFamily: 'Inter_600SemiBold', lineHeight: 22 },
+  caption: { fontSize: 14, fontFamily: 'Inter_400Regular', lineHeight: 18 },
+  small: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 16 },
 };
 
 export const borderRadius = {

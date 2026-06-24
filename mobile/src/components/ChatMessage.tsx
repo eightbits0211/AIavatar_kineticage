@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography, borderRadius } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, typography } from '../theme';
 import KinAvatar from './KinAvatar';
 
 interface ChatMessageProps {
@@ -17,11 +18,20 @@ export default function ChatMessage({ role, content }: ChatMessageProps) {
           <KinAvatar size={32} />
         </View>
       )}
-      <View style={[styles.bubble, isKin ? styles.kinBubble : styles.userBubble]}>
-        <Text style={[styles.text, isKin ? styles.kinText : styles.userText]}>
-          {content}
-        </Text>
-      </View>
+      {isKin ? (
+        <View style={styles.kinBubble}>
+          <Text style={styles.kinText}>{content}</Text>
+        </View>
+      ) : (
+        <LinearGradient
+          colors={['#3A7CA8', '#4A90C2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.userBubble}
+        >
+          <Text style={styles.userText}>{content}</Text>
+        </LinearGradient>
+      )}
     </View>
   );
 }
@@ -29,7 +39,7 @@ export default function ChatMessage({ role, content }: ChatMessageProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: spacing.xs,
+    marginVertical: spacing.sm,
     paddingHorizontal: spacing.md,
   },
   kinMessage: {
@@ -41,34 +51,43 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginRight: spacing.sm,
     marginTop: spacing.xs,
-  },
-  bubble: {
-    maxWidth: '80%',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 16,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    alignSelf: 'flex-end',
   },
   kinBubble: {
-    backgroundColor: colors.companionBubble,
-    borderBottomLeftRadius: 6,
+    maxWidth: '80%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
   userBubble: {
-    backgroundColor: colors.userBubble,
-    borderBottomRightRadius: 6,
-  },
-  text: {
-    ...typography.body,
-    fontSize: 15,
+    maxWidth: '75%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 18,
+    shadowColor: '#3A7CA8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   kinText: {
+    ...typography.body,
+    fontSize: 15,
     color: colors.text,
+    lineHeight: 22,
   },
   userText: {
-    color: colors.surface,
+    ...typography.body,
+    fontSize: 15,
+    color: '#FFFFFF',
+    lineHeight: 22,
   },
 });

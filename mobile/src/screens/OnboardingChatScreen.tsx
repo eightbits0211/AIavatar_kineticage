@@ -8,17 +8,25 @@ import {
   Text,
   TextInput,
   View,
-  FlatList,
 } from 'react-native';
+
+import { useNavigation } from '@react-navigation/native';
 
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { useOnboardingStore } from '../stores/onboardingStore';
 import { useUserStore } from '../stores/userStore';
-import { apiPost } from '../services/api';
+import { apiPost, apiPut } from '../services/api';
 import { signOutCurrentUser } from '../services/auth';
 import KinAvatar from '../components/KinAvatar';
 import ChatMessage from '../components/ChatMessage';
 import HorizontalButtons from '../components/HorizontalButtons';
+import GoalCard from '../components/GoalCard';
+import OptionCard from '../components/OptionCard';
+import ActivityIcon, { type ActivityIconName } from '../components/ActivityIcon';
+import EquipmentCard from '../components/EquipmentCard';
+import type { EquipmentIconName } from '../components/EquipmentIcon';
+import ProfileSummaryCard from '../components/ProfileSummaryCard';
+import SendIcon from '../components/SendIcon';
 import type { PersonalizeResponse } from '../../../shared/types';
 
 export default function OnboardingChatScreen() {
@@ -31,18 +39,18 @@ export default function OnboardingChatScreen() {
     updateData,
     nextStep,
     setProcessing,
+    setPersonalization,
   } = useOnboardingStore();
 
-  const setOnboarded = useUserStore((s) => s.setOnboarded);
-  const setUser = useUserStore((s) => s.setUser);
+  const navigation = useNavigation<any>();
   
   const [inputValue, setInputValue] = useState('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  const scrollViewRef = useRef<FlatList>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Calculate progress percentage based on current step
   const getProgressPercentage = () => {
-    const steps = ['welcome', 'name', 'age', 'height', 'weight', 'fitness_level', 'goals', 'activity_level', 'location', 'equipment', 'injuries', 'duration', 'experience', 'preferences', 'complete'];
+    const steps = ['welcome', 'name', 'age', 'height', 'weight', 'gender', 'goals', 'activity_level', 'location', 'equipment', 'injuries', 'duration', 'fitness_level', 'experience', 'preferences', 'summary', 'complete'];
     const currentIndex = steps.indexOf(currentStep);
     return Math.max(0, Math.min(100, Math.round((currentIndex / (steps.length - 1)) * 100)));
   };
@@ -65,44 +73,51 @@ export default function OnboardingChatScreen() {
     }
   }, []);
 
-  // Handle step progression and AI responses
-  useEffect(() => {
-    if (currentStep === 'complete') {
-      handlePersonalization();
-    }
-  }, [currentStep]);
+  // Personalization is triggered by the "Build My Plan" button on the summary
+  // card (see the 'summary' step), not automatically.
 
   const handlePersonalization = async () => {
     setProcessing(true);
     try {
-      const response = await apiPost<PersonalizeResponse>('/api/personalize', {
+      // 1. Persist the collected profile. The backend's /api/personalize reads
+      //    from the saved user document (not the request body), so we must save
+      //    everything first.
+      await apiPut('/api/profile', {
         name: data.name,
         age: data.age,
         height_cm: data.height_cm,
         weight_kg: data.weight_kg,
+        gender: data.gender ?? 'prefer_not_to_say',
         fitness_goal: data.fitness_goal,
         activity_level: data.activity_level,
         workout_location: data.workout_location,
-        equipment: data.equipment,
-        injuries: data.injuries,
+        equipment: data.equipment.length ? data.equipment : ['none'],
+        injuries: data.injuries.length ? data.injuries : ['none'],
         injury_notes: data.injury_notes,
         workout_duration: data.workout_duration,
-        prior_program_experience: data.prior_program_experience,
+        prior_program_experience: data.prior_program_experience ?? false,
         companion_preferences: {
-          talkativeness: data.talkativeness || 'balanced',
           voice_id: 'default',
+          talkativeness: data.talkativeness || 'balanced',
           in_session_verbosity: 'standard',
         },
       });
 
-      addMessage('kin', "Perfect! I've created your personalized workout plan. Let's get started on your fitness journey!");
-      
+      // 2. Run personalization — calculates metrics + persona tags from the
+      //    saved profile and returns them.
+      const response = await apiPost<PersonalizeResponse>('/api/personalize', {});
+
+      addMessage('kin', "Perfect! I've built your plan. Here's a quick snapshot of where you're starting from.");
+
+      setPersonalization(response.calculated_metrics, response.persona_tags);
+
       setTimeout(() => {
-        setOnboarded(true);
-      }, 2000);
+        navigation.navigate('HealthMetrics');
+      }, 1200);
     } catch (error) {
-      addMessage('kin', "Oops! Something went wrong. Let me try setting up your plan again...");
-      setTimeout(() => handlePersonalization(), 2000);
+      // Don't auto-retry in a loop — surface the issue once.
+      addMessage('kin', "I couldn't finish setting up your plan just now. Please check your connection and tap send to try again.");
+      if (__DEV__) console.warn('Personalization failed:', error);
     } finally {
       setProcessing(false);
     }
@@ -112,16 +127,34 @@ export default function OnboardingChatScreen() {
     switch (currentStep) {
       case 'age':
         return {
-          inputPlaceholder: 'Your age',
+          buttons: [
+            { label: '18 years', value: '18' },
+            { label: '25 years', value: '25' },
+            { label: '30 years', value: '30' },
+            { label: '35 years', value: '35' },
+            { label: '40 years', value: '40' },
+            { label: '45 years', value: '45' },
+            { label: '50 years', value: '50' },
+            { label: '55 years', value: '55' },
+            { label: '60 years', value: '60' },
+          ],
+          inputPlaceholder: 'e.g. 32',
+          inputSuffix: 'years',
           inputType: 'numeric' as const,
           validate: (value: string) => {
             const age = parseInt(value);
             return age >= 16 && age <= 100;
           },
+          onButtonPress: (value: string) => {
+            updateData('age', parseInt(value));
+            addMessage('user', `${value} years`);
+            addMessage('kin', `Got it! What's your height? I can work with feet/inches or centimeters.`);
+            nextStep();
+          },
           onSubmit: (value: string) => {
             const age = parseInt(value);
             updateData('age', age);
-            addMessage('user', value);
+            addMessage('user', `${age} years`);
             addMessage('kin', `Got it! What's your height? I can work with feet/inches or centimeters.`);
             nextStep();
           },
@@ -162,7 +195,27 @@ export default function OnboardingChatScreen() {
             }
             updateData('weight_kg', Math.round(weightKg));
             addMessage('user', value);
-            addMessage('kin', `How would you describe your current fitness level?`);
+            addMessage('kin', `Thanks! Which of these best describes you?`);
+            nextStep();
+          },
+        };
+
+      case 'gender':
+        return {
+          buttons: [
+            { label: 'Male', value: 'male' },
+            { label: 'Female', value: 'female' },
+            { label: 'Other', value: 'other' },
+            { label: 'Prefer not to say', value: 'prefer_not_to_say' },
+          ],
+          onButtonPress: (value: string) => {
+            updateData('gender', value);
+            const label =
+              value === 'prefer_not_to_say'
+                ? 'Prefer not to say'
+                : value.charAt(0).toUpperCase() + value.slice(1);
+            addMessage('user', label);
+            addMessage('kin', `What's your main fitness goal? I want to make sure we're working toward what matters to you.`);
             nextStep();
           },
         };
@@ -177,20 +230,20 @@ export default function OnboardingChatScreen() {
           onButtonPress: (value: string) => {
             updateData('fitness_level', value);
             addMessage('user', value.charAt(0).toUpperCase() + value.slice(1));
-            addMessage('kin', `What's your main fitness goal? I want to make sure we're working toward what matters to you.`);
+            addMessage('kin', `Have you followed a structured workout program before?`);
             nextStep();
           },
         };
 
       case 'goals':
         return {
-          buttons: [
-            { label: 'Strength', value: 'strength' },
-            { label: 'Muscle Building', value: 'hypertrophy' },
-            { label: 'Weight Loss', value: 'weight_loss' },
-            { label: 'General Fitness', value: 'general_fitness' },
-            { label: 'Mobility', value: 'mobility' },
-            { label: 'Home Workouts', value: 'home_workout' },
+          gridCards: [
+            { value: 'strength', title: 'Strength', subtitle: 'Build raw power', tint: '#EAF2FB', iconColor: '#4A90C2' },
+            { value: 'hypertrophy', title: 'Hypertrophy', subtitle: 'Gain muscle size', tint: '#ECEBFB', iconColor: '#5B6CC2' },
+            { value: 'mobility', title: 'Mobility', subtitle: 'Move better, feel better', tint: '#E8F6EE', iconColor: '#34A853' },
+            { value: 'general_fitness', title: 'General Fitness', subtitle: 'Overall wellness', tint: '#EAF2FB', iconColor: '#4A90C2' },
+            { value: 'weight_loss', title: 'Weight Loss', subtitle: 'Burn fat, slim down', tint: '#E8F1FB', iconColor: '#4A90C2' },
+            { value: 'home_workout', title: 'Home Workout', subtitle: 'Train anywhere', tint: '#FDF0E6', iconColor: '#E8772E' },
           ],
           onButtonPress: (value: string) => {
             updateData('fitness_goal', value);
@@ -203,11 +256,11 @@ export default function OnboardingChatScreen() {
 
       case 'activity_level':
         return {
-          buttons: [
-            { label: 'Sedentary', value: 'sedentary' },
-            { label: 'Lightly Active', value: 'lightly_active' },
-            { label: 'Moderately Active', value: 'moderately_active' },
-            { label: 'Very Active', value: 'very_active' },
+          cardList: [
+            { value: 'sedentary', title: 'Sedentary', subtitle: 'New to working out', tint: '#E8F6EE', iconColor: '#34A853', icon: 'leaf' as ActivityIconName },
+            { value: 'lightly_active', title: 'Lightly Active', subtitle: 'Work out here and there', tint: '#EAF2FB', iconColor: '#4A90C2', icon: 'pulse' as ActivityIconName },
+            { value: 'moderately_active', title: 'Moderately Active', subtitle: 'Regular workouts', tint: '#FDF0E6', iconColor: '#E8772E', icon: 'bolt' as ActivityIconName },
+            { value: 'very_active', title: 'Very Active', subtitle: 'Train consistently', tint: '#F3EEFB', iconColor: '#7B61C2', icon: 'trophy' as ActivityIconName },
           ],
           onButtonPress: (value: string) => {
             updateData('activity_level', value);
@@ -238,15 +291,15 @@ export default function OnboardingChatScreen() {
       case 'equipment':
         return {
           multiSelect: true,
-          buttons: [
-            { label: 'None', value: 'none' },
-            { label: 'Dumbbells', value: 'dumbbells' },
-            { label: 'Barbell', value: 'barbell' },
-            { label: 'Resistance Bands', value: 'resistance_bands' },
-            { label: 'Kettlebell', value: 'kettlebell' },
-            { label: 'Pull-up Bar', value: 'pull_up_bar' },
-            { label: 'Bench', value: 'bench' },
-            { label: 'Gym Machines', value: 'machines' },
+          equipmentGrid: [
+            { label: 'None', value: 'none', tint: '#E8F6EE', iconColor: '#34A853' },
+            { label: 'Dumbbells', value: 'dumbbells', tint: '#EAF2FB', iconColor: '#4A90C2' },
+            { label: 'Barbell', value: 'barbell', tint: '#ECEBFB', iconColor: '#5B6CC2' },
+            { label: 'Resistance Bands', value: 'resistance_bands', tint: '#FDF0E6', iconColor: '#E8772E' },
+            { label: 'Kettlebell', value: 'kettlebell', tint: '#F3EEFB', iconColor: '#7B61C2' },
+            { label: 'Pull-up Bar', value: 'pull_up_bar', tint: '#EAF2FB', iconColor: '#4A90C2' },
+            { label: 'Bench', value: 'bench', tint: '#E8F1FB', iconColor: '#4A90C2' },
+            { label: 'Gym Machines', value: 'machines', tint: '#FDF0E6', iconColor: '#E8772E' },
           ],
           onContinue: () => {
             updateData('equipment', selectedOptions);
@@ -295,7 +348,7 @@ export default function OnboardingChatScreen() {
           onButtonPress: (value: string) => {
             updateData('workout_duration', parseInt(value));
             addMessage('user', `${value} minutes`);
-            addMessage('kin', `Have you followed a structured workout program before?`);
+            addMessage('kin', `How would you describe your current fitness level?`);
             nextStep();
           },
         };
@@ -324,10 +377,16 @@ export default function OnboardingChatScreen() {
           onButtonPress: (value: string) => {
             updateData('talkativeness', value);
             addMessage('user', value.charAt(0).toUpperCase() + value.slice(1));
-            addMessage('kin', `Perfect! Let me create your personalized plan...`);
+            addMessage('kin', `Perfect. I can work with that.`);
+            addMessage('kin', `Here's a quick summary before I build your plan.`);
             nextStep();
           },
         };
+
+      case 'summary':
+        // No input/buttons — the ProfileSummaryCard (with its "Build My Plan"
+        // button) is rendered in the message area for this step.
+        return {};
 
       default:
         return { inputPlaceholder: 'Type your response...' };
@@ -389,33 +448,98 @@ export default function OnboardingChatScreen() {
             <Text style={styles.headerTitle}>AI Fitness Coach</Text>
           </View>
           <View style={styles.headerRight}>
+            <Pressable 
+              style={styles.logoutButton}
+              onPress={() => signOutCurrentUser()}
+            >
+              <Text style={styles.logoutText}>Logout</Text>
+            </Pressable>
             <View style={styles.progressContainer}>
               <Text style={styles.progressText}>{getProgressPercentage()}% complete</Text>
               <View style={styles.progressBar}>
                 <View style={[styles.progressFill, { width: `${getProgressPercentage()}%` }]} />
               </View>
             </View>
-            <Pressable 
-              style={styles.logoutButton}
-              onPress={() => signOutCurrentUser()}
-            >
-              <Text style={styles.logoutText}>×</Text>
-            </Pressable>
           </View>
         </View>
       </View>
 
       {/* Messages */}
-      <FlatList
+      <ScrollView
         ref={scrollViewRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ChatMessage role={item.role} content={item.content} />
-        )}
+        style={styles.messagesList}
         contentContainerStyle={styles.messagesContainer}
         showsVerticalScrollIndicator={false}
-      />
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+      >
+        {messages.map((item) => (
+          <ChatMessage key={item.id} role={item.role} content={item.content} />
+        ))}
+        {currentStep === 'summary' && (
+          <ProfileSummaryCard
+            data={data}
+            loading={isProcessing}
+            onBuild={handlePersonalization}
+          />
+        )}
+      </ScrollView>
+
+      {/* Goal cards — special 2-column grid for the fitness goal step */}
+      {stepContent.gridCards && (
+        <View style={styles.gridContainer}>
+          {stepContent.gridCards.map((card) => (
+            <GoalCard
+              key={card.value}
+              goal={card.value as any}
+              title={card.title}
+              subtitle={card.subtitle}
+              tint={card.tint}
+              iconColor={card.iconColor}
+              onPress={() => handleButtonPress(card.value)}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* Equipment cards — 2-column multi-select grid for the equipment step */}
+      {stepContent.equipmentGrid && (
+        <View style={styles.buttonsContainer}>
+          <View style={styles.gridContainer}>
+            {stepContent.equipmentGrid.map((card) => (
+              <EquipmentCard
+                key={card.value}
+                value={card.value as EquipmentIconName}
+                label={card.label}
+                tint={card.tint}
+                iconColor={card.iconColor}
+                selected={selectedOptions.includes(card.value)}
+                onPress={() => handleButtonPress(card.value)}
+              />
+            ))}
+          </View>
+          <View style={styles.continueButtonContainer}>
+            <Pressable style={styles.continueButton} onPress={handleMultiSelectContinue}>
+              <Text style={styles.continueText}>Continue</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Option cards — full-width single-column list (e.g. activity level) */}
+      {stepContent.cardList && (
+        <View style={styles.cardListContainer}>
+          {stepContent.cardList.map((card) => (
+            <OptionCard
+              key={card.value}
+              icon={<ActivityIcon name={card.icon} color={card.iconColor} />}
+              title={card.title}
+              subtitle={card.subtitle}
+              tint={card.tint}
+              onPress={() => handleButtonPress(card.value)}
+            />
+          ))}
+        </View>
+      )}
 
       {/* Quick Buttons */}
       {stepContent.buttons && (
@@ -439,8 +563,9 @@ export default function OnboardingChatScreen() {
         </View>
       )}
 
-      {/* Input */}
-      {!stepContent.buttons && (
+      {/* Input — shown whenever the step accepts typed input (age shows both
+          the quick-pick buttons above AND this input). */}
+      {stepContent.inputPlaceholder && (
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}
@@ -452,12 +577,19 @@ export default function OnboardingChatScreen() {
             onSubmitEditing={handleSubmit}
             editable={!isProcessing}
           />
+          {!!stepContent.inputSuffix && (
+            <Text style={styles.inputSuffix}>{stepContent.inputSuffix}</Text>
+          )}
           <Pressable
-            style={[styles.sendButton, (!inputValue.trim() || isProcessing) && styles.sendButtonDisabled]}
+            style={({ pressed }) => [
+              styles.sendButton,
+              (!inputValue.trim() || isProcessing) && styles.sendButtonDisabled,
+              pressed && inputValue.trim() && !isProcessing && styles.sendButtonPressed,
+            ]}
             onPress={handleSubmit}
             disabled={!inputValue.trim() || isProcessing}
           >
-            <Text style={styles.sendButtonText}>→</Text>
+            <SendIcon size={32} />
           </Pressable>
         </View>
       )}
@@ -498,38 +630,58 @@ const styles = StyleSheet.create({
   },
   progressContainer: {
     alignItems: 'flex-end',
-    marginBottom: spacing.xs,
+    marginTop: 12,
   },
   progressText: {
-    ...typography.small,
+    fontSize: 11,
     color: colors.surface,
-    opacity: 0.9,
-    marginBottom: 4,
+    opacity: 0.8,
+    marginBottom: 6,
+    letterSpacing: 0.2,
   },
   progressBar: {
-    width: 60,
-    height: 4,
-    backgroundColor: colors.progressBar,
-    borderRadius: 2,
+    width: 64,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 1.5,
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.surface,
-    borderRadius: 2,
+    borderRadius: 1.5,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    alignSelf: 'flex-end',
   },
   logoutText: {
+    fontSize: 12,
     color: colors.surface,
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  messagesList: {
+    flex: 1,
   },
   messagesContainer: {
     paddingVertical: spacing.md,
+    flexGrow: 1,
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+  },
+  cardListContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
   },
   buttonsContainer: {
     backgroundColor: colors.background,
@@ -572,23 +724,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     fontSize: 16,
   },
+  inputSuffix: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginRight: spacing.sm,
+  },
   sendButton: {
-    backgroundColor: colors.text,
-    borderRadius: 18,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    minWidth: 36,
-    minHeight: 36,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.xs,
+    marginLeft: spacing.sm,
+    overflow: 'hidden',
   },
   sendButtonDisabled: {
-    opacity: 0.3,
+    opacity: 0.25,
   },
-  sendButtonText: {
-    color: colors.surface,
-    fontSize: 18,
-    fontWeight: '600',
+  sendButtonPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.92 }],
   },
 });
