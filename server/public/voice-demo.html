@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KineticAge Voice Demo — Talk to Kira</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #fff; }
+    .subtitle { color: #888; margin-bottom: 2rem; font-size: 0.9rem; }
+    .chat-container { width: 100%; max-width: 600px; flex: 1; overflow-y: auto; margin-bottom: 1rem; }
+    .message { padding: 0.8rem 1rem; margin: 0.5rem 0; border-radius: 12px; max-width: 85%; animation: fadeIn 0.3s; }
+    .user { background: #2d5a7b; margin-left: auto; text-align: right; }
+    .assistant { background: #2a2a4a; border: 1px solid #3a3a5a; }
+    .system { background: transparent; color: #666; font-size: 0.8rem; text-align: center; max-width: 100%; }
+    .controls { display: flex; gap: 1rem; align-items: center; }
+    .btn { padding: 1rem 2rem; border: none; border-radius: 50px; font-size: 1rem; cursor: pointer; transition: all 0.2s; }
+    .btn-record { background: #e74c3c; color: white; width: 80px; height: 80px; border-radius: 50%; font-size: 0.8rem; }
+    .btn-record.recording { background: #c0392b; animation: pulse 1s infinite; }
+    .btn-record:disabled { background: #555; cursor: not-allowed; }
+    .btn-text { background: #3498db; color: white; }
+    .btn-reset { background: #555; color: #ccc; font-size: 0.8rem; padding: 0.5rem 1rem; }
+    .text-input { display: flex; gap: 0.5rem; width: 100%; max-width: 600px; margin-top: 1rem; }
+    .text-input input { flex: 1; padding: 0.8rem; border-radius: 8px; border: 1px solid #444; background: #2a2a4a; color: #fff; font-size: 1rem; }
+    .status { color: #888; font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.2rem; }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <h1>🏋️ KineticAge Voice Demo</h1>
+  <p class="subtitle">Talk to Kira — your AI fitness companion</p>
+  
+  <div class="chat-container" id="chat"></div>
+  
+  <div class="controls">
+    <button class="btn btn-record" id="recordBtn" onclick="toggleRecord()">🎤 Hold</button>
+    <button class="btn btn-reset" onclick="resetChat()">Reset</button>
+  </div>
+  
+  <div class="text-input">
+    <input type="text" id="textInput" placeholder="Or type a message..." onkeypress="if(event.key==='Enter')sendText()">
+    <button class="btn btn-text" onclick="sendText()">Send</button>
+  </div>
+  
+  <p class="status" id="status"></p>
+
+  <script>
+    const BASE = 'http://localhost:3000/api/voice-demo';
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    function addMessage(role, text) {
+      const chat = document.getElementById('chat');
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function setStatus(text) {
+      document.getElementById('status').textContent = text;
+    }
+
+    async function toggleRecord() {
+      const btn = document.getElementById('recordBtn');
+      
+      if (!isRecording) {
+        // Start recording
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          audioChunks = [];
+          
+          mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+          mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop());
+            sendAudio();
+          };
+          
+          mediaRecorder.start();
+          isRecording = true;
+          btn.textContent = '⏹ Stop';
+          btn.classList.add('recording');
+          setStatus('Recording... speak now');
+        } catch (err) {
+          setStatus('Mic access denied. Use text input instead.');
+        }
+      } else {
+        // Stop recording
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.textContent = '🎤 Hold';
+        btn.classList.remove('recording');
+        setStatus('Processing...');
+      }
+    }
+
+    async function sendAudio() {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+
+      setStatus('Transcribing → Thinking → Speaking...');
+      const btn = document.getElementById('recordBtn');
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch(`${BASE}/talk`, { method: 'POST', body: formData });
+        const data = await resp.json();
+
+        if (data.transcript) {
+          addMessage('user', data.transcript);
+        }
+        if (data.reply) {
+          addMessage('assistant', data.reply);
+        }
+        if (data.audio) {
+          playAudio(data.audio);
+          setStatus('Speaking...');
+        } else {
+          setStatus(data.reply ? 'TTS unavailable — text only' : '');
+        }
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+      btn.disabled = false;
+    }
+
+    async function sendText() {
+      const input = document.getElementById('textInput');
+      const message = input.value.trim();
+      if (!message) return;
+      input.value = '';
+      
+      addMessage('user', message);
+      setStatus('Thinking...');
+
+      try {
+        const resp = await fetch(`${BASE}/text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await resp.json();
+
+        if (data.reply) {
+          addMessage('assistant', data.reply);
+        }
+        if (data.audio) {
+          playAudio(data.audio);
+          setStatus('Speaking...');
+        } else {
+          setStatus('');
+        }
+      } catch (err) {
+        setStatus('Error: ' + err.message);
+      }
+    }
+
+    function playAudio(base64) {
+      const audio = new Audio('data:audio/mpeg;base64,' + base64);
+      audio.onended = () => setStatus('');
+      audio.play().catch(() => setStatus('Audio playback blocked — click page first'));
+    }
+
+    async function resetChat() {
+      await fetch(`${BASE}/reset`, { method: 'POST' });
+      document.getElementById('chat').innerHTML = '';
+      addMessage('system', 'Conversation reset. Say hi to Kira!');
+      setStatus('');
+    }
+
+    // Init
+    addMessage('system', 'Click the mic button and speak, or type below. Kira will respond with voice!');
+  </script>
+</body>
+</html>

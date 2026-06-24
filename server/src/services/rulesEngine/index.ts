@@ -91,10 +91,12 @@ export async function generateBundles(options: GenerateBundlesOptions): Promise<
 
   // Stage 4: Bundle Assembly
   const workoutDuration = (user.workout_duration || 30) as 15 | 30 | 45 | 60;
+  const bmiCategory = user.calculated_metrics?.bmi_category || '';
   const assemblyResult: BundleAssemblyOutput = bundleAssemblyStage({
     modified: personaResult.modified,
     workoutDuration,
     recentMuscleGroups,
+    bmiCategory,
   });
 
   return {

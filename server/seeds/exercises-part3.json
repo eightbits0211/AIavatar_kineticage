@@ -43,7 +43,10 @@
     },
     "instructions_text": "Set bench to 30-45 degrees. Press dumbbells from shoulder height to full extension above upper chest. Lower with control. Keeps emphasis on upper chest.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_042",
@@ -79,7 +82,10 @@
     },
     "instructions_text": "Stand between cable stacks with handles at chest height. Step forward. Bring handles together in front of chest with slight elbow bend. Squeeze at center, return with control.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_043",
@@ -127,7 +133,10 @@
     },
     "instructions_text": "Hold dumbbells with palms facing each other (neutral grip). Curl up keeping palms inward throughout. Lower with control. Targets brachialis and forearms.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_044",
@@ -169,7 +178,10 @@
     },
     "instructions_text": "Lie on bench holding barbell with narrow grip above forehead. Bend elbows to lower bar toward forehead. Extend back up. Keep elbows pointing at ceiling throughout.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_045",
@@ -208,7 +220,10 @@
     },
     "instructions_text": "Stand facing cable machine with rope or bar attachment at top. Push down by extending elbows until arms are straight. Keep elbows pinned to sides. Return with control.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_046",
@@ -254,7 +269,10 @@
     },
     "instructions_text": "Get into push-up position with hands close together, thumbs and index fingers forming a diamond shape. Lower chest to hands. Push back up. Harder than regular push-ups.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_047",
@@ -300,7 +318,10 @@
     },
     "instructions_text": "Stand with wide stance and toes turned out. Grip bar between legs with narrow grip. Drive through heels to stand. Keep chest proud throughout. Easier on lower back than conventional.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_048",
@@ -343,7 +364,10 @@
     },
     "instructions_text": "Sit with upper back against a bench, barbell across hips. Drive through heels to lift hips until body forms straight line from shoulders to knees. Squeeze glutes at top. Lower with control.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_049",
@@ -394,7 +418,11 @@
     },
     "instructions_text": "Lie on back with knees bent and feet flat. Push through heels to lift hips until body forms straight line from shoulders to knees. Squeeze glutes at top. Lower with control.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_050",
@@ -435,7 +463,10 @@
     },
     "instructions_text": "Lie face down on leg curl machine with pad on back of ankles. Curl legs up by bending knees. Squeeze hamstrings at top. Lower slowly.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_051",
@@ -469,7 +500,10 @@
     },
     "instructions_text": "Sit in leg extension machine with shins behind pad. Extend legs fully by straightening knees. Squeeze quads at top. Lower with control.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_052",
@@ -523,7 +557,10 @@
     },
     "instructions_text": "Stand facing a bench or sturdy platform. Step up with one foot, drive through that heel to stand on top. Step back down. Alternate legs or complete one side first.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_053",
@@ -578,7 +615,10 @@
     },
     "instructions_text": "Stand tall. Step one foot back and lower back knee toward ground. Both knees at 90 degrees. Push through front heel to return to standing. Easier on knees than forward lunges.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_054",
@@ -624,7 +664,10 @@
     },
     "instructions_text": "Rest barbell on front of shoulders with elbows high. Squat down keeping torso very upright. Requires good wrist and shoulder mobility. More quad-dominant than back squat.",
     "difficulty_level": "advanced",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_055",
@@ -664,7 +707,10 @@
     },
     "instructions_text": "Set a box or bench behind you at knee height. Squat back onto the box with control, pause briefly, then drive up. Teaches proper depth and hip mechanics.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_056",
@@ -717,7 +763,10 @@
     },
     "instructions_text": "Hold dumbbells at sides. Step wide to one side, bending that knee and pushing hips back while keeping other leg straight. Push back to start. Alternate sides.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_057",
@@ -762,7 +811,10 @@
     },
     "instructions_text": "Start with dumbbells at shoulder height, palms facing you. As you press up, rotate palms to face forward at the top. Reverse the rotation as you lower. Full range of motion for all deltoid heads.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_058",
@@ -807,7 +859,10 @@
     },
     "instructions_text": "Hold dumbbells in front of thighs. Pull them straight up along your body, leading with elbows until they reach shoulder height. Lower with control. Keep the weight close to your body.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_059",
@@ -849,7 +904,10 @@
     },
     "instructions_text": "Hinge forward at hips holding light dumbbells. Raise arms out to sides squeezing shoulder blades together. Lower with control. Keep slight bend in elbows throughout.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_060",
@@ -891,7 +949,10 @@
     },
     "instructions_text": "Stand holding heavy dumbbells at sides. Shrug shoulders straight up toward ears. Hold briefly at top. Lower with control. Avoid rolling shoulders.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_061",
@@ -936,7 +997,11 @@
     },
     "instructions_text": "Hold heavy dumbbells at sides. Walk forward with tall posture, shoulders back, core braced. Maintain even pace. Great for grip strength and overall stability.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary",
+      "balance_mobility"
+    ]
   },
   {
     "exercise_id": "ex_062",
@@ -989,7 +1054,10 @@
     },
     "instructions_text": "Lie on back with hands behind head. Lift shoulders off floor. Bring one knee toward chest while rotating opposite elbow toward it. Alternate sides in a pedaling motion.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_063",
@@ -1032,7 +1100,10 @@
     },
     "instructions_text": "Sit with knees bent, feet off floor, lean back slightly. Rotate torso side to side, touching the ground beside each hip. Keep core engaged throughout. Can hold a weight for added challenge.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_064",
@@ -1078,7 +1149,10 @@
     },
     "instructions_text": "Kneel with an ab wheel (or use a towel on smooth floor). Roll forward extending arms, keeping core tight and back flat. Go as far as you can control. Pull back to start using your abs.",
     "difficulty_level": "advanced",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_065",
@@ -1122,7 +1196,10 @@
     },
     "instructions_text": "Hang from a bar with straight arms. Raise legs (bent or straight) until at least parallel to ground. Lower with control. Avoid swinging.",
     "difficulty_level": "advanced",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_066",
@@ -1175,7 +1252,11 @@
     },
     "instructions_text": "Lie face down with arms extended overhead. Simultaneously lift arms, chest, and legs off the floor. Hold briefly. Lower with control. Strengthens posterior chain.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_067",
@@ -1219,7 +1300,10 @@
     },
     "instructions_text": "Position yourself in a 45-degree back extension station with hips on pad. Cross arms over chest. Lower torso toward floor. Raise back up until body is straight. Do not hyperextend.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_068",
@@ -1262,7 +1346,10 @@
     },
     "instructions_text": "Anchor band low behind you. Straddle band facing away. Hinge at hips letting band pull hands back between legs. Drive hips forward to stand tall squeezing glutes. Great hip hinge learning tool.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_069",
@@ -1315,7 +1402,10 @@
     },
     "instructions_text": "Stand on band with feet shoulder-width. Hold band at shoulders. Squat down and stand back up. Band adds resistance at the top of the movement. Keep chest up.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_070",
@@ -1359,7 +1449,10 @@
     },
     "instructions_text": "Sit with legs extended, band looped around feet. Pull band toward your stomach squeezing shoulder blades together. Return with control. Keep back straight throughout.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "primary"
+    ]
   },
   {
     "exercise_id": "ex_071",
@@ -1413,7 +1506,12 @@
     },
     "instructions_text": "Stand tall. Run in place driving knees up to hip height with each step. Pump arms. Maintain quick pace. Keep core engaged and land softly.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "cardio_finisher",
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_072",
@@ -1462,7 +1560,11 @@
     },
     "instructions_text": "Start in squat position. Explode upward jumping as high as possible. Land softly bending knees to absorb impact. Immediately go into next rep.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "cardio_finisher",
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_073",
@@ -1510,7 +1612,11 @@
     },
     "instructions_text": "Stand on one foot. Jump laterally to the other foot, landing softly with a slight knee bend. Swing arms for balance. Immediately jump back to the other side. Like speed skating.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "cardio_finisher",
+      "bmi_targeting"
+    ]
   },
   {
     "exercise_id": "ex_074",
@@ -1557,7 +1663,11 @@
     },
     "instructions_text": "Start on all fours with knees hovering just above floor. Move forward by stepping opposite hand and foot simultaneously. Keep hips level and core braced. Move slowly with control.",
     "difficulty_level": "intermediate",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "core"
+    ]
   },
   {
     "exercise_id": "ex_075",
@@ -1611,7 +1721,10 @@
     },
     "instructions_text": "Stand tall. Hinge forward and walk hands out to push-up position. Optionally do a push-up. Walk hands back to feet and stand. Great warm-up combining hamstring stretch and core work.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up"
+    ]
   },
   {
     "exercise_id": "ex_076",
@@ -1648,7 +1761,10 @@
     },
     "instructions_text": "From all fours, bring one knee forward behind your wrist with shin angled. Extend other leg straight back. Lower hips toward floor. Hold for prescribed time. Deep hip opener. Note: reps = seconds.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "cool_down"
+    ]
   },
   {
     "exercise_id": "ex_077",
@@ -1684,7 +1800,10 @@
     },
     "instructions_text": "Stand in a doorway with arm bent at 90 degrees against the frame at shoulder height. Lean forward gently until you feel a stretch across your chest. Hold. Switch sides. Note: reps = seconds per side.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "cool_down"
+    ]
   },
   {
     "exercise_id": "ex_078",
@@ -1720,7 +1839,11 @@
     },
     "instructions_text": "Hold a band or stick with wide overhand grip. Keeping arms straight, raise it overhead and behind your back in one smooth arc. Return the same way. Go only as far as comfortable. Improves shoulder mobility.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "cool_down"
+    ]
   },
   {
     "exercise_id": "ex_079",
@@ -1752,9 +1875,13 @@
         "rest_seconds": 20
       }
     },
-    "instructions_text": "Extend arms forward. Make slow circles with your wrists — clockwise then counter-clockwise. Do 10-15 each direction. Good warm-up before pressing exercises.",
+    "instructions_text": "Extend arms forward. Make slow circles with your wrists \u2014 clockwise then counter-clockwise. Do 10-15 each direction. Good warm-up before pressing exercises.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "cool_down"
+    ]
   },
   {
     "exercise_id": "ex_080",
@@ -1786,8 +1913,12 @@
         "rest_seconds": 20
       }
     },
-    "instructions_text": "Stand on one foot (hold something for balance). Lift other foot and draw slow circles with your toes — clockwise then counter-clockwise. 10-15 each direction per foot.",
+    "instructions_text": "Stand on one foot (hold something for balance). Lift other foot and draw slow circles with your toes \u2014 clockwise then counter-clockwise. 10-15 each direction per foot.",
     "difficulty_level": "beginner",
-    "image_url": ""
+    "image_url": "",
+    "workout_phase": [
+      "warm_up",
+      "cool_down"
+    ]
   }
 ]

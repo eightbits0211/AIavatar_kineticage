@@ -67,11 +67,7 @@ const SessionSchema = new Schema<ISession>({
     timestamp: { type: Date, default: Date.now },
   }],
   xp_awarded: { type: Number, default: 0 },
-  progression_flags: [{
-    exercise_id: { type: String },
-    type: String,
-    details: String,
-  }],
+  progression_flags: [{ type: Schema.Types.Mixed }],
 });
 
 SessionSchema.index({ user_id: 1, started_at: -1 });

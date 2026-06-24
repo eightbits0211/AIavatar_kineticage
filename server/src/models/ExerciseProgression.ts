@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IExerciseProgression extends Document {
   user_id: mongoose.Types.ObjectId;
-  exercise_id: mongoose.Types.ObjectId;
+  exercise_id: string;
   substitution_group: string;
   history: Array<{
     session_id: mongoose.Types.ObjectId;

@@ -25,6 +25,17 @@ export interface SessionExerciseSet {
   completed_at: Date | null;
 }
 
+/**
+ * Data passed when completing a set (partial update to SessionExerciseSet).
+ * Used by the mobile session store's completeSet action.
+ */
+export interface SetData {
+  set_number: number;
+  actual_reps: number | null;
+  completed: boolean;
+  completed_at: Date | null;
+}
+
 export interface SessionExercise {
   exercise_id: string;
   exercise_name: string;
