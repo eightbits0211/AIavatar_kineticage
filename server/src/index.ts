@@ -14,6 +14,7 @@ import progressRoutes from './routes/progress';
 import sttRoutes from './routes/stt';
 import ttsRoutes from './routes/tts';
 import exerciseRoutes from './routes/exercises';
+import voiceDemoRoutes from './routes/voiceDemo';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -44,6 +45,11 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/stt', sttRoutes);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/exercises', exerciseRoutes);
+app.use('/api/voice-demo', voiceDemoRoutes);
+
+// Serve static files (voice demo page)
+import path from 'path';
+app.use(express.static(path.join(__dirname, '..', 'public')));
 // app.use('/api/dashboard', dashboardRoutes);
 
 // Start server
