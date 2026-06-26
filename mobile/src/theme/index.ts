@@ -1,19 +1,21 @@
 export const colors = {
-  primary: '#2D7A6B',        // Teal — main brand color
-  primaryLight: '#4A9E8E',
-  primaryDark: '#1B5A4D',
-  secondary: '#F5A623',      // Warm orange — accents, XP, achievements
-  background: '#FFFFFF',
-  surface: '#F8F9FA',
-  text: '#1A1A2E',
-  textSecondary: '#6B7280',
-  textLight: '#9CA3AF',
+  primary: '#4A90C2',        // Blue from the design
+  primaryLight: '#6BA3D0',
+  primaryDark: '#3A7CA8',
+  secondary: '#F5A623',      // Orange for avatar
+  background: '#E8F0F8',     // Light blue-gray background from design
+  surface: '#FFFFFF',        // White chat bubbles
+  text: '#2C3E50',          // Dark text
+  textSecondary: '#7F8C8D',  // Gray text
+  textLight: '#BDC3C7',     // Light gray placeholder
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
   border: '#E5E7EB',
-  companionBubble: '#E8F5F1', // Light teal for companion messages
-  userBubble: '#F0F0F0',      // Light gray for user messages
+  companionBubble: '#FFFFFF', // White for Kin messages
+  userBubble: '#4A90C2',      // Blue for user messages
+  shadow: 'rgba(0, 0, 0, 0.1)', // Subtle shadows
+  progressBar: 'rgba(255, 255, 255, 0.3)', // Progress bar background
 };
 
 export const spacing = {
@@ -26,13 +28,13 @@ export const spacing = {
 };
 
 export const typography = {
-  h1: { fontSize: 28, fontWeight: '700' as const, lineHeight: 34 },
-  h2: { fontSize: 22, fontWeight: '600' as const, lineHeight: 28 },
-  h3: { fontSize: 18, fontWeight: '600' as const, lineHeight: 24 },
-  body: { fontSize: 16, fontWeight: '400' as const, lineHeight: 22 },
-  bodyBold: { fontSize: 16, fontWeight: '600' as const, lineHeight: 22 },
-  caption: { fontSize: 14, fontWeight: '400' as const, lineHeight: 18 },
-  small: { fontSize: 12, fontWeight: '400' as const, lineHeight: 16 },
+  h1: { fontSize: 28, fontFamily: 'Inter_700Bold', lineHeight: 34 },
+  h2: { fontSize: 22, fontFamily: 'Inter_600SemiBold', lineHeight: 28 },
+  h3: { fontSize: 18, fontFamily: 'Inter_600SemiBold', lineHeight: 24 },
+  body: { fontSize: 16, fontFamily: 'Inter_400Regular', lineHeight: 22 },
+  bodyBold: { fontSize: 16, fontFamily: 'Inter_600SemiBold', lineHeight: 22 },
+  caption: { fontSize: 14, fontFamily: 'Inter_400Regular', lineHeight: 18 },
+  small: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 16 },
 };
 
 export const borderRadius = {
