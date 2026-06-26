@@ -248,6 +248,11 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
     let newBadges: any[] = [];
 
     if (user) {
+      // Calculate days since last workout BEFORE updating (needed for Comeback badge)
+      const daysSinceLastWorkout = user.gamification.last_workout_date
+        ? Math.floor((Date.now() - new Date(user.gamification.last_workout_date).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
       // Check if this is the first workout
       const previousSessions = await Session.countDocuments({
         user_id: user._id,
@@ -297,7 +302,7 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
         totalCompletedSessions: totalCompleted,
         sessionsLast7Days: sessionsLast7Days + (status !== 'abandoned' ? 1 : 0),
         currentStreak: user.gamification.current_streak,
-        daysSinceLastWorkoutBeforeThis: 0,
+        daysSinceLastWorkoutBeforeThis: daysSinceLastWorkout,
         progressionMilestonesEver: progressionFlags.length,
         goalCategorySessions: totalCompleted,
         alreadyEarned: user.gamification.badges.map((b: any) => b.badge_id),
