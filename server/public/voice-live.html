@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KineticAge — Gemini Live Voice (Speech-to-Speech)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0d1b2a; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.3rem; color: #fff; }
+    .subtitle { color: #888; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    .badge { display: inline-block; background: #1b4332; color: #95d5b2; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem; }
+    .status-bar { width: 100%; max-width: 600px; background: #1b2838; border-radius: 8px; padding: 0.8rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+    .status-dot.connected { background: #4caf50; }
+    .status-dot.speaking { background: #ff9800; animation: pulse 0.5s infinite; }
+    .status-text { font-size: 0.85rem; color: #aaa; }
+    .context-info { width: 100%; max-width: 600px; background: #1b2838; border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 0.5rem; font-size: 0.8rem; color: #6a9; display: none; }
+    .chat-container { width: 100%; max-width: 600px; flex: 1; overflow-y: auto; margin-bottom: 1rem; min-height: 300px; }
+    .message { padding: 0.7rem 1rem; margin: 0.4rem 0; border-radius: 10px; max-width: 85%; font-size: 0.95rem; animation: fadeIn 0.2s; }
+    .user { background: #1b4332; margin-left: auto; text-align: right; }
+    .assistant { background: #1b2838; border: 1px solid #2a3a4a; }
+    .system { background: transparent; color: #555; font-size: 0.8rem; text-align: center; max-width: 100%; }
+    .controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 0.5rem; }
+    .action-btns { display: none; gap: 0.5rem; margin-bottom: 1rem; }
+    .action-btn { padding: 0.5rem 1rem; border: 1px solid #333; border-radius: 20px; background: #1b2838; color: #ccc; font-size: 0.8rem; cursor: pointer; }
+    .action-btn:hover { background: #2a3a5a; }
+    .action-btn.danger { border-color: #d62828; color: #ff6b6b; }
+    .btn { padding: 0.8rem 1.5rem; border: none; border-radius: 50px; font-size: 0.9rem; cursor: pointer; transition: all 0.15s; }
+    .btn-connect { background: #2d6a4f; color: white; }
+    .btn-connect:hover { background: #40916c; }
+    .btn-connect.active { background: #d62828; }
+    .btn-connect.active:hover { background: #e63946; }
+    .voice-select { background: #1b2838; color: #e0e0e0; border: 1px solid #333; padding: 0.5rem; border-radius: 6px; font-size: 0.85rem; }
+    .info { font-size: 0.75rem; color: #666; margin-top: 1rem; max-width: 600px; text-align: center; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body>
+  <h1>🎙️ KineticAge Voice <span class="badge">Live + Rules Engine</span></h1>
+  <p class="subtitle">Real-time voice coaching — powered by Gemini Live, grounded by the Rules Engine</p>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Disconnected</span>
+  </div>
+
+  <div class="context-info" id="contextInfo"></div>
+  <div class="context-info" id="flowStatus" style="display:none; color: #f9a825;"></div>
+
+  <div class="chat-container" id="chat"></div>
+
+  <div class="action-btns" id="actionBtns">
+    <button class="action-btn" onclick="sendAction('complete_set')">✓ Set Done</button>
+    <button class="action-btn" onclick="sendAction('skip_exercise')">⏭ Skip</button>
+    <button class="action-btn danger" onclick="sendAction('report_pain')">⚠️ Pain</button>
+    <button class="action-btn" onclick="sendAction('end_session')">⏹ End</button>
+  </div>
+
+  <div class="controls">
+    <select class="voice-select" id="voiceSelect">
+      <option value="Kore">Kore (Female, warm)</option>
+      <option value="Aoede">Aoede (Female, bright)</option>
+      <option value="Puck">Puck (Male, friendly)</option>
+      <option value="Charon">Charon (Male, deep)</option>
+      <option value="Fenrir">Fenrir (Male, energetic)</option>
+    </select>
+    <button class="btn btn-connect" id="connectBtn" onclick="toggleConnection()" disabled>Start Conversation</button>
+  </div>
+
+  <div class="controls" style="margin-top: 0.5rem;">
+    <span id="authStatus" style="font-size: 0.8rem; color: #999;">Checking auth...</span>
+    <button class="action-btn" id="signInBtn" onclick="signInAsGuest()" style="display:none">👤 Guest Login</button>
+    <button class="action-btn" id="googleBtn" onclick="signInWithGoogle()">🔑 Google</button>
+    <button class="action-btn" id="signOutBtn" onclick="signOut()" style="display:none">Sign Out</button>
+    <button class="action-btn" id="onboardBtn" onclick="quickOnboard()" style="display:none; background:#2d6a4f; color:white;">⚡ Quick Onboard</button>
+  </div>
+
+  <p class="info">
+    Voice goes through your backend (proxy) → Gemini Live. The server injects Rules Engine context,<br>
+    tracks session state, persists conversation, and handles set/skip/pain actions in real-time.
+  </p>
+
+  <!-- Firebase Auth SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: 'AIzaSyBDoRZHeb1OKP2KeVXmJ5xShp4yfV2i7ko',
+      authDomain: 'aiavatar-de201.firebaseapp.com',
+      projectId: 'aiavatar-de201',
+    };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    let currentUser = null;
+    let authToken = null;
+
+    // Auth state listener
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        authToken = await user.getIdToken();
+        document.getElementById('authStatus').textContent = `Signed in: ${user.displayName || user.email || 'Guest'}`;
+        document.getElementById('authStatus').style.color = '#6a9';
+        document.getElementById('connectBtn').disabled = false;
+        document.getElementById('signInBtn').style.display = 'none';
+        document.getElementById('signOutBtn').style.display = 'inline-block';
+      } else {
+        currentUser = null;
+        authToken = null;
+        document.getElementById('authStatus').textContent = 'Not signed in — sign in or use demo mode';
+        document.getElementById('authStatus').style.color = '#999';
+        document.getElementById('signInBtn').style.display = 'inline-block';
+        document.getElementById('signOutBtn').style.display = 'none';
+      }
+    });
+
+    async function signInAsGuest() {
+      try {
+        // Call our backend to create a guest account and get a custom token
+        const resp = await fetch(`http://${window.location.host}/api/auth/guest`, { method: 'POST' });
+        if (resp.ok) {
+          const data = await resp.json();
+          await auth.signInWithCustomToken(data.token);
+          addMessage('system', 'Signed in as guest. Your session will be tracked.');
+        } else {
+          addMessage('system', 'Guest sign-in failed. Using demo mode.');
+        }
+      } catch (err) {
+        console.error('Guest sign-in error:', err);
+        addMessage('system', 'Auth unavailable. Using demo mode (no session tracking).');
+      }
+    }
+
+    async function signInWithGoogle() {
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await auth.signInWithPopup(provider);
+        // After Google sign-in, register with our backend
+        if (auth.currentUser) {
+          const token = await auth.currentUser.getIdToken();
+          const resp = await fetch(`http://${window.location.host}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ name: auth.currentUser.displayName, email: auth.currentUser.email }),
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.is_new) addMessage('system', 'New account created! Complete onboarding to get personalized workouts.');
+          }
+        }
+      } catch (err) {
+        console.error('Google sign-in error:', err);
+        addMessage('system', 'Google sign-in failed: ' + err.message);
+      }
+    }
+
+    function signOut() {
+      auth.signOut();
+      addMessage('system', 'Signed out.');
+    }
+
+    async function quickOnboard() {
+      if (!authToken) return;
+      const headers = await getAuthHeaders();
+      document.getElementById('onboardBtn').style.display = 'none';
+      showFlowStatus('Setting up demo profile...');
+
+      // Step 1: Fill profile with sample data
+      const profileData = {
+        name: currentUser?.displayName || 'Demo User',
+        age: 28,
+        height_cm: 170,
+        weight_kg: 70,
+        gender: 'female',
+        fitness_goal: 'general_fitness',
+        activity_level: 'moderately_active',
+        workout_location: 'gym',
+        equipment: ['dumbbells', 'barbell', 'bench', 'pull_up_bar'],
+        injuries: ['none'],
+        workout_duration: 30,
+        prior_program_experience: true,
+        companion_preferences: {
+          talkativeness: 'balanced',
+          in_session_verbosity: 'standard',
+        },
+      };
+
+      const profileResp = await fetch(`http://${window.location.host}/api/profile`, {
+        method: 'PUT', headers,
+        body: JSON.stringify(profileData),
+      });
+
+      if (!profileResp.ok) {
+        addMessage('system', 'Failed to set profile. Check console.');
+        hideFlowStatus();
+        return;
+      }
+
+      addMessage('system', '✅ Profile set: 28yo, general fitness, gym, 30min sessions');
+
+      // Step 2: Run personalization (metrics + persona tags)
+      showFlowStatus('Calculating metrics and assigning persona...');
+      const personalizeResp = await fetch(`http://${window.location.host}/api/personalize`, {
+        method: 'POST', headers,
+      });
+
+      if (personalizeResp.ok) {
+        const data = await personalizeResp.json();
+        addMessage('system', `✅ Persona: ${data.persona_tags.join(', ')} | BMI: ${data.calculated_metrics.bmi} (${data.calculated_metrics.bmi_category}) | +15 XP onboarding bonus`);
+      } else {
+        addMessage('system', 'Personalization failed — try clicking Start Conversation anyway.');
+      }
+
+      hideFlowStatus();
+      addMessage('system', 'Onboarding complete! Click "Start Conversation" to begin.');
+      setStatus('Ready', 'connected');
+    }
+
+    // ─── SESSION LIFECYCLE ───
+    // Enforces: onboarding check → bundle generation → session start → voice → end (XP)
+
+    let activeSessionId = null;
+    let activeBundleId = null;
+
+    async function getAuthHeaders() {
+      if (!authToken && currentUser) authToken = await currentUser.getIdToken();
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
+    }
+
+    async function checkReadiness() {
+      if (!authToken) return { ready: false, reason: 'not_authenticated' };
+
+      const headers = await getAuthHeaders();
+
+      // Check profile
+      const profileResp = await fetch(`http://${window.location.host}/api/profile`, { headers });
+      if (!profileResp.ok) return { ready: false, reason: 'no_profile' };
+      const user = await profileResp.json();
+
+      if (!user.onboarding_completed) {
+        return { ready: false, reason: 'onboarding_incomplete', user };
+      }
+
+      // Check for active session (resume)
+      const sessionResp = await fetch(`http://${window.location.host}/api/session/active`, { headers });
+      if (sessionResp.ok) {
+        const sessionData = await sessionResp.json();
+        if (sessionData.has_active_session) {
+          activeSessionId = sessionData.session._id;
+          return { ready: true, resumed: true, user, session: sessionData.session };
+        }
+      }
+
+      // Check for active bundles
+      const bundleResp = await fetch(`http://${window.location.host}/api/bundles/active`, { headers });
+      if (bundleResp.ok) {
+        const bundleData = await bundleResp.json();
+        if (bundleData.bundles && bundleData.bundles.length > 0) {
+          // Show bundle selection UI instead of auto-picking
+          return { ready: false, reason: 'choose_bundle', user, bundles: bundleData.bundles };
+        }
+      }
+
+      // No bundles — need to generate
+      return { ready: false, reason: 'no_bundles', user };
+    }
+
+    async function generateBundles() {
+      const headers = await getAuthHeaders();
+      showFlowStatus('Generating personalized workout bundles...');
+      
+      const resp = await fetch(`http://${window.location.host}/api/bundles/generate`, {
+        method: 'POST', headers,
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        showFlowStatus(`Bundle generation failed: ${err.message}`);
+        return false;
+      }
+
+      const data = await resp.json();
+      const recommended = data.bundles.find(b => b.is_recommended) || data.bundles[0];
+      activeBundleId = recommended._id;
+      addMessage('system', `Generated ${data.bundles.length} workout options. Recommended: "${recommended.title}" (${recommended.exercises.length} exercises, ~${recommended.estimated_duration_min} min)`);
+      hideFlowStatus();
+      return true;
+    }
+
+    async function startSession() {
+      if (!activeBundleId) return false;
+      const headers = await getAuthHeaders();
+      showFlowStatus('Starting workout session...');
+
+      const resp = await fetch(`http://${window.location.host}/api/session/start`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ bundle_id: activeBundleId }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        showFlowStatus(`Session start failed: ${err.message}`);
+        return false;
+      }
+
+      const data = await resp.json();
+      activeSessionId = data.session_id;
+      if (data.resumed) {
+        addMessage('system', `Resuming session: ${data.exercises.length} exercises.`);
+      } else {
+        addMessage('system', `Session started! ${data.message}`);
+      }
+      hideFlowStatus();
+      return true;
+    }
+
+    async function endSession() {
+      if (!activeSessionId) return;
+      const headers = await getAuthHeaders();
+      showFlowStatus('Ending session — calculating XP...');
+
+      const resp = await fetch(`http://${window.location.host}/api/session/${activeSessionId}/end`, {
+        method: 'POST', headers,
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        let summary = `Session ${data.status}! `;
+        summary += `${data.exercises_completed}/${data.exercises_planned} exercises. `;
+        summary += `+${data.xp_awarded} XP`;
+        if (data.streak?.current > 0) summary += ` | Streak: ${data.streak.current} days`;
+        if (data.badges_earned?.length > 0) summary += ` | 🏆 Badge: ${data.badges_earned.map(b => b.name).join(', ')}`;
+        if (data.xp_breakdown?.length > 0) {
+          summary += '\n' + data.xp_breakdown.map(x => `  ${x.source}: +${x.amount}`).join('\n');
+        }
+        addMessage('system', summary);
+        hideFlowStatus();
+      } else {
+        addMessage('system', 'Failed to end session properly.');
+        hideFlowStatus();
+      }
+
+      activeSessionId = null;
+      activeBundleId = null;
+    }
+
+    function showFlowStatus(msg) {
+      const el = document.getElementById('flowStatus');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideFlowStatus() {
+      document.getElementById('flowStatus').style.display = 'none';
+    }
+
+    function showBundlePicker(bundles) {
+      const chat = document.getElementById('chat');
+      
+      addMessage('system', 'Choose your workout:');
+
+      const container = document.createElement('div');
+      container.id = 'bundlePicker';
+      container.style.cssText = 'width:100%; display:flex; flex-direction:column; gap:0.5rem; margin:0.5rem 0;';
+
+      bundles.forEach((bundle, i) => {
+        const card = document.createElement('div');
+        const isRec = bundle.is_recommended;
+        card.style.cssText = `padding:0.8rem 1rem; border-radius:10px; cursor:pointer; transition:all 0.15s; border:1px solid ${isRec ? '#2d6a4f' : '#2a3a4a'}; background:${isRec ? '#1b3328' : '#1b2838'};`;
+        card.onmouseover = () => card.style.borderColor = '#4caf50';
+        card.onmouseout = () => card.style.borderColor = isRec ? '#2d6a4f' : '#2a3a4a';
+        card.onclick = () => selectBundle(bundle);
+
+        const recBadge = isRec ? ' <span style="background:#2d6a4f;color:#95d5b2;padding:1px 6px;border-radius:3px;font-size:0.7rem;">RECOMMENDED</span>' : '';
+        card.innerHTML = `
+          <div style="font-size:0.95rem;color:#fff;margin-bottom:0.3rem;"><strong>${bundle.title}</strong>${recBadge}</div>
+          <div style="font-size:0.8rem;color:#aaa;">Focus: ${bundle.focus} | ${bundle.exercises.length} exercises | ~${bundle.estimated_duration_min} min</div>
+          <div style="font-size:0.75rem;color:#888;margin-top:0.3rem;">${bundle.rationale || ''}</div>
+        `;
+        container.appendChild(card);
+      });
+
+      chat.appendChild(container);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function selectBundle(bundle) {
+      // Remove picker
+      const picker = document.getElementById('bundlePicker');
+      if (picker) picker.remove();
+
+      activeBundleId = bundle._id;
+      addMessage('system', `Selected: "${bundle.title}" (${bundle.exercises.length} exercises, ~${bundle.estimated_duration_min} min)`);
+      
+      // Now start session and connect
+      const started = await startSession();
+      if (!started) return;
+
+      // Continue to voice connection
+      document.getElementById('connectBtn').textContent = 'Connecting...';
+      document.getElementById('connectBtn').disabled = true;
+      await connectVoice();
+    }
+    const PROXY_WS_URL = `ws://${window.location.host}/ws/voice-live`;
+
+    let ws = null;
+    let mediaStream = null;
+    let inputAudioContext = null;
+    let playbackAudioContext = null;
+    let sourceNode = null;
+    let processorNode = null;
+    let isConnected = false;
+    let audioStreamStarted = false;
+    let nextPlayTime = 0;
+
+    function addMessage(role, text) {
+      const chat = document.getElementById('chat');
+      const div = document.createElement('div');
+      div.className = `message ${role}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function setStatus(text, state) {
+      document.getElementById('statusText').textContent = text;
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot';
+      if (state) dot.classList.add(state);
+    }
+
+    function toggleConnection() {
+      if (isConnected) {
+        disconnect();
+      } else {
+        connect();
+      }
+    }
+
+    async function connect() {
+      const btn = document.getElementById('connectBtn');
+      const voice = document.getElementById('voiceSelect').value;
+
+      setStatus('Checking readiness...', '');
+      btn.textContent = 'Preparing...';
+      btn.disabled = true;
+
+      try {
+        // Refresh auth token if signed in
+        if (currentUser) {
+          authToken = await currentUser.getIdToken(true);
+        }
+
+        // ─── LIFECYCLE CHECKS ───
+        if (!authToken) {
+          addMessage('system', '⚠️ Please sign in first (Guest Login or Google) before starting a conversation.');
+          btn.textContent = 'Start Conversation';
+          btn.disabled = false;
+          setStatus('Sign in required', '');
+          return;
+        }
+
+        const readiness = await checkReadiness();
+
+        if (!readiness.ready) {
+          switch (readiness.reason) {
+            case 'not_authenticated':
+              addMessage('system', '⚠️ Please sign in first.');
+              btn.textContent = 'Start Conversation';
+              btn.disabled = false;
+              setStatus('Sign in required', '');
+              return;
+
+            case 'onboarding_incomplete':
+              addMessage('system', '⚠️ Onboarding not complete. Click "Quick Onboard" below to set up a demo profile, or complete onboarding in the mobile app.');
+              document.getElementById('onboardBtn').style.display = 'inline-block';
+              btn.textContent = 'Start Conversation';
+              btn.disabled = false;
+              setStatus('Onboarding required', '');
+              return;
+
+            case 'no_bundles':
+              addMessage('system', 'No active workout bundles. Generating now...');
+              const generated = await generateBundles();
+              if (!generated) {
+                btn.textContent = 'Start Conversation';
+                btn.disabled = false;
+                return;
+              }
+              // After generating, show bundle picker
+              const hdrs = await getAuthHeaders();
+              const bResp = await fetch(`http://${window.location.host}/api/bundles/active`, { headers: hdrs });
+              if (bResp.ok) {
+                const bData = await bResp.json();
+                if (bData.bundles && bData.bundles.length > 0) {
+                  showBundlePicker(bData.bundles);
+                  btn.textContent = 'Start Conversation';
+                  btn.disabled = false;
+                  return;
+                }
+              }
+              break;
+
+            case 'choose_bundle':
+              showBundlePicker(readiness.bundles);
+              btn.textContent = 'Start Conversation';
+              btn.disabled = false;
+              setStatus('Choose your workout', '');
+              return;
+
+            case 'no_profile':
+              addMessage('system', '⚠️ Profile not found. Please complete sign-up.');
+              btn.textContent = 'Start Conversation';
+              btn.disabled = false;
+              setStatus('Profile missing', '');
+              return;
+          }
+        } else if (readiness.resumed) {
+          addMessage('system', `Resuming active session (${readiness.session.exercises?.length || '?'} exercises).`);
+        }
+
+        // Start a session if we have a bundle but no active session
+        if (!activeSessionId && activeBundleId) {
+          const started = await startSession();
+          if (!started) {
+            btn.textContent = 'Start Conversation';
+            btn.disabled = false;
+            return;
+          }
+        }
+
+        // If we have a session, connect voice
+        if (activeSessionId) {
+          await connectVoice();
+        }
+
+      } catch (err) {
+        setStatus('Error: ' + err.message, '');
+        btn.textContent = 'Start Conversation';
+        btn.disabled = false;
+        console.error(err);
+      }
+    }
+
+    async function connectVoice() {
+      const btn = document.getElementById('connectBtn');
+      const voice = document.getElementById('voiceSelect').value;
+      btn.textContent = 'Connecting...';
+      btn.disabled = true;
+
+      try {
+        // ─── MIC + AUDIO SETUP ───
+        setStatus('Requesting microphone...', '');
+
+        // 1. Get microphone
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+        });
+
+        // 2. Create audio contexts
+        inputAudioContext = new AudioContext({ sampleRate: 16000 });
+        playbackAudioContext = new AudioContext({ sampleRate: 24000 });
+        await inputAudioContext.resume();
+        await playbackAudioContext.resume();
+
+        // 3. Connect to OUR server's WebSocket proxy (not directly to Gemini)
+        setStatus('Connecting to server...', '');
+        
+        // Build WebSocket URL with auth token and params
+        let wsUrl = `${PROXY_WS_URL}?voice=${voice}`;
+        if (authToken) {
+          wsUrl += `&token=${authToken}`;
+        }
+        if (activeSessionId) {
+          wsUrl += `&session_id=${activeSessionId}`;
+        }
+        if (activeBundleId) {
+          wsUrl += `&bundle_id=${activeBundleId}`;
+        }
+        
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log('[WS] Connected to server proxy');
+          setStatus('Server connected, waiting for Gemini...', '');
+        };
+
+        ws.onmessage = async (event) => {
+          if (event.data instanceof Blob) {
+            await handleBinaryMessage(event.data);
+          } else if (typeof event.data === 'string') {
+            handleTextMessage(event.data);
+          }
+        };
+
+        ws.onerror = (err) => {
+          console.error('[WS] Error:', err);
+          setStatus('Connection error', '');
+          disconnect();
+        };
+
+        ws.onclose = (event) => {
+          console.log('[WS] Closed:', event.code, event.reason);
+          if (isConnected) {
+            addMessage('system', `Session ended (${event.reason || 'disconnected'})`);
+          } else {
+            addMessage('system', `Could not connect (code ${event.code}): ${event.reason || 'check server logs'}`);
+          }
+          disconnect();
+        };
+
+      } catch (err) {
+        setStatus('Error: ' + err.message, '');
+        btn.textContent = 'Start Conversation';
+        btn.disabled = false;
+        console.error(err);
+      }
+    }
+
+    async function handleBinaryMessage(blob) {
+      const arrayBuffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+
+      // Check if JSON (starts with '{')
+      if (bytes.length > 0 && bytes[0] === 0x7B) {
+        try {
+          const text = new TextDecoder().decode(arrayBuffer);
+          const data = JSON.parse(text);
+          handleJsonMessage(data);
+          return;
+        } catch (e) {}
+      }
+
+      // Raw PCM audio from Gemini (via proxy)
+      if (arrayBuffer.byteLength >= 2) {
+        const pcm16 = new Int16Array(arrayBuffer);
+        const float32 = new Float32Array(pcm16.length);
+        for (let i = 0; i < pcm16.length; i++) {
+          float32[i] = pcm16[i] / 32768.0;
+        }
+
+        if (!isConnected) markConnected();
+        playAudioChunk(float32);
+        setStatus('Kin is speaking...', 'speaking');
+      }
+    }
+
+    function handleTextMessage(text) {
+      try {
+        const data = JSON.parse(text);
+        handleJsonMessage(data);
+      } catch (e) {
+        console.warn('[WS] Non-JSON:', text.substring(0, 100));
+      }
+    }
+
+    function handleJsonMessage(data) {
+      // Our server's context_loaded message
+      if (data.type === 'context_loaded') {
+        console.log('[Context]', data);
+        const info = document.getElementById('contextInfo');
+        if (data.bundle) {
+          info.textContent = `📋 ${data.bundle.title} (${data.bundle.exercise_count} exercises) | ${data.user?.persona_tags?.join(', ') || 'no persona'}`;
+          info.style.display = 'block';
+        }
+        // Mark connected since server has loaded context
+        setTimeout(() => { if (!isConnected) markConnected(); }, 500);
+        return;
+      }
+
+      // Gemini setupComplete (relayed)
+      if (data.setupComplete) {
+        markConnected();
+        return;
+      }
+
+      // Server content
+      if (data.serverContent) {
+        if (data.serverContent.modelTurn?.parts) {
+          for (const part of data.serverContent.modelTurn.parts) {
+            if (part.inlineData?.data) {
+              const float32 = base64ToFloat32(part.inlineData.data);
+              playAudioChunk(float32);
+              setStatus('Kin is speaking...', 'speaking');
+            }
+            if (part.text) {
+              addMessage('assistant', part.text);
+            }
+          }
+        }
+
+        if (data.serverContent.inputTranscription?.text) {
+          addMessage('user', data.serverContent.inputTranscription.text);
+        }
+        if (data.serverContent.outputTranscription?.text) {
+          addMessage('assistant', data.serverContent.outputTranscription.text);
+        }
+        if (data.serverContent.turnComplete) {
+          setStatus('Listening...', 'connected');
+        }
+      }
+    }
+
+    function markConnected() {
+      if (isConnected) return;
+      isConnected = true;
+
+      const btn = document.getElementById('connectBtn');
+      btn.textContent = 'End Conversation';
+      btn.disabled = false;
+      btn.classList.add('active');
+      document.getElementById('actionBtns').style.display = 'flex';
+      setStatus('Connected — speak now!', 'connected');
+      addMessage('system', 'Connected. Say hi to Kin!');
+
+      startAudioStream();
+    }
+
+    function startAudioStream() {
+      if (audioStreamStarted) return;
+      if (!mediaStream || !inputAudioContext || !ws) return;
+      audioStreamStarted = true;
+
+      sourceNode = inputAudioContext.createMediaStreamSource(mediaStream);
+      processorNode = inputAudioContext.createScriptProcessor(4096, 1, 1);
+
+      processorNode.onaudioprocess = (e) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          pcm16[i] = Math.max(-32768, Math.min(32767, Math.round(inputData[i] * 32767)));
+        }
+
+        // Send audio as JSON (same format Gemini expects — server relays it)
+        const base64 = arrayBufferToBase64(pcm16.buffer);
+        const msg = {
+          realtimeInput: {
+            audio: {
+              data: base64,
+              mimeType: 'audio/pcm;rate=16000'
+            }
+          }
+        };
+        ws.send(JSON.stringify(msg));
+      };
+
+      sourceNode.connect(processorNode);
+      processorNode.connect(inputAudioContext.destination);
+    }
+
+    function sendAction(action) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
+      if (action === 'end_session') {
+        // End session through the REST API for proper XP/streak calculation
+        disconnect();
+        endSession();
+        return;
+      }
+      
+      ws.send(JSON.stringify({ action }));
+      addMessage('system', `Action: ${action.replace(/_/g, ' ')}`);
+    }
+
+    function disconnect() {
+      const wasConnected = isConnected;
+      isConnected = false;
+      audioStreamStarted = false;
+      nextPlayTime = 0;
+
+      const btn = document.getElementById('connectBtn');
+      btn.textContent = 'Start Conversation';
+      btn.classList.remove('active');
+      btn.disabled = false;
+      document.getElementById('actionBtns').style.display = 'none';
+      document.getElementById('contextInfo').style.display = 'none';
+      setStatus('Disconnected', '');
+
+      if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+      if (processorNode) { try { processorNode.disconnect(); } catch(e) {} processorNode = null; }
+      if (sourceNode) { try { sourceNode.disconnect(); } catch(e) {} sourceNode = null; }
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+      if (inputAudioContext) { try { inputAudioContext.close(); } catch(e) {} inputAudioContext = null; }
+      if (playbackAudioContext) { try { playbackAudioContext.close(); } catch(e) {} playbackAudioContext = null; }
+
+      if (wasConnected) addMessage('system', 'Session ended.');
+    }
+
+    function playAudioChunk(float32Data) {
+      if (!playbackAudioContext || float32Data.length === 0) return;
+      if (playbackAudioContext.state === 'suspended') playbackAudioContext.resume();
+
+      const buffer = playbackAudioContext.createBuffer(1, float32Data.length, 24000);
+      buffer.getChannelData(0).set(float32Data);
+      const source = playbackAudioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(playbackAudioContext.destination);
+
+      const currentTime = playbackAudioContext.currentTime;
+      const startTime = Math.max(currentTime + 0.005, nextPlayTime);
+      source.start(startTime);
+      nextPlayTime = startTime + buffer.duration;
+
+      source.onended = () => {
+        if (playbackAudioContext && playbackAudioContext.currentTime >= nextPlayTime - 0.01) {
+          setStatus('Listening...', 'connected');
+        }
+      };
+    }
+
+    function base64ToFloat32(base64) {
+      const binaryStr = atob(base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
+      const int16 = new Int16Array(bytes.buffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768.0;
+      }
+      return float32;
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+  </script>
+</body>
+</html>

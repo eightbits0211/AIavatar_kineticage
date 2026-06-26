@@ -15,6 +15,7 @@ import sttRoutes from './routes/stt';
 import ttsRoutes from './routes/tts';
 import exerciseRoutes from './routes/exercises';
 import voiceDemoRoutes from './routes/voiceDemo';
+import voiceContextRoutes from './routes/voiceContext';
 import { rateLimitMiddleware } from './middleware/rateLimit';
 
 dotenv.config();
@@ -46,6 +47,7 @@ app.use('/api/stt', sttRoutes);
 app.use('/api/tts', ttsRoutes);
 app.use('/api/exercises', exerciseRoutes);
 app.use('/api/voice-demo', voiceDemoRoutes);
+app.use('/api/session', voiceContextRoutes);
 
 // Serve static files (voice demo page)
 import path from 'path';
@@ -56,9 +58,19 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
+
+    // WebSocket server for Voice Live proxy
+    const { WebSocketServer } = await import('ws');
+    const { handleVoiceLiveConnection } = await import('./services/voiceLiveProxy');
+
+    const wss = new WebSocketServer({ server, path: '/ws/voice-live' });
+    wss.on('connection', (ws, req) => {
+      handleVoiceLiveConnection(ws, req);
+    });
+    console.log('WebSocket Voice Live proxy available at /ws/voice-live');
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
