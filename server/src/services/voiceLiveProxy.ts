@@ -25,6 +25,17 @@ import { User, Session, Bundle } from '../models';
 import { SessionTurn } from '../models/SessionTurn';
 import { buildSystemPrompt } from '../prompts/buildPrompt';
 import { env } from '../config/env';
+import {
+  OnboardingState,
+  buildOnboardingPrompt,
+  parseExtractions,
+  applyExtraction,
+  finalizeOnboarding,
+  stripExtractionMarkers,
+  ONBOARDING_FIELDS,
+  extractFieldFromUserSpeech,
+  extractAnyFieldFromSpeech,
+} from './voiceOnboarding';
 
 const GEMINI_WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${env.geminiApiKey}`;
 const MODEL = 'gemini-3.1-flash-live-preview';
@@ -39,6 +50,9 @@ interface VoiceSession {
   currentExerciseIndex: number;
   currentSetIndex: number;
   turnBuffer: string;
+  // Onboarding mode
+  mode: 'onboarding' | 'workout' | 'chat';
+  onboardingState: OnboardingState | null;
 }
 
 const activeSessions = new Map<WebSocket, VoiceSession>();
@@ -104,8 +118,35 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
     }
   }
 
-  // Build system prompt
-  const systemPrompt = buildVoiceSystemPrompt(user, activeSession, activeBundle);
+  // Determine mode: onboarding vs workout vs chat
+  let mode: 'onboarding' | 'workout' | 'chat';
+  let onboardingState: OnboardingState | null = null;
+  let systemPrompt: string;
+
+  if (!user.onboarding_completed) {
+    mode = 'onboarding';
+    onboardingState = {
+      currentFieldIndex: 0,
+      collectedFields: {},
+      isComplete: false,
+      failedAttempts: 0,
+    };
+    // Pre-fill any fields already on the user doc
+    if (user.name && user.name !== 'Guest') {
+      onboardingState.collectedFields.name = user.name;
+      onboardingState.currentFieldIndex = 1;
+    }
+    systemPrompt = buildOnboardingPrompt(user, onboardingState);
+    console.log('[VoiceLive] Mode: ONBOARDING');
+  } else if (activeSession || activeBundle) {
+    mode = 'workout';
+    systemPrompt = buildVoiceSystemPrompt(user, activeSession, activeBundle);
+    console.log('[VoiceLive] Mode: WORKOUT');
+  } else {
+    mode = 'chat';
+    systemPrompt = buildVoiceSystemPrompt(user, null, null);
+    console.log('[VoiceLive] Mode: CHAT (no active bundle)');
+  }
 
   // Create session tracker
   const voiceSession: VoiceSession = {
@@ -120,6 +161,8 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
       : 0,
     currentSetIndex: 0,
     turnBuffer: '',
+    mode,
+    onboardingState,
   };
   activeSessions.set(clientWs, voiceSession);
 
@@ -247,6 +290,7 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
   // Send initial context info to client
   clientWs.send(JSON.stringify({
     type: 'context_loaded',
+    mode: voiceSession.mode,
     session: activeSession ? { id: activeSession._id, status: activeSession.status } : null,
     bundle: activeBundle ? {
       id: activeBundle._id,
@@ -255,6 +299,10 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
       exercise_count: activeBundle.exercises.length,
     } : null,
     user: { name: user.name, persona_tags: user.persona_tags },
+    onboarding: voiceSession.mode === 'onboarding' ? {
+      progress: 0,
+      fieldsTotal: ONBOARDING_FIELDS.length,
+    } : null,
   }));
 }
 
@@ -267,21 +315,174 @@ function handleGeminiJson(session: VoiceSession, data: any) {
     const text = data.serverContent.outputTranscription.text;
     session.turnBuffer += text;
 
-    // Check for action intents in the response
-    detectAndExecuteActions(session, text);
+    // WORKOUT MODE: Check for action intents in AI response
+    if (session.mode === 'workout') {
+      detectAndExecuteActions(session, text);
+    }
   }
 
   // On turn complete, save the full turn
   if (data.serverContent?.turnComplete) {
     if (session.turnBuffer.trim()) {
-      persistTurn(session, 'companion', session.turnBuffer.trim());
+      if (session.mode !== 'onboarding') {
+        persistTurn(session, 'companion', session.turnBuffer.trim());
+      }
       session.turnBuffer = '';
     }
   }
 
   // Capture input transcription (what user said)
   if (data.serverContent?.inputTranscription?.text) {
-    persistTurn(session, 'user', data.serverContent.inputTranscription.text);
+    const userText = data.serverContent.inputTranscription.text;
+
+    // ONBOARDING MODE: Extract structured data from user's speech
+    if (session.mode === 'onboarding' && session.onboardingState) {
+      // Try to extract ALL possible fields from what the user said
+      let extractedAny = false;
+      let attempts = 0;
+      const tempCollected = { ...session.onboardingState.collectedFields };
+
+      // Keep extracting until no more fields can be found in this utterance
+      while (attempts < 12) {
+        attempts++;
+        const extraction = extractAnyFieldFromSpeech(userText, tempCollected);
+        if (!extraction) break;
+
+        tempCollected[extraction.field] = extraction.value;
+        applyExtraction(session.onboardingState, extraction.field, extraction.value);
+        extractedAny = true;
+        console.log(`[VoiceLive/Onboarding] Extracted ${extraction.field} = ${JSON.stringify(extraction.value)}`);
+
+        const collected = Object.keys(session.onboardingState.collectedFields).length;
+        const total = ONBOARDING_FIELDS.length;
+        session.clientWs.send(JSON.stringify({
+          type: 'onboarding_progress',
+          field: extraction.field,
+          value: extraction.value,
+          fieldsRemaining: total - collected,
+          progress: Math.round((collected / total) * 100),
+        }));
+      }
+
+      if (!extractedAny) {
+        session.onboardingState.failedAttempts++;
+        if (session.onboardingState.failedAttempts >= 5) {
+          const missing = ONBOARDING_FIELDS.filter(f => session.onboardingState!.collectedFields[f] === undefined);
+          session.clientWs.send(JSON.stringify({
+            type: 'onboarding_type_fallback',
+            field: missing[0] || 'unknown',
+            message: `Having trouble catching some details. You can type your ${missing[0]?.replace(/_/g, ' ') || 'info'} below.`,
+          }));
+        }
+      } else {
+        session.onboardingState.failedAttempts = 0;
+      }
+
+      // Check if onboarding is complete
+      if (session.onboardingState.isComplete) {
+        handleOnboardingComplete(session);
+      }
+    } else if (session.mode !== 'onboarding') {
+      persistTurn(session, 'user', userText);
+    }
+  }
+}
+
+/**
+ * Handle onboarding completion — save profile, run personalization, generate bundles, notify client.
+ */
+async function handleOnboardingComplete(session: VoiceSession) {
+  if (!session.onboardingState) return;
+
+  try {
+    console.log('[VoiceLive/Onboarding] All fields collected! Finalizing...');
+    const result = await finalizeOnboarding(session.userObjectId, session.onboardingState);
+
+    // Notify client of onboarding complete
+    session.clientWs.send(JSON.stringify({
+      type: 'onboarding_complete',
+      persona_tags: result.persona_tags,
+      calculated_metrics: result.calculated_metrics,
+      message: 'Onboarding complete! Generating your first workout...',
+    }));
+
+    console.log('[VoiceLive/Onboarding] Complete! Persona:', result.persona_tags);
+
+    // Auto-generate bundles
+    try {
+      const { generateBundles } = await import('./rulesEngine');
+      const user = await User.findById(session.userObjectId);
+      if (user) {
+        const bundleResult = await generateBundles({ user: user as any, recentMuscleGroups: [] });
+
+        if (bundleResult.bundles.length > 0) {
+          // Store bundles
+          const mongoose = await import('mongoose');
+          const setId = new mongoose.default.Types.ObjectId();
+          const storedBundles = await Bundle.insertMany(
+            bundleResult.bundles.map(bundle => ({
+              user_id: user._id,
+              title: bundle.title,
+              is_recommended: bundle.is_recommended,
+              estimated_duration_min: bundle.estimated_duration_min,
+              estimated_calorie_burn: bundle.estimated_calorie_burn,
+              exercises: bundle.exercises.map(e => ({
+                exercise_id: e.exercise_id,
+                name: e.name,
+                workout_phase: e.workout_phase,
+                sets: e.sets,
+                rep_min: e.rep_min,
+                rep_max: e.rep_max,
+                rest_seconds: e.rest_seconds,
+                instructions_text: e.instructions_text,
+                image_url: e.image_url,
+                muscle_groups: e.muscle_groups,
+              })),
+              focus: bundle.focus,
+              generation_context: {
+                persona_tags: user.persona_tags,
+                fitness_goal: user.fitness_goal,
+                excluded_exercises: [],
+                recent_muscle_groups: [],
+              },
+              set_id: setId,
+              active: true,
+            }))
+          );
+
+          // Notify client of bundles ready
+          session.clientWs.send(JSON.stringify({
+            type: 'bundles_generated',
+            bundles: storedBundles.map(b => ({
+              id: b._id,
+              title: b.title,
+              focus: b.focus,
+              is_recommended: b.is_recommended,
+              exercise_count: b.exercises.length,
+              estimated_duration_min: b.estimated_duration_min,
+            })),
+            message: 'Your personalized workout options are ready!',
+          }));
+
+          console.log(`[VoiceLive/Onboarding] Generated ${storedBundles.length} bundles`);
+        }
+      }
+    } catch (genErr) {
+      console.error('[VoiceLive/Onboarding] Bundle generation error:', (genErr as Error).message);
+      session.clientWs.send(JSON.stringify({
+        type: 'bundles_generation_failed',
+        message: 'Workouts generated. Disconnect and click Start again to pick your workout.',
+      }));
+    }
+
+    // Switch mode to chat
+    session.mode = 'chat';
+  } catch (err) {
+    console.error('[VoiceLive/Onboarding] Finalization error:', (err as Error).message);
+    session.clientWs.send(JSON.stringify({
+      type: 'onboarding_error',
+      message: 'Failed to save profile. Please try again.',
+    }));
   }
 }
 
@@ -298,6 +499,102 @@ function handleClientMessage(session: VoiceSession, data: any) {
     reportPain(session, data.body_area);
   } else if (data.action === 'end_session') {
     // Will be handled by session end route
+  } else if (data.action === 'onboarding_typed_input') {
+    // User typed a value for an onboarding field
+    handleTypedOnboardingInput(session, data.field, data.value);
+  }
+}
+
+/**
+ * Handle typed fallback input for onboarding.
+ */
+function handleTypedOnboardingInput(session: VoiceSession, field: string, value: string) {
+  if (!session.onboardingState || session.mode !== 'onboarding') return;
+
+  // Try to extract from typed text using the flexible extractor
+  const extraction = extractAnyFieldFromSpeech(value, session.onboardingState.collectedFields);
+  if (extraction) {
+    applyExtraction(session.onboardingState, extraction.field, extraction.value);
+    session.onboardingState.failedAttempts = 0;
+    const collected = Object.keys(session.onboardingState.collectedFields).length;
+    console.log(`[VoiceLive/Onboarding] Typed input: ${extraction.field} = ${JSON.stringify(extraction.value)}`);
+    session.clientWs.send(JSON.stringify({
+      type: 'onboarding_progress',
+      field: extraction.field,
+      value: extraction.value,
+      fieldsRemaining: ONBOARDING_FIELDS.length - collected,
+      progress: Math.round((collected / ONBOARDING_FIELDS.length) * 100),
+    }));
+  } else {
+    // Try raw parsing for the specified field
+    const rawValue = parseRawTypedValue(field, value);
+    if (rawValue !== null) {
+      applyExtraction(session.onboardingState, field, rawValue);
+      session.onboardingState.failedAttempts = 0;
+      const collected = Object.keys(session.onboardingState.collectedFields).length;
+      session.clientWs.send(JSON.stringify({
+        type: 'onboarding_progress',
+        field,
+        value: rawValue,
+        fieldsRemaining: ONBOARDING_FIELDS.length - collected,
+        progress: Math.round((collected / ONBOARDING_FIELDS.length) * 100),
+      }));
+    } else {
+      // Give specific validation feedback
+      const hint = getValidationHint(field);
+      session.clientWs.send(JSON.stringify({
+        type: 'onboarding_type_fallback',
+        field,
+        message: `That doesn't look right. ${hint}`,
+      }));
+    }
+  }
+
+  if (session.onboardingState.isComplete) {
+    handleOnboardingComplete(session);
+  }
+}
+
+/**
+ * Get user-friendly validation hint for a field.
+ */
+function getValidationHint(field: string): string {
+  const hints: Record<string, string> = {
+    name: 'Just type your name.',
+    age: 'Type a number between 16 and 100.',
+    gender: 'Type: male, female, other, or prefer_not_to_say',
+    height: 'Type your height in cm (e.g. 170) or feet (e.g. 5\'10).',
+    weight: 'Type your weight in kg (e.g. 70) or lbs (e.g. 154).',
+    fitness_goal: 'Type one of: strength, hypertrophy, mobility, general_fitness, weight_loss, home_workout',
+    activity_level: 'Type one of: sedentary, lightly_active, moderately_active, very_active',
+    workout_location: 'Type one of: gym, home, outdoors, hybrid',
+    equipment: 'Type equipment separated by commas (e.g. dumbbells, barbell) or "none".',
+    injuries: 'Type injury areas separated by commas (e.g. knee, shoulder) or "none".',
+    workout_duration: 'Type: 15, 30, 45, or 60',
+    prior_experience: 'Type: yes or no',
+  };
+  return hints[field] || 'Please try again.';
+}
+
+/**
+ * Parse raw typed value — more lenient than speech extraction.
+ */
+function parseRawTypedValue(field: string, value: string): any {
+  const v = value.trim();
+  switch (field) {
+    case 'name': return v.length > 0 ? v : null;
+    case 'age': { const n = parseInt(v); return (n >= 16 && n <= 100) ? n : null; }
+    case 'height': { const n = parseFloat(v); return (n >= 50 && n <= 280) ? n : null; }
+    case 'weight': { const n = parseFloat(v); return (n >= 20 && n <= 400) ? n : null; }
+    case 'workout_duration': { const n = parseInt(v); return [15, 30, 45, 60].includes(n) ? n : null; }
+    case 'gender': return ['male', 'female', 'other', 'prefer_not_to_say'].includes(v.toLowerCase()) ? v.toLowerCase() : null;
+    case 'fitness_goal': return ['strength', 'hypertrophy', 'mobility', 'general_fitness', 'weight_loss', 'home_workout'].includes(v.toLowerCase()) ? v.toLowerCase() : null;
+    case 'activity_level': return ['sedentary', 'lightly_active', 'moderately_active', 'very_active'].includes(v.toLowerCase()) ? v.toLowerCase() : null;
+    case 'workout_location': return ['gym', 'home', 'outdoors', 'hybrid'].includes(v.toLowerCase()) ? v.toLowerCase() : null;
+    case 'equipment': return v.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    case 'injuries': return v.toLowerCase() === 'none' ? ['none'] : v.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    case 'prior_experience': return ['yes', 'true', '1'].includes(v.toLowerCase()) ? true : ['no', 'false', '0'].includes(v.toLowerCase()) ? false : null;
+    default: return null;
   }
 }
 
@@ -515,6 +812,27 @@ The user doesn't have a workout loaded. Chat naturally about fitness, answer que
 Level ${user.gamification?.level || 1} | ${user.gamification?.total_xp || 0} XP | Streak: ${user.gamification?.current_streak || 0} days`;
 
   return systemPrompt;
+}
+
+/**
+ * Sensible defaults for onboarding fields when extraction fails 3 times.
+ */
+function getFieldDefault(field: string): any {
+  const defaults: Record<string, any> = {
+    name: 'Friend',
+    age: 28,
+    gender: 'prefer_not_to_say',
+    height: 170,
+    weight: 70,
+    fitness_goal: 'general_fitness',
+    activity_level: 'moderately_active',
+    workout_location: 'gym',
+    equipment: ['dumbbells'],
+    injuries: ['none'],
+    workout_duration: 30,
+    prior_experience: false,
+  };
+  return defaults[field] || null;
 }
 
 function cleanup(clientWs: WebSocket) {

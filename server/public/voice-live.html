@@ -48,6 +48,7 @@
 
   <div class="context-info" id="contextInfo"></div>
   <div class="context-info" id="flowStatus" style="display:none; color: #f9a825;"></div>
+  <div id="onboardingTracker" style="display:none; width:100%; max-width:600px; background:#1b2838; border-radius:8px; padding:0.6rem 1rem; margin-bottom:0.5rem; font-size:0.75rem; color:#888; line-height:1.6;"></div>
 
   <div class="chat-container" id="chat"></div>
 
@@ -56,6 +57,12 @@
     <button class="action-btn" onclick="sendAction('skip_exercise')">⏭ Skip</button>
     <button class="action-btn danger" onclick="sendAction('report_pain')">⚠️ Pain</button>
     <button class="action-btn" onclick="sendAction('end_session')">⏹ End</button>
+  </div>
+
+  <div id="typeFallback" style="display:none; width:100%; max-width:600px; margin-bottom:0.5rem; gap:0.5rem; align-items:center;">
+    <span id="typeFallbackLabel" style="font-size:0.8rem; color:#f9a825;"></span>
+    <input id="typeFallbackInput" type="text" style="flex:1; padding:0.5rem; border-radius:6px; border:1px solid #333; background:#1b2838; color:#fff; font-size:0.9rem;" onkeypress="if(event.key==='Enter')submitTypedInput()" />
+    <button class="action-btn" onclick="submitTypedInput()" style="background:#2d6a4f; color:white;">Submit</button>
   </div>
 
   <div class="controls">
@@ -79,8 +86,16 @@
 
   <p class="info">
     Voice goes through your backend (proxy) → Gemini Live. The server injects Rules Engine context,<br>
-    tracks session state, persists conversation, and handles set/skip/pain actions in real-time.
+    tracks session state, persists conversation, and handles set/skip/pain actions in real-time.<br>
+    <strong>Prefer text?</strong> Use the text input below — no microphone needed.
   </p>
+
+  <div id="textChatInput" style="display:none; width:100%; max-width:600px; margin-top:0.5rem; gap:0.5rem; align-items:center;">
+    <div style="display:flex; gap:0.5rem; width:100%;">
+      <input id="chatTextInput" type="text" placeholder="Type a message to Kin..." style="flex:1; padding:0.6rem; border-radius:6px; border:1px solid #333; background:#1b2838; color:#fff; font-size:0.9rem;" onkeypress="if(event.key==='Enter')sendTextMessage()" />
+      <button class="action-btn" onclick="sendTextMessage()" style="background:#2d6a4f; color:white;">Send</button>
+    </div>
+  </div>
 
   <!-- Firebase Auth SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -320,31 +335,46 @@
     }
 
     async function endSession() {
-      if (!activeSessionId) return;
+      if (!activeSessionId) {
+        addMessage('system', 'No active session to end. (Session tracking may not have started.)');
+        return;
+      }
       const headers = await getAuthHeaders();
       showFlowStatus('Ending session — calculating XP...');
 
-      const resp = await fetch(`http://${window.location.host}/api/session/${activeSessionId}/end`, {
-        method: 'POST', headers,
-      });
+      try {
+        const resp = await fetch(`http://${window.location.host}/api/session/${activeSessionId}/end`, {
+          method: 'POST', headers,
+        });
 
-      if (resp.ok) {
-        const data = await resp.json();
-        let summary = `Session ${data.status}! `;
-        summary += `${data.exercises_completed}/${data.exercises_planned} exercises. `;
-        summary += `+${data.xp_awarded} XP`;
-        if (data.streak?.current > 0) summary += ` | Streak: ${data.streak.current} days`;
-        if (data.badges_earned?.length > 0) summary += ` | 🏆 Badge: ${data.badges_earned.map(b => b.name).join(', ')}`;
-        if (data.xp_breakdown?.length > 0) {
-          summary += '\n' + data.xp_breakdown.map(x => `  ${x.source}: +${x.amount}`).join('\n');
+        if (resp.ok) {
+          const data = await resp.json();
+          let summary = `\n🏁 Session ${data.status}!\n`;
+          summary += `Exercises: ${data.exercises_completed}/${data.exercises_planned} (${data.completion_ratio}%)\n`;
+          summary += `XP earned: +${data.xp_awarded}\n`;
+          if (data.xp_breakdown?.length > 0) {
+            for (const x of data.xp_breakdown) {
+              summary += `  • ${x.source}: +${x.amount}\n`;
+            }
+          }
+          summary += `Level: ${data.level} | Total XP: ${data.new_total_xp}\n`;
+          if (data.streak?.current > 0) summary += `Streak: ${data.streak.current} days (longest: ${data.streak.longest})\n`;
+          if (data.streak?.milestone) summary += `🎉 ${data.streak.milestone}-day streak milestone!\n`;
+          if (data.badges_earned?.length > 0) {
+            for (const b of data.badges_earned) {
+              summary += `🏆 Badge earned: ${b.name}\n`;
+            }
+          }
+          addMessage('system', summary);
+        } else {
+          const err = await resp.json().catch(() => ({}));
+          addMessage('system', `End session failed: ${err.message || 'unknown error'}`);
         }
-        addMessage('system', summary);
-        hideFlowStatus();
-      } else {
-        addMessage('system', 'Failed to end session properly.');
-        hideFlowStatus();
+      } catch (e) {
+        addMessage('system', 'Error ending session: ' + e.message);
       }
 
+      hideFlowStatus();
       activeSessionId = null;
       activeBundleId = null;
     }
@@ -476,11 +506,11 @@
               return;
 
             case 'onboarding_incomplete':
-              addMessage('system', '⚠️ Onboarding not complete. Click "Quick Onboard" below to set up a demo profile, or complete onboarding in the mobile app.');
+              // Voice onboarding! Connect directly — the proxy handles onboarding mode
+              addMessage('system', '🎙️ Starting voice onboarding — Kin will guide you through setup.');
               document.getElementById('onboardBtn').style.display = 'inline-block';
-              btn.textContent = 'Start Conversation';
-              btn.disabled = false;
-              setStatus('Onboarding required', '');
+              // Don't block — allow voice connection for onboarding
+              await connectVoice();
               return;
 
             case 'no_bundles':
@@ -663,12 +693,90 @@
       if (data.type === 'context_loaded') {
         console.log('[Context]', data);
         const info = document.getElementById('contextInfo');
-        if (data.bundle) {
+        if (data.mode === 'onboarding') {
+          info.textContent = '🎙️ Voice Onboarding — Kin will guide you through setup';
+          info.style.display = 'block';
+          info.style.color = '#f9a825';
+        } else if (data.bundle) {
           info.textContent = `📋 ${data.bundle.title} (${data.bundle.exercise_count} exercises) | ${data.user?.persona_tags?.join(', ') || 'no persona'}`;
           info.style.display = 'block';
         }
+        // Track session and bundle IDs from server
+        if (data.session?.id) activeSessionId = data.session.id;
+        if (data.bundle?.id) activeBundleId = data.bundle.id;
         // Mark connected since server has loaded context
         setTimeout(() => { if (!isConnected) markConnected(); }, 500);
+        return;
+      }
+
+      // Onboarding progress update
+      if (data.type === 'onboarding_progress') {
+        const info = document.getElementById('contextInfo');
+        info.textContent = `🎙️ Onboarding: ${data.progress}% complete (got: ${data.field} = ${JSON.stringify(data.value)})`;
+        info.style.display = 'block';
+        // Hide text fallback if it was showing for this field
+        const fallback = document.getElementById('typeFallback');
+        if (fallback.style.display !== 'none') {
+          const input = document.getElementById('typeFallbackInput');
+          if (input.dataset.field === data.field) {
+            fallback.style.display = 'none';
+          }
+        }
+        // Update the onboarding field tracker on the UI
+        updateOnboardingTracker(data.field, data.value);
+        return;
+      }
+
+      // Onboarding: voice failed, ask user to type
+      if (data.type === 'onboarding_type_fallback') {
+        addMessage('system', data.message);
+        const fallback = document.getElementById('typeFallback');
+        const input = document.getElementById('typeFallbackInput');
+        const label = document.getElementById('typeFallbackLabel');
+        label.textContent = `Type your ${data.field.replace(/_/g, ' ')}:`;
+        input.value = '';
+        input.dataset.field = data.field;
+        fallback.style.display = 'flex';
+        input.focus();
+        return;
+      }
+
+      // Onboarding complete
+      if (data.type === 'onboarding_complete') {
+        const info = document.getElementById('contextInfo');
+        info.textContent = `✅ Profile complete! Persona: ${data.persona_tags.join(', ')}`;
+        info.style.color = '#6a9';
+        addMessage('system', `Onboarding done! Persona: ${data.persona_tags.join(', ')}. BMI: ${data.calculated_metrics.bmi} (${data.calculated_metrics.bmi_category}). +15 XP!`);
+        addMessage('system', 'Generating your personalized workout options...');
+        return;
+      }
+
+      // Bundles generated after onboarding
+      if (data.type === 'bundles_generated') {
+        addMessage('system', data.message);
+        // Show bundle picker with the generated bundles
+        const bundlesForPicker = data.bundles.map(b => ({
+          _id: b.id,
+          title: b.title,
+          focus: b.focus,
+          is_recommended: b.is_recommended,
+          exercises: new Array(b.exercise_count),
+          estimated_duration_min: b.estimated_duration_min,
+          rationale: '',
+        }));
+        showBundlePicker(bundlesForPicker);
+        return;
+      }
+
+      if (data.type === 'bundles_generation_failed') {
+        addMessage('system', data.message || 'Bundle generation failed. Disconnect and try again.');
+        return;
+      }
+
+      // Session started by proxy (after bundle selection via voice)
+      if (data.type === 'session_started') {
+        activeSessionId = data.session_id;
+        addMessage('system', data.message || 'Session started!');
         return;
       }
 
@@ -714,8 +822,9 @@
       btn.disabled = false;
       btn.classList.add('active');
       document.getElementById('actionBtns').style.display = 'flex';
-      setStatus('Connected — speak now!', 'connected');
-      addMessage('system', 'Connected. Say hi to Kin!');
+      document.getElementById('textChatInput').style.display = 'block';
+      setStatus('Connected — speak or type!', 'connected');
+      addMessage('system', 'Connected. Talk to Kin or type below.');
 
       startAudioStream();
     }
@@ -768,6 +877,62 @@
       addMessage('system', `Action: ${action.replace(/_/g, ' ')}`);
     }
 
+    function submitTypedInput() {
+      const input = document.getElementById('typeFallbackInput');
+      const value = input.value.trim();
+      if (!value || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        action: 'onboarding_typed_input',
+        field: input.dataset.field,
+        value: value,
+      }));
+      addMessage('user', `[typed] ${value}`);
+      input.value = '';
+      document.getElementById('typeFallback').style.display = 'none';
+    }
+
+    function sendTextMessage() {
+      const input = document.getElementById('chatTextInput');
+      const text = input.value.trim();
+      if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      // Send as text input to Gemini (via the proxy)
+      const msg = {
+        realtimeInput: {
+          text: text
+        }
+      };
+      ws.send(JSON.stringify(msg));
+      addMessage('user', text);
+      input.value = '';
+    }
+
+    // Onboarding field tracker
+    const onboardingCollected = {};
+    const ALL_FIELDS = ['name','age','gender','height','weight','fitness_goal','activity_level','workout_location','equipment','injuries','workout_duration','prior_experience'];
+
+    function updateOnboardingTracker(field, value) {
+      onboardingCollected[field] = value;
+      const tracker = document.getElementById('onboardingTracker');
+      tracker.style.display = 'block';
+
+      let html = '<strong style="color:#6a9;">Collected:</strong> ';
+      const parts = [];
+      for (const f of ALL_FIELDS) {
+        if (onboardingCollected[f] !== undefined) {
+          parts.push(`<span style="color:#6a9;">${f.replace(/_/g,' ')}: ${JSON.stringify(onboardingCollected[f])}</span>`);
+        }
+      }
+      html += parts.join(' · ');
+
+      const missing = ALL_FIELDS.filter(f => onboardingCollected[f] === undefined);
+      if (missing.length > 0) {
+        html += `<br><strong style="color:#f9a825;">Still need:</strong> ${missing.map(f => f.replace(/_/g,' ')).join(', ')}`;
+      }
+      tracker.innerHTML = html;
+    }
+
     function disconnect() {
       const wasConnected = isConnected;
       isConnected = false;
@@ -780,6 +945,8 @@
       btn.disabled = false;
       document.getElementById('actionBtns').style.display = 'none';
       document.getElementById('contextInfo').style.display = 'none';
+      document.getElementById('textChatInput').style.display = 'none';
+      document.getElementById('typeFallback').style.display = 'none';
       setStatus('Disconnected', '');
 
       if (ws) { try { ws.close(); } catch(e) {} ws = null; }
