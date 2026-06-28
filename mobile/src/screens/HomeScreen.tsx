@@ -21,10 +21,11 @@ import BundleCard from '../components/BundleCard';
 import { FlameIcon, BellIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
+import WorkoutDeck from '../components/WorkoutDeck';
 import { apiGet, apiPost } from '../services/api';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
-import type { ExerciseBundle } from '../../../shared/types';
+import type { ExerciseBundle, BundleExercise } from '../../../shared/types';
 
 interface DashboardData {
   greeting: string;
@@ -69,28 +70,88 @@ export default function HomeScreen() {
   // ── Chat thread (Ask Kin) ──
   type ChatMsg = { id: string; role: 'user' | 'kin'; text: string };
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [kinTyping, setKinTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    if (messages.length) {
+    if (messages.length || kinTyping) {
       const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
       return () => clearTimeout(t);
     }
-  }, [messages]);
+  }, [messages, kinTyping]);
 
-  const sendMessage = useCallback(() => {
+  const sendMessage = useCallback(async () => {
     const text = askText.trim();
     if (!text) return;
     setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text }]);
     setAskText('');
-    // Placeholder reply until the AI chat endpoint is wired up.
-    setTimeout(() => {
+    setKinTyping(true);
+    try {
+      // General home-screen chat: no session_id, so the backend skips history
+      // persistence and just returns Kin's reply.
+      const res = await apiPost<{ reply: string; action_intent: string | null }>(
+        '/api/companion/message',
+        { message: text, input_mode: 'text' }
+      );
       setMessages((prev) => [
         ...prev,
-        { id: `${Date.now()}-k`, role: 'kin', text: 'Got it. (Kin will answer here once chat is connected.)' },
+        { id: `${Date.now()}-k`, role: 'kin', text: res.reply?.trim() || '…' },
       ]);
-    }, 400);
+    } catch (err: any) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-k`,
+          role: 'kin',
+          text: "I couldn't reach the coach just now. Please try again in a moment.",
+        },
+      ]);
+    } finally {
+      setKinTyping(false);
+    }
   }, [askText]);
+
+  // ── In-chat workout session ──
+  type WorkoutState = { exercises: BundleExercise[]; index: number; paused: boolean; title: string };
+  const [workout, setWorkout] = useState<WorkoutState | null>(null);
+
+  const startWorkout = useCallback(() => {
+    const exercises = recommended?.exercises ?? [];
+    if (!exercises.length) {
+      navigation.navigate('BundleSelection');
+      return;
+    }
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' },
+      { id: `${Date.now()}-k`, role: 'kin', text: "Let's go." },
+    ]);
+    setWorkout({ exercises, index: 0, paused: false, title: recommended?.title ?? 'Workout' });
+  }, [recommended, navigation]);
+
+  // Advance on Done / Skip (same client-side step for now).
+  const stepWorkout = useCallback(() => {
+    if (!workout) return;
+    const last = workout.index >= workout.exercises.length - 1;
+    if (last) {
+      setWorkout(null);
+      setMessages((m) => [
+        ...m,
+        { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${workout.title}.` },
+      ]);
+    } else {
+      setWorkout({ ...workout, index: workout.index + 1, paused: false });
+    }
+  }, [workout]);
+
+  const togglePause = useCallback(() => setWorkout((p) => (p ? { ...p, paused: !p.paused } : p)), []);
+
+  const makeEasier = useCallback(() => {
+    setMessages((m) => [
+      ...m,
+      { id: `${Date.now()}-k`, role: 'kin', text: 'No problem — take it lighter. Drop a few reps or slow the tempo, and keep your form clean.' },
+    ]);
+  }, []);
 
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
@@ -208,6 +269,15 @@ export default function HomeScreen() {
           <View style={styles.xpBar}>
             <View style={[styles.xpFill, { width: `${pct}%` }]} />
           </View>
+
+          {/* Workout controls — replace the idle header during a session */}
+          {workout && (
+            <View style={styles.workoutControls}>
+              <WorkoutChip label="Skip Exercise" onPress={stepWorkout} />
+              <WorkoutChip label="Make Easier" onPress={makeEasier} />
+              <WorkoutChip label={workout.paused ? 'Resume' : 'Pause Workout'} onPress={togglePause} />
+            </View>
+          )}
         </LinearGradient>
 
         {loading && !dash ? (
@@ -276,7 +346,7 @@ export default function HomeScreen() {
             )}
 
             {/* Chat thread with Kin */}
-            {messages.length > 0 && (
+            {(messages.length > 0 || kinTyping || workout) && (
               <View style={styles.chatThread}>
                 {messages.map((m) =>
                   m.role === 'user' ? (
@@ -294,6 +364,36 @@ export default function HomeScreen() {
                     </View>
                   )
                 )}
+                {kinTyping && (
+                  <View style={styles.kinMsgRow}>
+                    <KinAvatar size={36} />
+                    <View style={styles.kinBubble}>
+                      <View style={styles.typingRow}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={styles.typingText}>Kin is thinking…</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                {workout && !workout.paused && (
+                  <WorkoutDeck
+                    exercise={workout.exercises[workout.index]}
+                    index={workout.index}
+                    total={workout.exercises.length}
+                    paused={workout.paused}
+                    onDone={stepWorkout}
+                    onSkip={stepWorkout}
+                    onPause={togglePause}
+                  />
+                )}
+                {workout && workout.paused && (
+                  <View style={styles.pausedCard}>
+                    <Text style={styles.pausedText}>Workout paused</Text>
+                    <Pressable onPress={togglePause} style={styles.resumeBtn}>
+                      <Text style={styles.resumeText}>Resume</Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -301,19 +401,21 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* Quick actions — chat trigger chips, just above the Ask Kin bar */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.quickRow}
-      >
-        <QuickChip icon="workout" label="Start Workout" onPress={openBundles} />
-        <QuickChip icon="progress" label="Show Progress" onPress={() => navigation.navigate('Progress' as never)} />
-        <QuickChip icon="plan" label="Weekly Plan" onPress={openBundles} />
-        <QuickChip icon="history" label="Workout History" onPress={openHistory} />
-        <QuickChip icon="badges" label="My Badges" onPress={() => navigation.navigate('Progress' as never)} />
-        <QuickChip icon="recovery" label="Recovery" onPress={() => setAskText('How should I recover today?')} />
-        <QuickChip icon="motivation" label="Motivation" onPress={() => setAskText('Give me some motivation!')} />
-      </ScrollView>
+      {!workout && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickRow}
+        >
+          <QuickChip icon="workout" label="Start Workout" onPress={startWorkout} />
+          <QuickChip icon="progress" label="Show Progress" onPress={() => navigation.navigate('Progress' as never)} />
+          <QuickChip icon="plan" label="Weekly Plan" onPress={openBundles} />
+          <QuickChip icon="history" label="Workout History" onPress={openHistory} />
+          <QuickChip icon="badges" label="My Badges" onPress={() => navigation.navigate('Progress' as never)} />
+          <QuickChip icon="recovery" label="Recovery" onPress={() => setAskText('How should I recover today?')} />
+          <QuickChip icon="motivation" label="Motivation" onPress={() => setAskText('Give me some motivation!')} />
+        </ScrollView>
+      )}
 
       {/* Ask Kin bar */}
       <View style={styles.askBar}>
@@ -378,6 +480,14 @@ function QuickChip({
           {label}
         </Text>
       </BlurView>
+    </Pressable>
+  );
+}
+
+function WorkoutChip({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.workoutChip, pressed && { opacity: 0.7 }]}>
+      <Text style={styles.workoutChipText} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }
@@ -459,6 +569,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   xpFill: { height: '100%', backgroundColor: '#FFD54A', borderRadius: 3 },
+  workoutControls: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  workoutChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 18,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  workoutChipText: { ...typography.caption, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
   quickRow: {
     flexDirection: 'row',
     gap: 10,
@@ -571,6 +693,29 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   kinBubbleText: { ...typography.body, color: colors.text },
+  pausedCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    alignItems: 'center',
+    gap: spacing.md,
+    shadowColor: '#1E4E7E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  pausedText: { ...typography.bodyBold, color: colors.textSecondary },
+  resumeBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+  },
+  resumeText: { ...typography.bodyBold, color: '#FFFFFF' },
+  typingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  typingText: { ...typography.body, color: colors.textSecondary, fontStyle: 'italic' },
   achCard: {
     flexDirection: 'row',
     alignItems: 'center',
