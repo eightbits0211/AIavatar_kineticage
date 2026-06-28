@@ -50,6 +50,17 @@ export default function AuthScreen() {
     androidClientId: googleConfig.androidClientId || undefined,
   });
 
+  // Debug: log the exact OAuth client ID and redirect URI being sent to Google.
+  // If sign-in fails with "invalid_client / OAuth client was not found", this
+  // tells you which client ID to verify in Google Cloud Console and which
+  // redirect URI must be whitelisted on that client.
+  useEffect(() => {
+    if (request) {
+      console.log('[GoogleAuth] clientId:', request.clientId);
+      console.log('[GoogleAuth] redirectUri:', request.redirectUri);
+    }
+  }, [request]);
+
   // Handle the Google OAuth response.
   useEffect(() => {
     if (response?.type === 'success') {
@@ -61,7 +72,16 @@ export default function AuthScreen() {
           .finally(() => setBusy(false));
       }
     } else if (response?.type === 'error') {
-      setError('Google sign-in was cancelled or failed.');
+      const detail =
+        response.error?.code ||
+        response.params?.error_description ||
+        response.params?.error ||
+        '';
+      setError(
+        detail
+          ? `Google sign-in failed: ${detail}`
+          : 'Google sign-in was cancelled or failed.'
+      );
     }
   }, [response]);
 

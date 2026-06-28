@@ -61,7 +61,9 @@ KineticAge is an AI-powered fitness companion that combines a **deterministic, t
 │  │  │  • Conversational coaching (voice + text)                     │  │ │
 │  │  │  • Exercise explanations from library data                    │  │ │
 │  │  │  • Post-workout summaries                                     │  │ │
-│  │  │  • Motivational messaging                                     │  │ │
+│  │  │  • Motivational messaging                                    
+
+ │  │ │
 │  │  │  • NEVER generates exercise content or weights                │  │ │
 │  │  └───────────────────────────────────────────────────────────────┘  │ │
 │  │                                                                      │ │

@@ -51,20 +51,20 @@ router.post('/upgrade', authMiddleware, async (req: AuthRequest, res: Response) 
   try {
     const { name, email } = req.body;
 
+    // Only overwrite fields when a non-empty value is supplied, so an upgrade
+    // never wipes out a name/email the guest already provided during onboarding.
+    const updates: Record<string, unknown> = { is_guest: false };
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+
+    // Upsert keeps the upgrade robust: if the guest's profile row is somehow
+    // missing, create it under the same firebase_uid rather than 404ing (which
+    // would orphan the freshly linked account).
     const user = await User.findOneAndUpdate(
       { firebase_uid: req.uid },
-      {
-        name: name || '',
-        email: email || '',
-        is_guest: false,
-      },
-      { new: true }
+      { $set: updates, $setOnInsert: { firebase_uid: req.uid, onboarding_completed: false } },
+      { new: true, upsert: true }
     );
-
-    if (!user) {
-      res.status(404).json({ error: 'Not Found', message: 'User not found' });
-      return;
-    }
 
     res.json({
       message: 'Account upgraded successfully',
