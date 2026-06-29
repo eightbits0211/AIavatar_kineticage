@@ -1,9 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
-import HomeScreen from '../screens/HomeScreen';
-import WorkoutScreen from '../screens/WorkoutScreen';
+import HomeStack from './HomeStack';
 import DashboardScreen from '../screens/DashboardScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import TabBarIcon from '../components/TabBarIcon';
 import { colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -18,13 +18,37 @@ export default function MainTabs() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
+          height: 78,
+          paddingBottom: 18,
+          paddingTop: 6,
         },
+        tabBarLabelStyle: { fontFamily: 'Inter_500Medium', fontSize: 11 },
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Workout" component={WorkoutScreen} />
-      <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="AICoach"
+        component={HomeStack}
+        options={{
+          tabBarLabel: 'AI Coach',
+          tabBarIcon: ({ color }) => <TabBarIcon name="coach" color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Progress"
+        component={DashboardScreen}
+        options={{
+          tabBarLabel: 'Progress',
+          tabBarIcon: ({ color }) => <TabBarIcon name="progress" color={color} />,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color }) => <TabBarIcon name="profile" color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }

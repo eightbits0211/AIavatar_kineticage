@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -115,8 +116,13 @@ export default function OnboardingChatScreen() {
         navigation.navigate('HealthMetrics');
       }, 1200);
     } catch (error) {
-      // Don't auto-retry in a loop — surface the issue once.
-      addMessage('kin', "I couldn't finish setting up your plan just now. Please check your connection and tap send to try again.");
+      // Surface the failure clearly instead of failing silently.
+      const message = error instanceof Error ? error.message : 'Something went wrong.';
+      addMessage('kin', "I couldn't finish setting up your plan just now. Tap Build My Plan to try again.");
+      Alert.alert(
+        "Couldn't build your plan",
+        `${message}\n\nMake sure the backend server is running, then try again.`
+      );
       if (__DEV__) console.warn('Personalization failed:', error);
     } finally {
       setProcessing(false);

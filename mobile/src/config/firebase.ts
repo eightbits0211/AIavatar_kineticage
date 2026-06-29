@@ -2,10 +2,12 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
   initializeAuth,
   getAuth,
+  browserLocalPersistence,
   // @ts-expect-error — getReactNativePersistence is exported at runtime but
   // missing from some firebase type bundles. Safe to use in React Native.
   getReactNativePersistence,
 } from 'firebase/auth';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
@@ -42,14 +44,20 @@ if (__DEV__) {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 /**
- * Initialize Auth with AsyncStorage persistence so the user stays signed in
- * across app restarts. initializeAuth must run exactly once; if it has already
- * been initialized (e.g. fast refresh), fall back to getAuth.
+ * Initialize Auth with the right persistence for the platform:
+ *  - Web: browserLocalPersistence (getReactNativePersistence does not exist in
+ *    the firebase web build and throws if called).
+ *  - Native: AsyncStorage persistence so the session survives app restarts.
+ * initializeAuth must run exactly once; if it has already been initialized
+ * (e.g. fast refresh), fall back to getAuth.
  */
 function createAuth() {
   try {
     return initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage),
+      persistence:
+        Platform.OS === 'web'
+          ? browserLocalPersistence
+          : getReactNativePersistence(AsyncStorage),
     });
   } catch (error) {
     if (__DEV__) {
