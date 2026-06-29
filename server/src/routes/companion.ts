@@ -99,13 +99,13 @@ router.post('/message', authMiddleware, async (req: AuthRequest, res: Response) 
     });
 
     // Send to AI
-    const { reply, action_intent } = await sendCompanionMessage(
+    const { reply, action_intent, fallback } = await sendCompanionMessage(
       systemPrompt,
       conversationHistory,
       message.trim()
     );
 
-    // Store conversation turns
+    // Store conversation turns (even if fallback — keeps the history consistent)
     if (session_id) {
       await SessionTurn.create([
         {
@@ -132,13 +132,15 @@ router.post('/message', authMiddleware, async (req: AuthRequest, res: Response) 
     res.json({
       reply,
       action_intent,
+      ...(fallback && { fallback: true }),
     });
   } catch (error: any) {
     console.error('Companion message error:', error.message);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Failed to get companion response',
-      service: 'ai',
+    // Even if something unexpected happens, return a friendly message
+    res.status(200).json({
+      reply: "Something went wrong on my end. Let's keep going — try that again?",
+      action_intent: null,
+      fallback: true,
     });
   }
 });

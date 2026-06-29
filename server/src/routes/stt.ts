@@ -10,6 +10,9 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
  * POST /api/stt/transcribe
  * Accepts audio file, returns transcribed text.
  * Content-Type: multipart/form-data with "audio" field.
+ *
+ * On service failure, returns 200 with error field (not 500).
+ * This lets the mobile app gracefully fall back to text input.
  */
 router.post('/transcribe', authMiddleware, upload.single('audio'), async (req: AuthRequest, res: Response) => {
   try {
@@ -18,17 +21,34 @@ router.post('/transcribe', authMiddleware, upload.single('audio'), async (req: A
       return;
     }
 
-    const { transcript, confidence } = await transcribeAudio(req.file.buffer, req.file.mimetype);
+    const result = await transcribeAudio(req.file.buffer, req.file.mimetype);
 
-    if (!transcript || transcript.trim().length === 0) {
+    if (result.error) {
+      // Service failed but we don't crash — return friendly error
+      res.json({
+        transcript: '',
+        confidence: 0,
+        error: result.error,
+        fallback: true,
+      });
+      return;
+    }
+
+    if (!result.transcript || result.transcript.trim().length === 0) {
       res.json({ transcript: '', confidence: 0, message: 'No speech detected' });
       return;
     }
 
-    res.json({ transcript, confidence });
+    res.json({ transcript: result.transcript, confidence: result.confidence });
   } catch (error: any) {
-    console.error('STT error:', error.message);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to transcribe audio', service: 'deepgram' });
+    console.error('STT route error:', error.message);
+    // Graceful fallback — never crash the client
+    res.json({
+      transcript: '',
+      confidence: 0,
+      error: 'Voice recognition is temporarily unavailable. Please try typing instead.',
+      fallback: true,
+    });
   }
 });
 

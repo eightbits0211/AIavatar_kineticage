@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
-import { textToSpeech } from '../services/elevenlabs';
+import { textToSpeech, ServiceUnavailableError } from '../services/elevenlabs';
 
 const router = Router();
 
@@ -9,6 +9,9 @@ const router = Router();
  * Converts text to speech and returns audio (MP3).
  * Request body: { text: string, voice_id?: string }
  * Response: audio/mpeg binary stream
+ *
+ * On service failure, returns JSON with error message and the original text.
+ * This lets the mobile app display the text instead of playing audio.
  */
 router.post('/stream', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
@@ -33,7 +36,25 @@ router.post('/stream', authMiddleware, async (req: AuthRequest, res: Response) =
     res.send(audioBuffer);
   } catch (error: any) {
     console.error('TTS error:', error.message);
-    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to generate speech', service: 'elevenlabs' });
+
+    // Return the text so the app can display it instead of playing audio
+    const fallbackText = req.body?.text?.trim()?.substring(0, 500) || '';
+
+    if (error instanceof ServiceUnavailableError) {
+      res.status(200).json({
+        error: 'service_unavailable',
+        message: 'Voice is temporarily unavailable. Here\'s what Kira wanted to say:',
+        text: fallbackText,
+        fallback: true,
+      });
+    } else {
+      res.status(200).json({
+        error: 'tts_failed',
+        message: 'Could not generate audio. Showing text instead.',
+        text: fallbackText,
+        fallback: true,
+      });
+    }
   }
 });
 
