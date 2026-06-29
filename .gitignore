@@ -26,3 +26,6 @@ mobile/android/
 # Logs
 *.log
 npm-debug.log*
+
+# Personal reports (not for repo)
+docs/work-report.md
