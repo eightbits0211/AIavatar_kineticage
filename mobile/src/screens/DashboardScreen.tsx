@@ -50,6 +50,7 @@ interface HistoryItem {
   duration_min: number;
   status: string;
   xp_awarded: number;
+  calories_burned: number;
 }
 interface GoalResp {
   total_workouts: number;
@@ -61,9 +62,6 @@ interface GoalResp {
   total_xp: number;
   exercises_progressed: number;
 }
-interface DashResp {
-  weekly_progress: { completed: number; planned: number; calories_burned: { low: number; high: number } };
-}
 interface StrengthExercise {
   name: string;
   start_reps: number;
@@ -71,13 +69,23 @@ interface StrengthExercise {
 }
 interface StrengthResp {
   exercises: StrengthExercise[];
+  summary?: {
+    total_exercises_tracked: number;
+    overall_strength_change_pct: number;
+  };
 }
-interface WeightPoint {
-  label: string;
-  kg: number;
+interface WeightEntry {
+  date: string;
+  weight_kg: number;
 }
 interface WeightResp {
-  points: WeightPoint[];
+  entries: WeightEntry[];
+  summary?: {
+    current_weight_kg: number;
+    start_weight_kg: number;
+    change_kg: number;
+    total_entries: number;
+  };
 }
 
 /* ───────────────── small icons ───────────────── */
@@ -182,7 +190,7 @@ function LineChart({ axisLabels, points }: { axisLabels: string[]; points: numbe
       {w > 0 && (
         <Svg width={w} height={height}>
           {/* horizontal gridlines */}
-          {ticks.map((t, i) => {
+          {ticks.map((_t, i) => {
             const yy = padT + (i / (ticks.length - 1)) * innerH;
             return <Line key={`g${i}`} x1={padL} y1={yy} x2={w - padR} y2={yy} stroke="#EAEFF5" strokeWidth={1} strokeDasharray="3 4" />;
           })}
@@ -256,27 +264,26 @@ export default function DashboardScreen() {
   const [weekly, setWeekly] = useState<WeeklyResp | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [goal, setGoal] = useState<GoalResp | null>(null);
-  const [dash, setDash] = useState<DashResp | null>(null);
   const [strength, setStrength] = useState<StrengthExercise[] | null>(null);
+  const [strengthChangePct, setStrengthChangePct] = useState<number>(0);
   const [weightData, setWeightData] = useState<WeightResp | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (r: Range) => {
     setLoading(true);
     try {
-      const [w, h, g, d, st, wt] = await Promise.all([
+      const [w, h, g, st, wt] = await Promise.all([
         apiGet<WeeklyResp>(`/api/progress/weekly?range=${r}`).catch(() => null),
         apiGet<{ history: HistoryItem[] }>('/api/progress/history?limit=999').catch(() => null),
         apiGet<GoalResp>('/api/progress/goal').catch(() => null),
-        apiGet<DashResp>('/api/dashboard').catch(() => null),
         apiGet<StrengthResp>('/api/progress/strength').catch(() => null),
         apiGet<WeightResp>(`/api/progress/weight?range=${r}`).catch(() => null),
       ]);
       if (w) setWeekly(w);
       if (h) setHistory(h.history ?? []);
       if (g) setGoal(g);
-      if (d) setDash(d);
       setStrength(st?.exercises ?? null);
+      setStrengthChangePct(st?.summary?.overall_strength_change_pct ?? 0);
       setWeightData(wt ?? null);
     } finally {
       setLoading(false);
@@ -310,39 +317,40 @@ export default function DashboardScreen() {
     return d;
   })();
 
-  // Build the activity buckets for the selected range.
+  // Build the activity (minutes) and calorie buckets for the selected range,
+  // both summed from real per-session data.
   let activityData: Array<{ label: string; value: number }>;
+  let calorieData: Array<{ label: string; value: number }>;
   if (range === 'week') {
     const mins = [0, 0, 0, 0, 0, 0, 0]; // Mon..Sun
+    const cals = [0, 0, 0, 0, 0, 0, 0];
     for (const s of history) {
       const dt = new Date(s.date);
-      if (dt >= weekStart) mins[(dt.getDay() + 6) % 7] += s.duration_min || 0;
+      if (dt >= weekStart) {
+        const i = (dt.getDay() + 6) % 7;
+        mins[i] += s.duration_min || 0;
+        cals[i] += s.calories_burned || 0;
+      }
     }
     activityData = WEEKDAYS.map((l, i) => ({ label: l, value: mins[i] }));
+    calorieData = WEEKDAYS.map((l, i) => ({ label: l, value: cals[i] }));
   } else {
     const weeks = Math.ceil(daysInMonth / 7);
     const mins = new Array(weeks).fill(0);
+    const cals = new Array(weeks).fill(0);
     for (const s of history) {
       const dt = new Date(s.date);
       if (dt.getFullYear() === year && dt.getMonth() === monthIdx) {
         const wk = Math.min(weeks - 1, Math.floor((dt.getDate() - 1) / 7));
         mins[wk] += s.duration_min || 0;
+        cals[wk] += s.calories_burned || 0;
       }
     }
     activityData = mins.map((v, i) => ({ label: `W${i + 1}`, value: v }));
+    calorieData = cals.map((v, i) => ({ label: `W${i + 1}`, value: v }));
   }
-  const totalMinutes = activityData.reduce((a, b) => a + b.value, 0);
 
-  // ── calories: derive a kcal/min rate from this week's real total, then apply
-  // to each bucket's real minutes so week AND month scale correctly. ──
-  const cal = dash?.weekly_progress?.calories_burned;
-  const weeklyCalories = cal ? Math.round((cal.low + cal.high) / 2) : 0;
-  let weekMinutes = 0;
-  for (const s of history) {
-    if (new Date(s.date) >= weekStart) weekMinutes += s.duration_min || 0;
-  }
-  const kcalPerMin = weekMinutes > 0 ? weeklyCalories / weekMinutes : 0;
-  const calorieData = activityData.map((b) => ({ label: b.label, value: Math.round(b.value * kcalPerMin) }));
+  // Total calories for the selected period (real, summed from sessions).
   const periodCalories = calorieData.reduce((a, b) => a + b.value, 0);
 
   // ── summary metrics (all real) ──
@@ -362,9 +370,13 @@ export default function DashboardScreen() {
   // Always-present interfaces (seeded baselines until backend data arrives).
   const strengthRows = strength && strength.length > 0 ? strength : DEFAULT_STRENGTH;
   const strengthScaleMax = Math.max(1, ...strengthRows.map((e) => e.current_reps));
+  const weightEntries = weightData?.entries ?? [];
   const weightPoints =
-    weightData && weightData.points.length > 0
-      ? weightData.points
+    weightEntries.length > 0
+      ? weightEntries.map((e) => ({
+          label: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          kg: e.weight_kg,
+        }))
       : weight
         ? [{ label: 'W1', kg: weight }]
         : [];
@@ -422,7 +434,7 @@ export default function DashboardScreen() {
                   color={ORANGE}
                   yTicks={[Math.round(maxCal), Math.round(maxCal / 2), Math.round(maxCal / 4), 0]}
                 />
-                <Text style={styles.footnote}>Estimated from your workouts' calorie ranges.</Text>
+                <Text style={styles.footnote}>Summed from each completed workout.</Text>
               </View>
 
               {/* Activity (real, minutes) */}
@@ -441,7 +453,14 @@ export default function DashboardScreen() {
 
               {/* Strength Progress (interface seeded; fills as rep data arrives) */}
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>Strength Progress</Text>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>Strength Progress</Text>
+                  {strengthChangePct !== 0 && (
+                    <Text style={styles.cardAccentOrange}>
+                      {strengthChangePct > 0 ? '+' : ''}{strengthChangePct}% strength
+                    </Text>
+                  )}
+                </View>
                 <View style={{ marginTop: spacing.sm }}>
                   {strengthRows.map((ex) => (
                     <StrengthRow key={ex.name} ex={ex} scaleMax={strengthScaleMax} />

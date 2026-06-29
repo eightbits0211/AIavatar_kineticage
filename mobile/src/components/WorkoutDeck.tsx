@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
@@ -19,7 +20,13 @@ function phaseLabel(ex: BundleExercise, idx: number, total: number): string {
 
 function isTimed(ex: BundleExercise, idx: number, total: number): boolean {
   const p = (ex as any).workout_phase as string | undefined;
-  if (p) return /warm|cool|cardio|mobility|finisher|stretch/.test(p);
+  // Warm-up / cool-down / stretch blocks stay time-based (intro / outro).
+  if (p && /warm|cool|stretch/.test(p)) return true;
+  // Any other exercise that has a real rep range is rep-based — show sets × reps.
+  const repMax = (ex as any).rep_max as number | undefined;
+  if (typeof repMax === 'number' && repMax > 0) return false;
+  // No rep data — fall back to the original time-based heuristic.
+  if (p) return /cardio|mobility|finisher/.test(p);
   return idx === 0 || idx === total - 1;
 }
 
@@ -90,7 +97,7 @@ interface WorkoutDeckProps {
   index: number;
   total: number;
   paused: boolean;
-  onDone: () => void;
+  onDone: (reps: number) => void;
   onSkip: () => void;
   onPause: () => void;
 }
@@ -101,6 +108,14 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
     ? `${timedMinutes(exercise, index, total)} min`
     : `${exercise.sets} × ${exercise.rep_min}-${exercise.rep_max}`;
   const sub = `${exercise.sets} set${exercise.sets > 1 ? 's' : ''}`;
+
+  // Reps the user actually completed (per set). Defaults to the top of the
+  // prescribed range and resets whenever the exercise changes.
+  const defaultReps = exercise.rep_max ?? exercise.rep_min ?? 10;
+  const [reps, setReps] = useState<number>(defaultReps);
+  useEffect(() => {
+    setReps(exercise.rep_max ?? exercise.rep_min ?? 10);
+  }, [exercise]);
 
   return (
     <View style={styles.wrap}>
@@ -133,8 +148,32 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
           </View>
         </View>
 
+        {/* Reps stepper — rep-based exercises only */}
+        {!timed && (
+          <View style={styles.repRow}>
+            <Text style={styles.repLabel}>Reps completed</Text>
+            <View style={styles.stepper}>
+              <Pressable
+                onPress={() => setReps((r) => Math.max(0, r - 1))}
+                style={styles.stepBtn}
+                accessibilityLabel="Decrease reps"
+              >
+                <Text style={styles.stepSign}>−</Text>
+              </Pressable>
+              <Text style={styles.repValue}>{reps}</Text>
+              <Pressable
+                onPress={() => setReps((r) => Math.min(99, r + 1))}
+                style={styles.stepBtn}
+                accessibilityLabel="Increase reps"
+              >
+                <Text style={styles.stepSign}>+</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {/* Done */}
-        <Pressable onPress={onDone} style={styles.doneWrap}>
+        <Pressable onPress={() => onDone(reps)} style={styles.doneWrap}>
           <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.doneBtn}>
             <CheckIcon />
             <Text style={styles.doneText}>Done</Text>
@@ -207,6 +246,31 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   badgeText: { ...typography.small, fontSize: 10, color: colors.primary },
+
+  repRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F4F7FB',
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  repLabel: { ...typography.bodyBold, color: NAVY },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  stepBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D8E2EC',
+  },
+  stepSign: { fontSize: 22, lineHeight: 24, color: colors.primary, fontFamily: 'Inter_700Bold' },
+  repValue: { ...typography.h3, color: NAVY, minWidth: 30, textAlign: 'center', fontFamily: 'Inter_700Bold' },
 
   doneWrap: { marginHorizontal: -spacing.md },
   doneBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52 },
