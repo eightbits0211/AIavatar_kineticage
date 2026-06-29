@@ -2,11 +2,21 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export type WorkoutPhase = 'warm_up' | 'primary' | 'bmi_targeting' | 'core' | 'cardio_finisher' | 'balance_mobility' | 'cool_down';
 
+/**
+ * MHR intensity zones based on percentage of Maximum Heart Rate.
+ * - low: <60% MHR (warm-ups, cool-downs, mobility)
+ * - moderate: 60-75% MHR (general fitness, moderate cardio)
+ * - high: 75-85% MHR (strength, hypertrophy heavy compounds)
+ * - very_high: >85% MHR (HIIT, plyometrics, sprints)
+ */
+export type IntensityZone = 'low' | 'moderate' | 'high' | 'very_high';
+
 export interface IExercise extends Document {
   exercise_id: string;
   name: string;
   category_tags: string[];
   workout_phase: WorkoutPhase[];
+  intensity_zone: IntensityZone;
   muscle_groups: {
     primary: string[];
     secondary: string[];
@@ -31,6 +41,7 @@ const ExerciseSchema = new Schema<IExercise>({
   name: { type: String, required: true },
   category_tags: [{ type: String }],
   workout_phase: [{ type: String, enum: ['warm_up', 'primary', 'bmi_targeting', 'core', 'cardio_finisher', 'balance_mobility', 'cool_down'] }],
+  intensity_zone: { type: String, enum: ['low', 'moderate', 'high', 'very_high'], default: 'moderate' },
   muscle_groups: {
     primary: [{ type: String }],
     secondary: [{ type: String }],

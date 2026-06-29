@@ -21,6 +21,8 @@ import { bundleAssemblyStage, BundleAssemblyOutput, AssembledBundle } from './bu
 export interface GenerateBundlesOptions {
   user: IUser;
   recentMuscleGroups?: string[];
+  /** Optional seed for deterministic bundle generation. Same seed + same inputs = same bundles. */
+  seed?: string;
 }
 
 export interface GenerateBundlesResult {
@@ -38,7 +40,7 @@ export interface GenerateBundlesResult {
  * Loads exercises from MongoDB, runs the 4-stage pipeline.
  */
 export async function generateBundles(options: GenerateBundlesOptions): Promise<GenerateBundlesResult> {
-  const { user, recentMuscleGroups = [] } = options;
+  const { user, recentMuscleGroups = [], seed } = options;
 
   // Load full exercise library from database
   const allExercises = await Exercise.find({}).lean() as unknown as IExercise[];
@@ -97,6 +99,7 @@ export async function generateBundles(options: GenerateBundlesOptions): Promise<
     workoutDuration,
     recentMuscleGroups,
     bmiCategory,
+    seed,
   });
 
   return {

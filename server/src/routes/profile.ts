@@ -37,7 +37,7 @@ router.put('/', authMiddleware, async (req: AuthRequest, res: Response) => {
 
     // Recalculate metrics if any relevant field was updated
     const metricsFields = ['age', 'height_cm', 'weight_kg', 'gender', 'activity_level'];
-    const personaFields = ['fitness_goal', 'activity_level', 'workout_location', 'equipment', 'injuries', 'workout_duration', 'prior_program_experience'];
+    const personaFields = ['fitness_goal', 'fitness_level', 'activity_level', 'workout_location', 'equipment', 'injuries', 'workout_duration', 'prior_program_experience'];
 
     const updatedFields = Object.keys(req.body);
     const needsMetricsRecalc = updatedFields.some(f => metricsFields.includes(f));
