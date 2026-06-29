@@ -30,6 +30,7 @@ export interface ISession extends Document {
     timestamp: Date;
   }>;
   xp_awarded: number;
+  calories_burned: number;
   progression_flags: Array<{
     exercise_id: mongoose.Types.ObjectId;
     type: string;
@@ -67,6 +68,7 @@ const SessionSchema = new Schema<ISession>({
     timestamp: { type: Date, default: Date.now },
   }],
   xp_awarded: { type: Number, default: 0 },
+  calories_burned: { type: Number, default: 0 },
   progression_flags: [{ type: Schema.Types.Mixed }],
 });
 

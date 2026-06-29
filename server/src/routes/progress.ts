@@ -49,6 +49,7 @@ router.get('/history', authMiddleware, async (req: AuthRequest, res: Response) =
           status: s.status,
           exercises_completed: s.exercises_completed || s.exercises.filter((e: any) => e.status === 'completed').length,
           exercises_planned: s.exercises_planned || s.exercises.length,
+          calories_burned: s.calories_burned || 0,
           xp_awarded: s.xp_awarded,
           exercises: s.exercises.map((e: any) => ({
             name: e.exercise_name,

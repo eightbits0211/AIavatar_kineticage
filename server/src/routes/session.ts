@@ -322,6 +322,25 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
     session.xp_awarded = xpResult.xp_awarded;
     session.exercises_completed = completedExercises;
     session.exercises_planned = totalExercises;
+
+    // Calculate calories from bundle's estimate, scaled by completion ratio
+    let caloriesBurned = 0;
+    try {
+      const bundle = await Bundle.findById(session.bundle_id).lean() as any;
+      if (bundle?.estimated_calorie_burn) {
+        // Use midpoint of the bundle's calorie range, scaled by how much was completed
+        const midCalories = (bundle.estimated_calorie_burn.low + bundle.estimated_calorie_burn.high) / 2;
+        caloriesBurned = Math.round(midCalories * completionRatio);
+      }
+    } catch {
+      // Bundle lookup failed — use a duration-based estimate as fallback
+      const durationMin = session.completed_at && session.started_at
+        ? Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()) / 60000)
+        : 30;
+      caloriesBurned = Math.round(durationMin * 6 * completionRatio); // ~6 cal/min average
+    }
+    session.calories_burned = caloriesBurned;
+
     await session.save();
 
     res.json({
@@ -329,6 +348,7 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
       exercises_completed: completedExercises,
       exercises_planned: totalExercises,
       completion_ratio: Math.round(completionRatio * 100),
+      calories_burned: caloriesBurned,
       xp_awarded: xpResult.xp_awarded,
       xp_breakdown: xpResult.breakdown,
       new_total_xp: user?.gamification.total_xp || 0,
