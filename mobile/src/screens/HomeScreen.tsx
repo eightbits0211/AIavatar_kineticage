@@ -216,7 +216,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ── Header ── */}
         <LinearGradient
           colors={['#2D6CA8', '#1E4E7E']}
@@ -494,6 +494,7 @@ function WorkoutChip({ label, onPress }: { label: string; onPress: () => void })
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scrollView: { flex: 1 },
   scroll: { paddingBottom: spacing.xl },
   header: {
     paddingHorizontal: spacing.lg,
