@@ -71,13 +71,23 @@ interface StrengthExercise {
 }
 interface StrengthResp {
   exercises: StrengthExercise[];
+  summary?: {
+    total_exercises_tracked: number;
+    overall_strength_change_pct: number;
+  };
 }
-interface WeightPoint {
-  label: string;
-  kg: number;
+interface WeightEntry {
+  date: string;
+  weight_kg: number;
 }
 interface WeightResp {
-  points: WeightPoint[];
+  entries: WeightEntry[];
+  summary?: {
+    current_weight_kg: number;
+    start_weight_kg: number;
+    change_kg: number;
+    total_entries: number;
+  };
 }
 
 /* ───────────────── small icons ───────────────── */
@@ -182,7 +192,7 @@ function LineChart({ axisLabels, points }: { axisLabels: string[]; points: numbe
       {w > 0 && (
         <Svg width={w} height={height}>
           {/* horizontal gridlines */}
-          {ticks.map((t, i) => {
+          {ticks.map((_t, i) => {
             const yy = padT + (i / (ticks.length - 1)) * innerH;
             return <Line key={`g${i}`} x1={padL} y1={yy} x2={w - padR} y2={yy} stroke="#EAEFF5" strokeWidth={1} strokeDasharray="3 4" />;
           })}
@@ -258,6 +268,7 @@ export default function DashboardScreen() {
   const [goal, setGoal] = useState<GoalResp | null>(null);
   const [dash, setDash] = useState<DashResp | null>(null);
   const [strength, setStrength] = useState<StrengthExercise[] | null>(null);
+  const [strengthChangePct, setStrengthChangePct] = useState<number>(0);
   const [weightData, setWeightData] = useState<WeightResp | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -277,6 +288,7 @@ export default function DashboardScreen() {
       if (g) setGoal(g);
       if (d) setDash(d);
       setStrength(st?.exercises ?? null);
+      setStrengthChangePct(st?.summary?.overall_strength_change_pct ?? 0);
       setWeightData(wt ?? null);
     } finally {
       setLoading(false);
@@ -331,7 +343,6 @@ export default function DashboardScreen() {
     }
     activityData = mins.map((v, i) => ({ label: `W${i + 1}`, value: v }));
   }
-  const totalMinutes = activityData.reduce((a, b) => a + b.value, 0);
 
   // ── calories: derive a kcal/min rate from this week's real total, then apply
   // to each bucket's real minutes so week AND month scale correctly. ──
@@ -362,9 +373,13 @@ export default function DashboardScreen() {
   // Always-present interfaces (seeded baselines until backend data arrives).
   const strengthRows = strength && strength.length > 0 ? strength : DEFAULT_STRENGTH;
   const strengthScaleMax = Math.max(1, ...strengthRows.map((e) => e.current_reps));
+  const weightEntries = weightData?.entries ?? [];
   const weightPoints =
-    weightData && weightData.points.length > 0
-      ? weightData.points
+    weightEntries.length > 0
+      ? weightEntries.map((e) => ({
+          label: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          kg: e.weight_kg,
+        }))
       : weight
         ? [{ label: 'W1', kg: weight }]
         : [];
@@ -441,7 +456,14 @@ export default function DashboardScreen() {
 
               {/* Strength Progress (interface seeded; fills as rep data arrives) */}
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>Strength Progress</Text>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle}>Strength Progress</Text>
+                  {strengthChangePct !== 0 && (
+                    <Text style={styles.cardAccentOrange}>
+                      {strengthChangePct > 0 ? '+' : ''}{strengthChangePct}% strength
+                    </Text>
+                  )}
+                </View>
                 <View style={{ marginTop: spacing.sm }}>
                   {strengthRows.map((ex) => (
                     <StrengthRow key={ex.name} ex={ex} scaleMax={strengthScaleMax} />

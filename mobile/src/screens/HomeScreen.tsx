@@ -22,7 +22,7 @@ import { FlameIcon, BellIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
 import WorkoutDeck from '../components/WorkoutDeck';
-import { apiGet, apiPost } from '../services/api';
+import { apiGet, apiPost, apiPut } from '../services/api';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
 import type { ExerciseBundle, BundleExercise } from '../../../shared/types';
@@ -112,12 +112,13 @@ export default function HomeScreen() {
   }, [askText]);
 
   // ── In-chat workout session ──
-  type WorkoutState = { exercises: BundleExercise[]; index: number; paused: boolean; title: string };
+  type WorkoutState = { exercises: BundleExercise[]; index: number; paused: boolean; title: string; sessionId: string | null };
   const [workout, setWorkout] = useState<WorkoutState | null>(null);
 
-  const startWorkout = useCallback(() => {
-    const exercises = recommended?.exercises ?? [];
-    if (!exercises.length) {
+  const startWorkout = useCallback(async () => {
+    const bundle = recommended;
+    const exercises = bundle?.exercises ?? [];
+    if (!bundle || !exercises.length) {
       navigation.navigate('BundleSelection');
       return;
     }
@@ -126,23 +127,92 @@ export default function HomeScreen() {
       { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' },
       { id: `${Date.now()}-k`, role: 'kin', text: "Let's go." },
     ]);
-    setWorkout({ exercises, index: 0, paused: false, title: recommended?.title ?? 'Workout' });
+    setWorkout({ exercises, index: 0, paused: false, title: bundle.title ?? 'Workout', sessionId: null });
+
+    // Tell the backend a session has started so the workout gets logged.
+    try {
+      const res = await apiPost<{ session_id: string }>('/api/session/start', { bundle_id: bundle._id });
+      setWorkout((w) => (w ? { ...w, sessionId: res.session_id } : w));
+    } catch {
+      // If this fails the workout still runs locally — it just won't be logged.
+    }
   }, [recommended, navigation]);
 
-  // Advance on Done / Skip (same client-side step for now).
-  const stepWorkout = useCallback(() => {
-    if (!workout) return;
-    const last = workout.index >= workout.exercises.length - 1;
-    if (last) {
-      setWorkout(null);
-      setMessages((m) => [
-        ...m,
-        { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${workout.title}.` },
-      ]);
-    } else {
-      setWorkout({ ...workout, index: workout.index + 1, paused: false });
+  // End the session on the backend — this triggers progression, XP, streak,
+  // badges, and makes the workout show up in history / the Progress tab.
+  const finishSession = useCallback(async (sessionId: string | null, title: string) => {
+    setWorkout(null);
+    setMessages((m) => [
+      ...m,
+      { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
+    ]);
+    if (sessionId) {
+      try {
+        await apiPost(`/api/session/${sessionId}/end`, {});
+      } catch {
+        // Non-fatal — the summary message is still shown.
+      }
     }
-  }, [workout]);
+  }, []);
+
+  // Mark the current exercise complete with the reps the user logged, then advance.
+  const handleDone = useCallback(
+    async (reps: number) => {
+      const w = workout;
+      if (!w) return;
+      const ex = w.exercises[w.index];
+      const isLast = w.index >= w.exercises.length - 1;
+
+      if (!isLast) setWorkout({ ...w, index: w.index + 1, paused: false });
+
+      if (w.sessionId && ex?.exercise_id) {
+        try {
+          const setCount = Math.max(1, ex.sets ?? 1);
+          for (let i = 1; i <= setCount; i++) {
+            await apiPut(`/api/session/${w.sessionId}/exercise`, {
+              exercise_id: ex.exercise_id,
+              action: 'complete_set',
+              data: { set_number: i, actual_reps: reps },
+            });
+          }
+          await apiPut(`/api/session/${w.sessionId}/exercise`, {
+            exercise_id: ex.exercise_id,
+            action: 'complete_exercise',
+            data: { feedback: 'felt_normal' },
+          });
+        } catch {
+          // Ignore logging failure for this exercise.
+        }
+      }
+
+      if (isLast) await finishSession(w.sessionId, w.title);
+    },
+    [workout, finishSession]
+  );
+
+  // Skip the current exercise, then advance.
+  const handleSkip = useCallback(async () => {
+    const w = workout;
+    if (!w) return;
+    const ex = w.exercises[w.index];
+    const isLast = w.index >= w.exercises.length - 1;
+
+    if (!isLast) setWorkout({ ...w, index: w.index + 1, paused: false });
+
+    if (w.sessionId && ex?.exercise_id) {
+      try {
+        await apiPut(`/api/session/${w.sessionId}/exercise`, {
+          exercise_id: ex.exercise_id,
+          action: 'skip',
+          data: { reason: 'user_skipped' },
+        });
+      } catch {
+        // Ignore.
+      }
+    }
+
+    if (isLast) await finishSession(w.sessionId, w.title);
+  }, [workout, finishSession]);
 
   const togglePause = useCallback(() => setWorkout((p) => (p ? { ...p, paused: !p.paused } : p)), []);
 
@@ -216,7 +286,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* ── Header ── */}
         <LinearGradient
           colors={['#2D6CA8', '#1E4E7E']}
@@ -273,7 +343,7 @@ export default function HomeScreen() {
           {/* Workout controls — replace the idle header during a session */}
           {workout && (
             <View style={styles.workoutControls}>
-              <WorkoutChip label="Skip Exercise" onPress={stepWorkout} />
+              <WorkoutChip label="Skip Exercise" onPress={handleSkip} />
               <WorkoutChip label="Make Easier" onPress={makeEasier} />
               <WorkoutChip label={workout.paused ? 'Resume' : 'Pause Workout'} onPress={togglePause} />
             </View>
@@ -377,12 +447,13 @@ export default function HomeScreen() {
                 )}
                 {workout && !workout.paused && (
                   <WorkoutDeck
+                    key={workout.index}
                     exercise={workout.exercises[workout.index]}
                     index={workout.index}
                     total={workout.exercises.length}
                     paused={workout.paused}
-                    onDone={stepWorkout}
-                    onSkip={stepWorkout}
+                    onDone={handleDone}
+                    onSkip={handleSkip}
                     onPause={togglePause}
                   />
                 )}
@@ -405,6 +476,7 @@ export default function HomeScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={styles.quickRowScroll}
           contentContainerStyle={styles.quickRow}
         >
           <QuickChip icon="workout" label="Start Workout" onPress={startWorkout} />
@@ -494,6 +566,7 @@ function WorkoutChip({ label, onPress }: { label: string; onPress: () => void })
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  scrollView: { flex: 1 },
   scroll: { paddingBottom: spacing.xl },
   header: {
     paddingHorizontal: spacing.lg,
@@ -581,12 +654,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   workoutChipText: { ...typography.caption, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
+  quickRowScroll: { flexGrow: 0, flexShrink: 0 },
   quickRow: {
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: spacing.lg,
-    paddingTop: 22,
-    paddingBottom: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
     alignItems: 'center',
   },
   quickChipWrap: {
