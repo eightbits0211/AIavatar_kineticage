@@ -10,6 +10,7 @@ export interface IUser extends Document {
   gender: 'male' | 'female' | 'other' | 'prefer_not_to_say';
   fitness_goal: string;
   activity_level: string;
+  fitness_level: 'beginner' | 'intermediate' | 'advanced';
   workout_location: string;
   equipment: string[];
   injuries: string[];
@@ -46,6 +47,10 @@ export interface IUser extends Document {
     reported_at: Date;
     session_id: mongoose.Types.ObjectId;
   }>;
+  weight_log: Array<{
+    date: Date;
+    weight_kg: number;
+  }>;
   onboarding_completed: boolean;
   is_guest: boolean;
   created_at: Date;
@@ -68,6 +73,11 @@ const UserSchema = new Schema<IUser>(
     activity_level: {
       type: String,
       enum: ['sedentary', 'lightly_active', 'moderately_active', 'very_active'],
+    },
+    fitness_level: {
+      type: String,
+      enum: ['beginner', 'intermediate', 'advanced'],
+      default: 'beginner',
     },
     workout_location: { type: String, enum: ['gym', 'home', 'outdoors', 'hybrid'] },
     equipment: [{ type: String }],
@@ -105,6 +115,12 @@ const UserSchema = new Schema<IUser>(
         body_area: String,
         reported_at: Date,
         session_id: { type: Schema.Types.ObjectId, ref: 'Session' },
+      },
+    ],
+    weight_log: [
+      {
+        date: { type: Date, required: true },
+        weight_kg: { type: Number, required: true },
       },
     ],
     onboarding_completed: { type: Boolean, default: false },

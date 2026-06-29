@@ -52,6 +52,8 @@ export interface BundleAssemblyInput {
   workoutDuration: 15 | 30 | 45 | 60;
   recentMuscleGroups?: string[];
   bmiCategory?: string;
+  /** Optional seed for deterministic shuffle. If provided, same inputs produce same outputs. */
+  seed?: string;
 }
 
 export interface BundleAssemblyOutput {
@@ -139,11 +141,33 @@ function getBmiPreference(bmiCategory: string): {
   }
 }
 
-// Shuffle array (Fisher-Yates)
+// Seeded PRNG (mulberry32) for deterministic shuffle when seed is provided.
+// If no seed, falls back to Math.random() for per-generation variety.
+function createRng(seed?: string): () => number {
+  if (!seed) return Math.random;
+
+  // Hash string seed to a 32-bit integer
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+  }
+
+  // mulberry32
+  return () => {
+    h |= 0; h = h + 0x6D2B79F5 | 0;
+    let t = Math.imul(h ^ h >>> 15, 1 | h);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+let _rng: () => number = Math.random;
+
+// Shuffle array (Fisher-Yates) using the module-level RNG
 function shuffle<T>(arr: T[]): T[] {
   const result = [...arr];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(_rng() * (i + 1));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
@@ -276,7 +300,11 @@ function generateTitle(exercises: BundleExerciseOutput[], bundleIndex: number): 
 }
 
 export function bundleAssemblyStage(input: BundleAssemblyInput): BundleAssemblyOutput {
-  const { modified, workoutDuration, recentMuscleGroups = [], bmiCategory } = input;
+  const { modified, workoutDuration, recentMuscleGroups = [], bmiCategory, seed } = input;
+
+  // Initialize RNG — deterministic if seed provided, random otherwise
+  _rng = createRng(seed);
+
   const slotTemplate = getSlotTemplate(workoutDuration);
   const bundles: AssembledBundle[] = [];
 

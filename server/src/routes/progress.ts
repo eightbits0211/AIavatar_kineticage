@@ -271,4 +271,191 @@ router.get('/insights', authMiddleware, async (req: AuthRequest, res: Response) 
   }
 });
 
+/**
+ * GET /api/progress/strength
+ * Returns per-exercise strength progression data.
+ * For each exercise with history, returns: name, start_reps, current_reps, change.
+ * Supports ?range=week|month (filters history entries by date).
+ */
+router.get('/strength', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ firebase_uid: req.uid });
+    if (!user) { res.status(404).json({ error: 'Not Found', message: 'User not found' }); return; }
+
+    const range = (req.query.range as string) || 'all';
+    let dateFilter: Date | null = null;
+
+    if (range === 'week') {
+      dateFilter = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    } else if (range === 'month') {
+      dateFilter = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    }
+
+    const progressions = await ExerciseProgression.find({ user_id: user._id }).lean();
+
+    const strengthData = progressions
+      .filter(p => p.history && p.history.length >= 1)
+      .map(p => {
+        // Apply date filter if specified
+        let history = p.history.filter((h: any) => !h.skipped && h.reps_achieved && h.reps_achieved.length > 0);
+        if (dateFilter) {
+          history = history.filter((h: any) => new Date(h.date) >= dateFilter!);
+        }
+
+        if (history.length === 0) return null;
+
+        // Average reps across sets for each session
+        const avgReps = (entry: any) => {
+          const reps = entry.reps_achieved as number[];
+          return reps.length > 0 ? Math.round(reps.reduce((a: number, b: number) => a + b, 0) / reps.length) : 0;
+        };
+
+        const startReps = avgReps(history[0]);
+        const currentReps = avgReps(history[history.length - 1]);
+        const change = currentReps - startReps;
+
+        return {
+          exercise_id: p.exercise_id,
+          name: p.exercise_id, // Will be enriched below
+          start_reps: startReps,
+          current_reps: currentReps,
+          change,
+          sessions_tracked: history.length,
+          progression_state: p.progression_state,
+        };
+      })
+      .filter(Boolean);
+
+    // Enrich exercise names from the Exercise collection
+    const { Exercise } = await import('../models/Exercise');
+    const exerciseIds = strengthData.map((s: any) => s.exercise_id);
+    const exercises = await Exercise.find({ exercise_id: { $in: exerciseIds } }).select('exercise_id name').lean();
+    const nameMap = new Map(exercises.map((e: any) => [e.exercise_id, e.name]));
+
+    for (const item of strengthData) {
+      if (item) {
+        item.name = nameMap.get(item.exercise_id) || item.exercise_id;
+      }
+    }
+
+    // Calculate overall strength change percentage
+    const totalStart = strengthData.reduce((sum, s) => sum + (s?.start_reps || 0), 0);
+    const totalCurrent = strengthData.reduce((sum, s) => sum + (s?.current_reps || 0), 0);
+    const overallChange = totalStart > 0 ? Math.round(((totalCurrent - totalStart) / totalStart) * 100) : 0;
+
+    res.json({
+      exercises: strengthData,
+      summary: {
+        total_exercises_tracked: strengthData.length,
+        overall_strength_change_pct: overallChange,
+      },
+    });
+  } catch (error: any) {
+    console.error('Progress strength error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch strength progress' });
+  }
+});
+
+/**
+ * POST /api/progress/weight
+ * Logs a weight entry for the user.
+ * Body: { weight_kg: number }
+ * Also updates the user's current weight_kg field.
+ */
+router.post('/weight', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ firebase_uid: req.uid });
+    if (!user) { res.status(404).json({ error: 'Not Found', message: 'User not found' }); return; }
+
+    const { weight_kg } = req.body;
+    if (!weight_kg || typeof weight_kg !== 'number' || weight_kg < 20 || weight_kg > 300) {
+      res.status(400).json({ error: 'Bad Request', message: 'weight_kg must be a number between 20 and 300' });
+      return;
+    }
+
+    // Check if there's already a log entry for today (prevent duplicates)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const existingToday = user.weight_log?.find(
+      (entry: any) => new Date(entry.date) >= today
+    );
+
+    if (existingToday) {
+      // Update today's entry instead of adding a new one
+      existingToday.weight_kg = weight_kg;
+    } else {
+      // Add new entry
+      if (!user.weight_log) {
+        user.weight_log = [];
+      }
+      user.weight_log.push({ date: new Date(), weight_kg });
+    }
+
+    // Also update the user's current weight
+    user.weight_kg = weight_kg;
+
+    await user.save();
+
+    res.json({
+      message: 'Weight logged successfully',
+      weight_kg,
+      total_entries: user.weight_log.length,
+    });
+  } catch (error: any) {
+    console.error('Weight log error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to log weight' });
+  }
+});
+
+/**
+ * GET /api/progress/weight
+ * Returns the user's weight history for charting.
+ * Query params:
+ *   ?range=week|month|all (default: all)
+ * Returns: array of { date, weight_kg } + summary stats.
+ */
+router.get('/weight', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findOne({ firebase_uid: req.uid });
+    if (!user) { res.status(404).json({ error: 'Not Found', message: 'User not found' }); return; }
+
+    const range = (req.query.range as string) || 'all';
+    let entries = user.weight_log || [];
+
+    // Filter by date range
+    if (range === 'week') {
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      entries = entries.filter((e: any) => new Date(e.date) >= cutoff);
+    } else if (range === 'month') {
+      const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      entries = entries.filter((e: any) => new Date(e.date) >= cutoff);
+    }
+
+    // Sort by date ascending
+    entries = [...entries].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Calculate summary
+    const allEntries = [...(user.weight_log || [])].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const startWeight = allEntries.length > 0 ? allEntries[0].weight_kg : user.weight_kg;
+    const currentWeight = user.weight_kg;
+    const weightChange = currentWeight && startWeight ? Math.round((currentWeight - startWeight) * 10) / 10 : 0;
+
+    res.json({
+      entries: entries.map((e: any) => ({
+        date: e.date,
+        weight_kg: e.weight_kg,
+      })),
+      summary: {
+        current_weight_kg: currentWeight,
+        start_weight_kg: startWeight,
+        change_kg: weightChange,
+        total_entries: (user.weight_log || []).length,
+      },
+    });
+  } catch (error: any) {
+    console.error('Weight history error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error', message: 'Failed to fetch weight history' });
+  }
+});
+
 export default router;

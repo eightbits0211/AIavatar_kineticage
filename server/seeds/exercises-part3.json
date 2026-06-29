@@ -46,7 +46,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_042",
@@ -85,7 +86,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_043",
@@ -136,7 +138,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_044",
@@ -181,7 +184,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_045",
@@ -223,7 +227,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_046",
@@ -272,7 +277,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_047",
@@ -321,7 +327,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_048",
@@ -367,7 +374,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_049",
@@ -422,7 +430,8 @@
     "workout_phase": [
       "warm_up",
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_050",
@@ -466,7 +475,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_051",
@@ -503,7 +513,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_052",
@@ -560,7 +571,8 @@
     "image_url": "",
     "workout_phase": [
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_053",
@@ -618,7 +630,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_054",
@@ -667,7 +680,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "very_high"
   },
   {
     "exercise_id": "ex_055",
@@ -710,7 +724,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_056",
@@ -766,7 +781,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_057",
@@ -814,7 +830,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_058",
@@ -862,7 +879,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_059",
@@ -907,7 +925,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_060",
@@ -952,7 +971,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_061",
@@ -1001,7 +1021,8 @@
     "workout_phase": [
       "primary",
       "balance_mobility"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_062",
@@ -1057,7 +1078,8 @@
     "image_url": "",
     "workout_phase": [
       "core"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_063",
@@ -1103,7 +1125,8 @@
     "image_url": "",
     "workout_phase": [
       "core"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_064",
@@ -1152,7 +1175,8 @@
     "image_url": "",
     "workout_phase": [
       "core"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_065",
@@ -1199,7 +1223,8 @@
     "image_url": "",
     "workout_phase": [
       "core"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_066",
@@ -1256,7 +1281,8 @@
     "workout_phase": [
       "warm_up",
       "core"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_067",
@@ -1303,7 +1329,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_068",
@@ -1349,7 +1376,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_069",
@@ -1405,7 +1433,8 @@
     "image_url": "",
     "workout_phase": [
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_070",
@@ -1452,7 +1481,8 @@
     "image_url": "",
     "workout_phase": [
       "primary"
-    ]
+    ],
+    "intensity_zone": "moderate"
   },
   {
     "exercise_id": "ex_071",
@@ -1511,7 +1541,8 @@
       "warm_up",
       "cardio_finisher",
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_072",
@@ -1564,7 +1595,8 @@
     "workout_phase": [
       "cardio_finisher",
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_073",
@@ -1616,7 +1648,8 @@
     "workout_phase": [
       "cardio_finisher",
       "bmi_targeting"
-    ]
+    ],
+    "intensity_zone": "high"
   },
   {
     "exercise_id": "ex_074",
@@ -1667,7 +1700,8 @@
     "workout_phase": [
       "warm_up",
       "core"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_075",
@@ -1724,7 +1758,8 @@
     "image_url": "",
     "workout_phase": [
       "warm_up"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_076",
@@ -1764,7 +1799,8 @@
     "image_url": "",
     "workout_phase": [
       "cool_down"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_077",
@@ -1803,7 +1839,8 @@
     "image_url": "",
     "workout_phase": [
       "cool_down"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_078",
@@ -1843,7 +1880,8 @@
     "workout_phase": [
       "warm_up",
       "cool_down"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_079",
@@ -1875,13 +1913,14 @@
         "rest_seconds": 20
       }
     },
-    "instructions_text": "Extend arms forward. Make slow circles with your wrists \u2014 clockwise then counter-clockwise. Do 10-15 each direction. Good warm-up before pressing exercises.",
+    "instructions_text": "Extend arms forward. Make slow circles with your wrists — clockwise then counter-clockwise. Do 10-15 each direction. Good warm-up before pressing exercises.",
     "difficulty_level": "beginner",
     "image_url": "",
     "workout_phase": [
       "warm_up",
       "cool_down"
-    ]
+    ],
+    "intensity_zone": "low"
   },
   {
     "exercise_id": "ex_080",
@@ -1913,12 +1952,13 @@
         "rest_seconds": 20
       }
     },
-    "instructions_text": "Stand on one foot (hold something for balance). Lift other foot and draw slow circles with your toes \u2014 clockwise then counter-clockwise. 10-15 each direction per foot.",
+    "instructions_text": "Stand on one foot (hold something for balance). Lift other foot and draw slow circles with your toes — clockwise then counter-clockwise. 10-15 each direction per foot.",
     "difficulty_level": "beginner",
     "image_url": "",
     "workout_phase": [
       "warm_up",
       "cool_down"
-    ]
+    ],
+    "intensity_zone": "low"
   }
 ]
