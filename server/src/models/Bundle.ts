@@ -16,6 +16,7 @@ export interface IBundle extends Document {
     rest_seconds: number;
     instructions_text: string;
     image_url: string;
+    image_url_end: string;
     muscle_groups: string[];
   }>;
   rationale: string;
@@ -50,6 +51,7 @@ const BundleSchema = new Schema<IBundle>({
     rest_seconds: Number,
     instructions_text: String,
     image_url: String,
+    image_url_end: String,
     muscle_groups: [String],
   }],
   rationale: { type: String, default: '' },

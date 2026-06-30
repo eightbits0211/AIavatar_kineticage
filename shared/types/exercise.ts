@@ -34,4 +34,5 @@ export interface Exercise {
   instructions_text: string;
   difficulty_level: DifficultyLevel;
   image_url: string;
+  image_url_end: string;
 }

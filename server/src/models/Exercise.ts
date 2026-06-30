@@ -34,6 +34,7 @@ export interface IExercise extends Document {
   instructions_text: string;
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
   image_url: string;
+  image_url_end: string;
 }
 
 const ExerciseSchema = new Schema<IExercise>({
@@ -54,6 +55,7 @@ const ExerciseSchema = new Schema<IExercise>({
   instructions_text: { type: String, required: true },
   difficulty_level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
   image_url: { type: String, default: '' },
+  image_url_end: { type: String, default: '' },
 });
 
 ExerciseSchema.index({ difficulty_level: 1 });

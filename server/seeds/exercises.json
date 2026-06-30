@@ -50,11 +50,12 @@
     },
     "instructions_text": "Stand with feet shoulder-width apart, bar resting on upper traps. Brace your core, push hips back and bend knees to lower until thighs are parallel to the floor. Drive through your heels to stand back up. Keep chest up and knees tracking over toes throughout.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Full_Squat/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Full_Squat/1.jpg"
   },
   {
     "exercise_id": "ex_002",
@@ -114,11 +115,12 @@
     },
     "instructions_text": "Hold a dumbbell vertically at chest height with both hands cupping the top end. Stand with feet slightly wider than shoulder-width. Squat down keeping elbows inside your knees and chest tall. Push through your heels to return to standing.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Squat/1.jpg"
   },
   {
     "exercise_id": "ex_003",
@@ -179,12 +181,13 @@
     },
     "instructions_text": "Stand with feet shoulder-width apart, toes slightly turned out. Extend arms forward for balance. Lower your hips back and down as if sitting into a chair. Go as deep as comfortable while keeping your heels on the floor. Stand back up by pushing through your whole foot.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/0.jpg",
     "workout_phase": [
       "warm_up",
       "bmi_targeting"
     ],
-    "intensity_zone": "low"
+    "intensity_zone": "low",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/1.jpg"
   },
   {
     "exercise_id": "ex_004",
@@ -229,11 +232,12 @@
     },
     "instructions_text": "Lie on a flat bench with eyes under the bar. Grip the bar slightly wider than shoulder-width. Unrack and lower the bar to mid-chest with control. Press the bar back up to full arm extension. Keep shoulder blades pinched together and feet flat on the floor throughout.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Bench_Press_-_Medium_Grip/1.jpg"
   },
   {
     "exercise_id": "ex_005",
@@ -286,11 +290,12 @@
     },
     "instructions_text": "Lie on a flat bench holding a dumbbell in each hand at chest level. Press both dumbbells up until arms are extended. Lower with control back to the starting position. Keep a slight arch in your lower back and feet planted firmly.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bench_Press/1.jpg"
   },
   {
     "exercise_id": "ex_006",
@@ -352,11 +357,12 @@
     },
     "instructions_text": "Start in a plank position with hands slightly wider than shoulder-width. Lower your body until your chest nearly touches the floor. Keep your body in a straight line from head to heels. Push back up to the starting position. If full push-ups are too difficult, start with knees on the ground.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/0.jpg",
     "workout_phase": [
       "bmi_targeting"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pushups/1.jpg"
   },
   {
     "exercise_id": "ex_007",
@@ -403,11 +409,12 @@
     },
     "instructions_text": "Stand with feet hip-width apart, bar over mid-foot. Hinge at hips and grip the bar just outside your knees. Flatten your back, brace your core, and drive through your feet to stand up. Keep the bar close to your body throughout. Reverse the movement to lower the bar back down with control.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Barbell_Deadlift/1.jpg"
   },
   {
     "exercise_id": "ex_008",
@@ -467,11 +474,12 @@
     },
     "instructions_text": "Stand holding dumbbells in front of your thighs with a slight bend in your knees. Hinge at your hips, pushing them back while lowering the dumbbells along your legs. Keep your back flat and feel a stretch in your hamstrings. Return to standing by squeezing your glutes at the top.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift_With_Dumbbells/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Romanian_Deadlift_With_Dumbbells/1.jpg"
   },
   {
     "exercise_id": "ex_009",
@@ -522,12 +530,13 @@
     },
     "instructions_text": "Lie on your back with knees bent and feet flat on the floor. Extend one leg straight out. Push through the heel of your grounded foot to lift your hips until your body forms a straight line from shoulders to knee. Lower with control and repeat. Switch legs after completing all reps.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single_Leg_Barbell_Glute_Bridge/0.jpg",
     "workout_phase": [
       "primary",
       "balance_mobility"
     ],
-    "intensity_zone": "low"
+    "intensity_zone": "low",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Single_Leg_Barbell_Glute_Bridge/1.jpg"
   },
   {
     "exercise_id": "ex_010",
@@ -573,11 +582,12 @@
     },
     "instructions_text": "Stand with feet shoulder-width apart, holding the bar at shoulder height with hands just outside shoulders. Brace your core and press the bar overhead until arms are fully extended. Lower the bar back to shoulders with control. Avoid arching your lower back excessively.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Military_Press/1.jpg"
   },
   {
     "exercise_id": "ex_011",
@@ -637,11 +647,12 @@
     },
     "instructions_text": "Sit or stand holding a dumbbell in each hand at shoulder height with palms facing forward. Press both dumbbells overhead until arms are fully extended. Lower back to shoulder height with control. Keep your core tight to avoid arching your back.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Shoulder_Press/1.jpg"
   },
   {
     "exercise_id": "ex_012",
@@ -689,11 +700,12 @@
     },
     "instructions_text": "Start in a downward dog position with hips high and hands shoulder-width apart. Bend your elbows to lower the top of your head toward the floor. Push back up to the starting position. The more vertical your torso, the harder it is on your shoulders.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pike_Push_Up/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pike_Push_Up/1.jpg"
   },
   {
     "exercise_id": "ex_013",
@@ -739,11 +751,12 @@
     },
     "instructions_text": "Hinge forward at the hips with a slight bend in your knees, holding the bar with an overhand grip. Pull the bar to your lower chest, squeezing your shoulder blades together at the top. Lower with control. Keep your back flat and avoid using momentum.",
     "difficulty_level": "intermediate",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "high"
+    "intensity_zone": "high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bent_Over_Barbell_Row/1.jpg"
   },
   {
     "exercise_id": "ex_014",
@@ -801,11 +814,12 @@
     },
     "instructions_text": "Place one knee and hand on a bench for support. Hold a dumbbell in the other hand with arm extended. Pull the dumbbell to your hip, leading with your elbow. Squeeze your shoulder blade at the top, then lower with control. Complete all reps on one side, then switch.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Dumbbell_Row/1.jpg"
   },
   {
     "exercise_id": "ex_015",
@@ -850,11 +864,12 @@
     },
     "instructions_text": "Set a bar at waist height (or use a sturdy table edge). Hang underneath with arms extended and body straight. Pull your chest to the bar by squeezing your shoulder blades together. Lower with control. The more horizontal your body, the harder it is.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Inverted_Row/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Inverted_Row/1.jpg"
   },
   {
     "exercise_id": "ex_016",
@@ -907,11 +922,12 @@
     },
     "instructions_text": "Hang from a bar with hands slightly wider than shoulder-width, palms facing away. Pull yourself up until your chin clears the bar. Lower with control to a full hang. Avoid swinging or using momentum. If too difficult, use a resistance band for assistance.",
     "difficulty_level": "advanced",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "very_high"
+    "intensity_zone": "very_high",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Pullups/1.jpg"
   },
   {
     "exercise_id": "ex_017",
@@ -963,11 +979,12 @@
     },
     "instructions_text": "Sit at a lat pulldown machine with thighs secured under the pads. Grip the bar wider than shoulder-width. Pull the bar down to your upper chest while squeezing your shoulder blades together. Return the bar up with control. Avoid leaning too far back.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wide-Grip_Lat_Pulldown/1.jpg"
   },
   {
     "exercise_id": "ex_018",
@@ -1018,11 +1035,12 @@
     },
     "instructions_text": "Hold a resistance band with both hands at shoulder height, arms extended in front of you. Pull the band apart by squeezing your shoulder blades together until your arms are out to your sides. Return slowly to the starting position. Keep a slight bend in your elbows.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Band_Pull_Apart/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Band_Pull_Apart/1.jpg"
   },
   {
     "exercise_id": "ex_019",
@@ -1069,13 +1087,14 @@
         "rest_seconds": 30
       }
     },
-    "instructions_text": "Stand holding a dumbbell in each hand with arms at your sides, palms facing forward. Curl the dumbbells up toward your shoulders by bending at the elbows. Squeeze at the top, then lower with control. Keep your elbows pinned to your sides — avoid swinging.",
+    "instructions_text": "Stand holding a dumbbell in each hand with arms at your sides, palms facing forward. Curl the dumbbells up toward your shoulders by bending at the elbows. Squeeze at the top, then lower with control. Keep your elbows pinned to your sides \u2014 avoid swinging.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bicep_Curl/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dumbbell_Bicep_Curl/1.jpg"
   },
   {
     "exercise_id": "ex_020",
@@ -1128,10 +1147,11 @@
     },
     "instructions_text": "Sit on the edge of a bench with hands gripping the edge beside your hips. Slide your hips off the bench with legs extended (or bent for easier version). Lower your body by bending elbows to about 90 degrees. Push back up to straight arms. Keep your back close to the bench.",
     "difficulty_level": "beginner",
-    "image_url": "",
+    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/0.jpg",
     "workout_phase": [
       "primary"
     ],
-    "intensity_zone": "moderate"
+    "intensity_zone": "moderate",
+    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bench_Dips/1.jpg"
   }
 ]

@@ -97,6 +97,7 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res: Response)
           rest_seconds: e.rest_seconds,
           instructions_text: e.instructions_text,
           image_url: e.image_url,
+          image_url_end: e.image_url_end || '',
           muscle_groups: e.muscle_groups,
         })),
         rationale: bundle.rationale,

@@ -7,6 +7,7 @@ export interface BundleExercise {
   rest_seconds: number;
   instructions_text: string;
   image_url: string;
+  image_url_end: string;
   muscle_groups: string[];
 }
 
