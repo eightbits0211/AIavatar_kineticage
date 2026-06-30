@@ -100,11 +100,31 @@ export async function sendCompanionMessage(
     // Safety validation: strip any weight numbers that slipped through
     reply = stripWeightValues(reply);
 
+    // Strip any markdown formatting that slipped through (critical for TTS)
+    reply = stripMarkdown(reply);
+
     return { reply, action_intent };
   } catch (error: any) {
     console.error('AI service unavailable after retries:', error.message);
     return getFallbackResponse();
   }
+}
+
+/**
+ * Strip markdown formatting from text (for clean TTS output).
+ * Removes: bold, italic, headers, bullet points, code blocks, backticks.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/\*(.+?)\*/g, '$1')        // *italic*
+    .replace(/_(.+?)_/g, '$1')          // _italic_
+    .replace(/#{1,6}\s/g, '')           // ## headers
+    .replace(/```[\s\S]*?```/g, '')     // code blocks
+    .replace(/`(.+?)`/g, '$1')         // inline code
+    .replace(/^\s*[-*]\s/gm, '')       // bullet points
+    .replace(/^\s*\d+\.\s/gm, '')      // numbered lists
+    .trim();
 }
 
 /**
