@@ -182,4 +182,50 @@ function getFallbackForTrigger(trigger?: string): string {
   return fallbacks[trigger || ''] || "Keep going, you're doing great!";
 }
 
+/**
+ * POST /api/companion/trigger-test
+ * DEV ONLY — same as /trigger but bypasses auth using a demo_uid.
+ * Used by the trigger-test.html page for local testing.
+ * Remove before production.
+ */
+router.post('/trigger-test', async (req: any, res: Response) => {
+  try {
+    const { trigger, context, demo_uid } = req.body;
+
+    if (!trigger || !TRIGGER_PROMPTS[trigger as TriggerType]) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: `Invalid trigger. Valid: ${Object.keys(TRIGGER_PROMPTS).join(', ')}`,
+      });
+      return;
+    }
+
+    const user = await User.findOne({ firebase_uid: demo_uid || 'demo_alex' });
+    if (!user) {
+      res.status(404).json({ error: 'Not Found', message: 'Demo user not found. Run seed-demo.ts first.' });
+      return;
+    }
+
+    const systemPrompt = buildSystemPrompt({ user });
+    const triggerInstruction = TRIGGER_PROMPTS[trigger as TriggerType];
+    const contextDetails = buildContextMessage(trigger as TriggerType, context);
+    const userMessage = `[SYSTEM TRIGGER: ${trigger}]\n${triggerInstruction}\n\n${contextDetails}`;
+
+    const { reply, fallback } = await sendCompanionMessage(systemPrompt, [], userMessage);
+
+    res.json({
+      message: reply,
+      trigger,
+      ...(fallback && { fallback: true }),
+    });
+  } catch (error: any) {
+    console.error('Trigger test error:', error.message);
+    res.json({
+      message: getFallbackForTrigger(req.body?.trigger),
+      trigger: req.body?.trigger || 'unknown',
+      fallback: true,
+    });
+  }
+});
+
 export default router;

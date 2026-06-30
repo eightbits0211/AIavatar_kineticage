@@ -436,6 +436,7 @@ async function handleOnboardingComplete(session: VoiceSession) {
                 rest_seconds: e.rest_seconds,
                 instructions_text: e.instructions_text,
                 image_url: e.image_url,
+                image_url_end: e.image_url_end || '',
                 muscle_groups: e.muscle_groups,
               })),
               focus: bundle.focus,

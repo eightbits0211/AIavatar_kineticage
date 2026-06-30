@@ -35,6 +35,7 @@ export interface BundleExerciseOutput {
   rest_seconds: number;
   instructions_text: string;
   image_url: string;
+  image_url_end: string;
   muscle_groups: string[];
 }
 
@@ -192,6 +193,7 @@ function toBundleExercise(item: CategorizedExercise, phase: WorkoutPhase): Bundl
     rest_seconds: item.rest_seconds,
     instructions_text: item.exercise.instructions_text,
     image_url: item.exercise.image_url,
+    image_url_end: item.exercise.image_url_end || '',
     muscle_groups: item.exercise.muscle_groups.primary,
   };
 }
