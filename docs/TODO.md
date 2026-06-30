@@ -1,81 +1,51 @@
-# KineticAge — Remaining Work
+# KineticAge — TODO (Before Demo: July 17)
 
-*Last updated: 24 June 2026*
+*Last updated: 30 June 2026*
 
 ---
 
-## Before Demo (July 17)
-
-### Backend (Roshini)
+## Backend (Roshini)
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| 1 | Seed demo accounts (users with history, XP, streaks, badges) | High | TODO |
-| 2 | Prompt tuning (test Kin across personas, refine tone, no markdown) | High | TODO |
-| 3 | Error hardening (graceful fallbacks if Gemini/Deepgram/ElevenLabs down) | Medium | TODO |
-| 4 | Rename companion "Kira" → "Kin" in basePersonality.ts | Low | TODO |
+| 1 | Proactive AI triggers — endpoint for contextual Kira messages at key workout moments | High | TODO |
+| 2 | Exercise GIFs — map 80 exercises to GIF URLs, populate image_url field in seed data | High | TODO |
+| 3 | Weight logging prompt logic — decide when to ask user (weekly? at daily check-in?) | Low | TODO |
+| 4 | End-to-end testing with full demo flow | High | TODO (Jul 14-15) |
 
-### Mobile (Teammate)
+## Mobile (Pratham)
 
-| # | Task | Sprint | Status |
-|---|------|--------|--------|
-| 1 | Navigation setup (AuthStack + MainTabs) | Sprint 1 | TODO |
-| 2 | Firebase Auth on mobile (Google, guest, token) | Sprint 1 | TODO |
-| 3 | Onboarding screens (chat-style with Kin, 9 steps) | Sprint 1 | TODO |
-| 4 | Health Metrics summary screen | Sprint 1 | TODO |
-| 5 | Bundle selection screen (4 cards, recommended highlighted) | Sprint 2 | TODO |
-| 6 | Workout session screen (progress dots, Done/Skip/Pause) | Sprint 3 | TODO |
-| 7 | Chat UI (persistent, voice/text switching) | Sprint 3 | TODO |
-| 8 | Voice pipeline mobile (recording hook, VoiceButton, playback) | Sprint 3 | TODO |
-| 9 | Dashboard screen (today's workout, XP, streak, achievements) | Sprint 4 | TODO |
-| 10 | Gamification UI (level-up animation, badges grid) | Sprint 4 | TODO |
-| 11 | Daily check-in UI (energy + soreness modal) | Sprint 4 | TODO |
-| 12 | Progress screens (weight trend, weekly activity, charts) | Sprint 5 | TODO |
-| 13 | Profile screen (talkativeness slider, voice style) | Sprint 5 | TODO |
-| 14 | UI polish (animations, loading states, error states) | Sprint 5 | TODO |
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| 1 | Wire proactive AI triggers into workout session UI (call endpoint at set complete, rest start, etc.) | High | TODO |
+| 2 | Display exercise GIF on workout session screen (render image_url) | High | TODO |
+| 3 | Workout session screen (set tracking, Done/Skip/Pause, rest timer) | High | In progress |
+| 4 | Chat UI (persistent, voice/text switching) | High | TODO |
+| 5 | Voice pipeline mobile (recording hook, VoiceButton, playback) | High | TODO |
+| 6 | Include fitness_level in onboarding profile PUT payload | Medium | TODO |
+| 7 | Wire weight logging (POST/GET /api/progress/weight) into Progress tab | Medium | TODO |
+| 8 | Gamification UI (level-up animation, badges grid) | Medium | TODO |
+| 9 | Daily check-in UI (energy + soreness modal) | Medium | TODO |
+| 10 | Progress screens (weight trend chart, strength bars, weekly activity, calorie bars) | Medium | TODO |
+| 11 | UI polish (animations, loading states, error states) | Low | TODO |
+| 12 | Real-device testing (iOS + Android) | High | TODO |
 
----
+## Joint (Both)
 
-## Post-MVP (after July 17)
-
-| # | Feature | Notes |
-|---|---------|-------|
-| 1 | **Pipecat + Gemini speech-to-speech** | Lower latency, replace Deepgram+ElevenLabs with single streaming model |
-| 2 | **Voice style options** | 4 ElevenLabs voice IDs (Calm/Energetic/Friendly/Professional) mapped to user preference |
-| 3 | **Weekly persona re-evaluation** | Scheduled job for behavioral personas (Inconsistent Enthusiast based on completion rate) |
-| 4 | **Request validation (zod)** | Input validation middleware on all routes |
-| 5 | **Wearable integrations** | Apple Watch, Garmin — heart rate during workout |
-| 6 | **Nutrition logging** | Meal tracking beyond calorie estimate |
-| 7 | **Social features** | Friends, leaderboards, challenges |
-| 8 | **Avatar customization** | Unlock avatar appearances as user levels up |
-| 9 | **Multi-language support** | i18n for prompts and UI |
-| 10 | **Adaptive programming** | AI learns from long-term patterns, auto-adjusts difficulty |
-| 11 | **Exercise images/videos** | Visual references for each exercise |
-| 12 | **Offline mode** | Cache current bundle locally for workouts without internet |
+| # | Task | Priority | When |
+|---|------|----------|------|
+| 1 | End-to-end testing of full demo flow | High | Jul 14-15 |
+| 2 | Bug fixes | High | Jul 14-16 |
+| 3 | Demo recording / rehearsal | High | Jul 16-17 |
 
 ---
 
-## Completed Work (this session — June 23-24)
+## Completed Today (June 30)
 
-- ✅ Fixed shared types (SetData + userStore)
-- ✅ Switched AI from Groq → Gemini (gemini-2.5-flash)
-- ✅ Added exercise browse routes (GET /api/exercises, GET /api/exercises/:id)
-- ✅ Fixed progression_flags CastError bug
-- ✅ Full end-to-end testing — all endpoints verified
-- ✅ Built browser voice demo (STT → AI → TTS)
-- ✅ Fixed TTS reading markdown (stripMarkdown + prompt instruction)
-- ✅ Enforced PRD bundle sequence (Warm-up → Primary → Primary → BMI → Core → Cardio → Cool-down)
-- ✅ Added workout_phase to all 80 exercises
-- ✅ Fixed category stage to pass through structural exercises
-- ✅ PRs merged: #14, #15, #16, #17, #18
+- ✅ Demo seed accounts (3 users with realistic history, XP, streaks, badges)
+- ✅ Error hardening (graceful fallbacks for AI, STT, TTS — no 500s)
+- ✅ Per-session calories_burned persisted on session end
+- ✅ Prompt tuning (no-markdown enforcement, stripMarkdown post-processor, 6/6 tests pass)
+- ✅ 5 rules engine gaps addressed (MHR filtering, fitness level, determinism, strength progress, weight logging)
 
 ---
-
-## Key Context for Next Session
-
-- ElevenLabs model: `eleven_monolingual_v1` (current), consider `eleven_turbo_v2` for lower latency
-- Firebase Web API Key: AIzaSyBDoRZHeb1OKP2KeVXmJ5xShp4yfV2i7ko (for testing token exchange)
-- Voice demo page: http://localhost:3000/voice-demo.html
-- Rate limit: 60 req/min per user (increase temporarily for testing)
-- Companion name in PRD/mockups: "Kin" (currently "Kira" in code)
-- Bundle structure: 7 exercises for 45min, adjusted per duration
