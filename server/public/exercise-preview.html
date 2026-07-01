@@ -14,38 +14,33 @@
 </head>
 <body>
   <h1>Exercise Image Preview</h1>
-  <p>Each exercise alternates between start (frame 0) and end (frame 1) position every 800ms.</p>
+  <p>Animated GIFs from GitHub CDN — free, no watermark, no API key needed.</p>
   <div class="grid" id="grid"></div>
   <script>
+    const BASE = "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets";
     const exercises = [
-      { name: "Barbell Back Squat", path: "Barbell_Full_Squat" },
-      { name: "Push-Up", path: "Pushups" },
-      { name: "Dumbbell Bicep Curl", path: "Dumbbell_Bicep_Curl" },
-      { name: "Barbell Deadlift", path: "Barbell_Deadlift" },
-      { name: "Pull-Up", path: "Pullups" },
-      { name: "Plank", path: "Plank" },
-      { name: "Mountain Climbers", path: "Mountain_Climbers" },
-      { name: "Dumbbell Shoulder Press", path: "Dumbbell_Shoulder_Press" },
-      { name: "Russian Twist", path: "Russian_Twist" },
-      { name: "Glute Bridge", path: "Barbell_Glute_Bridge" },
-      { name: "Walking Lunge", path: "Bodyweight_Walking_Lunge" },
-      { name: "Burpee", path: "Bodyweight_Squat" },
+      { name: "Barbell Bench Press", id: "0025" },
+      { name: "Barbell Deadlift", id: "0032" },
+      { name: "Kettlebell Swing", id: "0549" },
+      { name: "Mountain Climber", id: "0630" },
+      { name: "Diamond Push-Up", id: "0283" },
+      { name: "Dead Bug", id: "0276" },
+      { name: "Barbell Row", id: "0027" },
+      { name: "Leg Press", id: "0739" },
+      { name: "Walking Lunge", id: "1460" },
+      { name: "Arnold Press", id: "0287" },
+      { name: "Russian Twist", id: "0014" },
+      { name: "Bear Crawl", id: "3360" },
     ];
 
-    const base = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
     const grid = document.getElementById("grid");
 
     exercises.forEach(ex => {
       const card = document.createElement("div");
       card.className = "card";
       const img = document.createElement("img");
-      img.src = base + ex.path + "/0.jpg";
+      img.src = `${BASE}/${ex.id}.gif`;
       img.alt = ex.name;
-      let frame = 0;
-      setInterval(() => {
-        frame = frame === 0 ? 1 : 0;
-        img.src = base + ex.path + "/" + frame + ".jpg";
-      }, 800);
       const h3 = document.createElement("h3");
       h3.textContent = ex.name;
       card.appendChild(img);

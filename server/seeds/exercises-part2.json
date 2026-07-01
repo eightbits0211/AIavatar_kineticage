@@ -59,12 +59,12 @@
     },
     "instructions_text": "Stand tall, take a large step forward and lower your back knee toward the ground. Both knees should bend to about 90 degrees. Push off your front foot and step the back leg forward into the next lunge. Keep your torso upright throughout.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Walking_Lunge/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/1460.gif",
     "workout_phase": [
       "bmi_targeting"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Walking_Lunge/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_022",
@@ -118,12 +118,12 @@
     },
     "instructions_text": "Stand about two feet in front of a bench. Place the top of one foot on the bench behind you. Lower your body until your front thigh is parallel to the ground. Push through your front heel to return to standing. Keep your torso upright and front knee tracking over your toes.",
     "difficulty_level": "intermediate",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bulgarian_Split_Squat/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0097.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "high",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bulgarian_Split_Squat/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_023",
@@ -176,12 +176,12 @@
     },
     "instructions_text": "Support yourself on your forearms and toes with your body in a straight line from head to heels. Keep your core braced and hips level \u2014 don't let them sag or pike up. Breathe steadily. Hold for the prescribed time. Note: rep numbers represent seconds for this exercise.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0464.gif",
     "workout_phase": [
       "core"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Plank/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_024",
@@ -231,13 +231,13 @@
     },
     "instructions_text": "Lie on your back with arms extended toward the ceiling and knees bent at 90 degrees above your hips. Slowly extend one arm overhead while extending the opposite leg, keeping your lower back pressed into the floor. Return to start and alternate sides. Each side counts as one rep.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0276.gif",
     "workout_phase": [
       "warm_up",
       "core"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Dead_Bug/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_025",
@@ -291,14 +291,14 @@
     },
     "instructions_text": "Start in a push-up position with arms straight. Drive one knee toward your chest, then quickly switch legs. Continue alternating at a quick pace. Keep your hips level and core engaged throughout. Each leg drive counts as one rep.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Mountain_Climbers/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0630.gif",
     "workout_phase": [
       "warm_up",
       "cardio_finisher",
       "bmi_targeting"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Mountain_Climbers/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_026",
@@ -348,13 +348,13 @@
     },
     "instructions_text": "From standing, squat down and place hands on the floor. Jump your feet back to a push-up position. Perform a push-up (optional), then jump feet back to your hands. Explode upward into a jump with arms overhead. Land softly and immediately go into the next rep.",
     "difficulty_level": "advanced",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0501.gif",
     "workout_phase": [
       "cardio_finisher",
       "bmi_targeting"
     ],
     "intensity_zone": "very_high",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Bodyweight_Squat/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_027",
@@ -408,13 +408,13 @@
     },
     "instructions_text": "Stand with feet wider than hip-width, kettlebell on the floor between your feet. Hinge at hips to grip the kettlebell. Hike it back between your legs, then explosively drive your hips forward to swing the kettlebell to chest height. Let it swing back and repeat. Power comes from your hips, not your arms.",
     "difficulty_level": "intermediate",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Kettlebell_Swings/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0549.gif",
     "workout_phase": [
       "cardio_finisher",
       "bmi_targeting"
     ],
     "intensity_zone": "high",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/One-Arm_Kettlebell_Swings/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_028",
@@ -465,12 +465,12 @@
     },
     "instructions_text": "Stand holding a dumbbell in each hand at your sides. Raise your arms out to the sides until they reach shoulder height, keeping a slight bend in your elbows. Slowly lower back down. Avoid shrugging your shoulders up \u2014 think about pushing the dumbbells away from you.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0178.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Side_Lateral_Raise/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_029",
@@ -520,12 +520,12 @@
     },
     "instructions_text": "Anchor a resistance band at face height. Grip both ends and step back to create tension. Pull the band toward your face, separating your hands and squeezing your shoulder blades together. Your hands should end up beside your ears. Return slowly to start.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0177.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Face_Pull/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_030",
@@ -563,13 +563,13 @@
     },
     "instructions_text": "Kneel on one knee with the other foot flat in front (90 degree angle at both knees). Tuck your tailbone slightly and lean your hips gently forward until you feel a stretch in the front of your back hip. Hold for the prescribed time, breathing deeply. Switch sides. Note: rep numbers represent seconds.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Hip_Flexor_Stretch/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/1559.gif",
     "workout_phase": [
       "warm_up",
       "cool_down"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Kneeling_Hip_Flexor_Stretch/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_031",
@@ -607,13 +607,13 @@
     },
     "instructions_text": "Start on hands and knees with wrists under shoulders and knees under hips. For cow: drop your belly, lift your chest and tailbone. For cat: round your back, tuck your chin and tailbone. Flow smoothly between the two positions with your breath \u2014 inhale for cow, exhale for cat.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cat_Stretch/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/1363.gif",
     "workout_phase": [
       "warm_up",
       "cool_down"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cat_Stretch/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_032",
@@ -658,13 +658,13 @@
     },
     "instructions_text": "Step into a deep lunge. Place the hand on the same side as your front foot on the ground inside your foot. Rotate your other arm up toward the ceiling, opening your chest. Hold for a breath, then switch sides. Each side counts as one rep.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/World%27s_Greatest_Stretch/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/1604.gif",
     "workout_phase": [
       "warm_up",
       "cool_down"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/World%27s_Greatest_Stretch/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_033",
@@ -709,12 +709,12 @@
     },
     "instructions_text": "Set an incline bench to about 30-45 degrees. Lie face down on the bench with a dumbbell in each hand hanging below. Row both dumbbells up by squeezing your shoulder blades together. Lower with control. This variation removes lower back strain from the movement.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Row/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0049.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Incline_Dumbbell_Row/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_034",
@@ -758,12 +758,12 @@
     },
     "instructions_text": "Sit in the leg press machine with feet shoulder-width apart on the platform. Release the safety and lower the platform by bending your knees toward your chest. Press back up until legs are almost straight \u2014 don't lock out your knees. Keep your lower back pressed into the seat.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0739.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Leg_Press/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_035",
@@ -806,12 +806,12 @@
     },
     "instructions_text": "Sit at the cable row machine with feet on the platform and knees slightly bent. Grasp the handle with arms extended. Pull the handle to your stomach while squeezing shoulder blades together. Keep your back upright \u2014 avoid leaning back to pull. Return with control.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0180.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Cable_Rows/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_036",
@@ -865,14 +865,14 @@
     },
     "instructions_text": "Stand with feet together and arms at your sides. Jump your feet out wide while raising your arms overhead. Jump back to the starting position. Keep a soft bend in your knees when landing. Maintain a steady, rhythmic pace.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_Jacks/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/3223.gif",
     "workout_phase": [
       "warm_up",
       "cardio_finisher",
       "bmi_targeting"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Jumping_Jacks/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_037",
@@ -918,12 +918,12 @@
     },
     "instructions_text": "Lean your back flat against a wall and slide down until your thighs are parallel to the ground (or as low as comfortable). Your knees should be at 90 degrees directly over your ankles. Hold this position for the prescribed time. Note: rep numbers represent seconds.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wall_Sit/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0500.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Wall_Sit/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_038",
@@ -973,12 +973,12 @@
     },
     "instructions_text": "Stand with feet hip-width apart, optionally on the edge of a step for extra range. Rise up onto your toes as high as possible, squeezing your calves at the top. Lower slowly back to the starting position. Hold onto something for balance if needed.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0763.gif",
     "workout_phase": [
       "primary"
     ],
     "intensity_zone": "moderate",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Standing_Calf_Raises/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_039",
@@ -1016,13 +1016,13 @@
     },
     "instructions_text": "Sit tall. Gently tilt your head toward one shoulder until you feel a stretch on the opposite side of your neck. You can lightly rest your hand on your head for gentle added stretch \u2014 never pull. Hold for the prescribed time, then switch sides. Note: rep numbers represent seconds per side.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Neck_Stretch/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0716.gif",
     "workout_phase": [
       "warm_up",
       "cool_down"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Neck_Stretch/1.jpg"
+    "image_url_end": ""
   },
   {
     "exercise_id": "ex_040",
@@ -1059,12 +1059,12 @@
     },
     "instructions_text": "Sit on a chair or bench with feet flat. Cross arms over your chest. Keeping hips facing forward, slowly rotate your upper body to one side as far as comfortable. Hold briefly, return to center, then rotate to the other side. Each side counts as one rep. Move slowly and with control.",
     "difficulty_level": "beginner",
-    "image_url": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Twist/0.jpg",
+    "image_url": "https://raw.githubusercontent.com/omercotkd/exercises-gifs/main/assets/0216.gif",
     "workout_phase": [
       "warm_up",
       "cool_down"
     ],
     "intensity_zone": "low",
-    "image_url_end": "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Seated_Twist/1.jpg"
+    "image_url_end": ""
   }
 ]
