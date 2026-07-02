@@ -17,6 +17,26 @@ import pRetry, { AbortError } from 'p-retry';
 const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
 const REQUEST_TIMEOUT_MS = 20000;
 
+/**
+ * Voice style → ElevenLabs voice ID mapping.
+ * Each style maps to a different ElevenLabs voice with the matching tone.
+ * These are ElevenLabs pre-made voices (available on all plans).
+ */
+export const VOICE_STYLE_MAP: Record<string, string> = {
+  calm: 'EXAVITQu4vr4xnSDxMaL',      // Bella — soft, soothing female
+  energetic: 'TX3LPaxmHKxFdv7VOQHJ',  // Liam — high-energy, motivating male
+  friendly: 'CwhRBWXzGAHq6TQ4Fs17',   // Roger — warm, casual male
+  professional: 'XB0fDUnXU5powFXDhCwa', // Charlotte — focused, precise female
+};
+
+/**
+ * Get the ElevenLabs voice ID for a given voice style.
+ * Falls back to 'friendly' if style is unknown.
+ */
+export function getVoiceIdForStyle(style?: string): string {
+  return VOICE_STYLE_MAP[style || 'friendly'] || VOICE_STYLE_MAP.friendly;
+}
+
 export interface TTSResult {
   audio: Buffer | null;
   error?: string;

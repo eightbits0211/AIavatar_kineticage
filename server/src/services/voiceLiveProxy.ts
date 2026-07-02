@@ -69,7 +69,7 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
   const token = url.searchParams.get('token');
   const sessionId = url.searchParams.get('session_id') || null;
   const bundleId = url.searchParams.get('bundle_id') || null;
-  const voice = url.searchParams.get('voice') || 'Kore';
+  const voiceStyle = url.searchParams.get('voice_style') || url.searchParams.get('voice') || null;
 
   // Authenticate
   let uid: string;
@@ -167,6 +167,19 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
   activeSessions.set(clientWs, voiceSession);
 
   // Connect to Gemini Live
+  // Resolve voice style → Gemini voice name
+  const VOICE_STYLE_TO_GEMINI: Record<string, string> = {
+    calm: 'Aoede',         // Soft, soothing tone
+    energetic: 'Kore',     // Energetic, upbeat tone
+    friendly: 'Puck',      // Warm, casual tone
+    professional: 'Charon', // Clear, focused tone
+  };
+
+  const resolvedVoiceStyle = voiceStyle
+    || (user.companion_preferences as any)?.voice_style
+    || 'friendly';
+  const geminiVoiceName = VOICE_STYLE_TO_GEMINI[resolvedVoiceStyle] || 'Puck';
+
   const geminiWs = new WebSocket(GEMINI_WS_URL);
   voiceSession.geminiWs = geminiWs;
 
@@ -180,7 +193,7 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
           responseModalities: ['AUDIO'],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice }
+              prebuiltVoiceConfig: { voiceName: geminiVoiceName }
             }
           }
         },

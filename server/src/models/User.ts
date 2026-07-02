@@ -20,6 +20,7 @@ export interface IUser extends Document {
   persona_tags: string[];
   companion_preferences: {
     voice_id: string;
+    voice_style: 'calm' | 'energetic' | 'friendly' | 'professional';
     talkativeness: 'minimal' | 'balanced' | 'high';
     in_session_verbosity: 'quiet' | 'standard' | 'detailed';
   };
@@ -88,6 +89,7 @@ const UserSchema = new Schema<IUser>(
     persona_tags: [{ type: String }],
     companion_preferences: {
       voice_id: { type: String, default: '' },
+      voice_style: { type: String, enum: ['calm', 'energetic', 'friendly', 'professional'], default: 'friendly' },
       talkativeness: { type: String, enum: ['minimal', 'balanced', 'high'], default: 'balanced' },
       in_session_verbosity: { type: String, enum: ['quiet', 'standard', 'detailed'], default: 'standard' },
     },
