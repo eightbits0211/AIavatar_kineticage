@@ -519,6 +519,9 @@ function handleClientMessage(session: VoiceSession, data: any) {
     reportPain(session, data.body_area);
   } else if (data.action === 'end_session') {
     // Will be handled by session end route
+  } else if (data.action === 'start_workout') {
+    // Start a session from voice mode (auto or manual)
+    startSessionFromVoice(session, data.bundle_id);
   } else if (data.action === 'onboarding_typed_input') {
     // User typed a value for an onboarding field
     handleTypedOnboardingInput(session, data.field, data.value);
@@ -636,11 +639,20 @@ function parseRawTypedValue(field: string, value: string): any {
 function detectAndExecuteActions(session: VoiceSession, text: string) {
   const lower = text.toLowerCase();
 
+  // Auto-start session if Kin starts coaching but no session exists yet
+  if (!session.sessionId && session.bundleId) {
+    // Detect if Gemini is coaching (mentions exercise actions)
+    const coachingIndicators = ['first up', 'let\'s start with', 'sets of', 'reps', 'we\'re starting'];
+    const isCoaching = coachingIndicators.some(ind => lower.includes(ind));
+    if (isCoaching) {
+      startSessionFromVoice(session, session.bundleId);
+    }
+  }
+
   // Detect set completion acknowledgment
   if (lower.includes('great set') || lower.includes('nice work') ||
       lower.includes('set complete') || lower.includes('good job on that set') ||
       lower.includes('that\'s one set down') || lower.includes('set done')) {
-    // Gemini acknowledged a completed set — mark it
     markSetComplete(session);
   }
 
@@ -652,6 +664,67 @@ function detectAndExecuteActions(session: VoiceSession, text: string) {
   // Detect pain acknowledgment
   if (lower.includes('pain') && (lower.includes('stop') || lower.includes('skip') || lower.includes('rest'))) {
     // Pain was acknowledged — the exercise update will come from explicit client action
+  }
+}
+
+/**
+ * Auto-start a workout session from voice mode.
+ * Called when Kin starts coaching and no session exists yet.
+ */
+async function startSessionFromVoice(session: VoiceSession, bundleId: string) {
+  if (session.sessionId) return; // Already has a session
+
+  try {
+    const bundle = await Bundle.findById(bundleId);
+    if (!bundle) return;
+
+    const newSession = await Session.create({
+      user_id: session.userObjectId,
+      bundle_id: bundle._id,
+      status: 'in_progress',
+      started_at: new Date(),
+      exercises: bundle.exercises.map((ex: any) => ({
+        exercise_id: ex.exercise_id,
+        exercise_name: ex.name,
+        status: 'pending',
+        sets: Array.from({ length: ex.sets }, (_, i) => ({
+          set_number: i + 1,
+          target_rep_min: ex.rep_min,
+          target_rep_max: ex.rep_max,
+          completed: false,
+        })),
+        rest_seconds: ex.rest_seconds,
+        feedback: null,
+      })),
+      pain_events: [],
+    });
+
+    session.sessionId = newSession._id.toString();
+    session.mode = 'workout';
+    session.currentExerciseIndex = 0;
+    session.currentSetIndex = 0;
+
+    console.log(`[VoiceLive] Auto-started session: ${session.sessionId}`);
+
+    // Notify client that session was auto-created
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'session_started',
+        session_id: session.sessionId,
+        bundle_id: bundleId,
+        exercises: bundle.exercises.map((ex: any) => ({
+          exercise_id: ex.exercise_id,
+          name: ex.name,
+          sets: ex.sets,
+          rep_min: ex.rep_min,
+          rep_max: ex.rep_max,
+          rest_seconds: ex.rest_seconds,
+          image_url: ex.image_url,
+        })),
+      }));
+    }
+  } catch (err) {
+    console.error('[VoiceLive] Error auto-starting session:', (err as Error).message);
   }
 }
 
