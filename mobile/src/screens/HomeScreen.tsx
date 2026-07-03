@@ -341,15 +341,28 @@ export default function HomeScreen() {
     // Avoid false positives like "I'm not done yet" / "don't skip".
     const negated = has(['not done', 'not finished', "aren't done", 'not yet', "don't", 'do not']);
 
+    // Advance the card by ONE exercise, UI-only (no REST). The proxy remains the
+    // sole DB writer during voice mode; this just keeps the visible card in step
+    // with the spoken conversation, since the proxy advances its own index only
+    // after every set is individually acknowledged.
+    const advanceCard = () => {
+      const cur = workoutRef.current;
+      if (!cur) return;
+      if (cur.index >= cur.exercises.length - 1) {
+        voiceActionsRef.current?.finishSession?.(cur.sessionId, cur.title);
+      } else {
+        setWorkout((p) => (p ? { ...p, index: p.index + 1, paused: false } : p));
+      }
+    };
+
     if (w && !w.paused && !negated && has(['done', 'finished', "i'm done", 'im done', 'next exercise', 'next one', 'completed it', 'mark it done'])) {
       lastVoiceCmdRef.current = now;
-      const ex = w.exercises[w.index];
-      actions.handleDone(ex?.rep_max ?? ex?.rep_min ?? 10);
+      advanceCard();
       return;
     }
     if (w && !negated && has(['skip'])) {
       lastVoiceCmdRef.current = now;
-      actions.handleSkip();
+      advanceCard();
       return;
     }
     if (w && !w.paused && has(['pause'])) {
@@ -383,7 +396,9 @@ export default function HomeScreen() {
       voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
       return;
     }
-    setWorkout((p) => (p && idx !== p.index ? { ...p, index: idx, paused: false } : p));
+    // Forward-only: the proxy counts per-set and can report an index behind the
+    // card (which advances per-exercise on your spoken "done"). Never move back.
+    setWorkout((p) => (p && idx > p.index ? { ...p, index: idx, paused: false } : p));
   }, []);
 
   // Enter/exit continuous voice-to-voice mode (web). One tap starts a
