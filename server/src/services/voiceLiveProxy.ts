@@ -138,10 +138,16 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
     }
     systemPrompt = buildOnboardingPrompt(user, onboardingState);
     console.log('[VoiceLive] Mode: ONBOARDING');
-  } else if (activeSession || activeBundle) {
+  } else if (activeSession) {
+    // Only enter workout mode if there's an IN-PROGRESS session
     mode = 'workout';
     systemPrompt = buildVoiceSystemPrompt(user, activeSession, activeBundle);
-    console.log('[VoiceLive] Mode: WORKOUT');
+    console.log('[VoiceLive] Mode: WORKOUT (session in progress)');
+  } else if (activeBundle) {
+    // Bundle exists but no active session — ask user before jumping in
+    mode = 'chat';
+    systemPrompt = buildVoiceSystemPrompt(user, null, activeBundle);
+    console.log('[VoiceLive] Mode: CHAT (has bundle, will ask user)');
   } else {
     mode = 'chat';
     systemPrompt = buildVoiceSystemPrompt(user, null, null);
@@ -790,14 +796,15 @@ function buildVoiceSystemPrompt(user: any, activeSession: any, activeBundle: any
 - Wait for the user to greet you first before starting the workout. Don't jump into instructions immediately.
 - When the user says "done", "finished", or "next" — acknowledge the completed set and give the next instruction.
 - When the user says "skip" — move to the next exercise without judgment.
-- When the user reports pain — STOP immediately, acknowledge, suggest rest, offer to skip or end.
+- When the user reports pain — STOP immediately, acknowledge, suggest rest, offer to skip or end. Then append [ACTION:update_injuries] at the end of your response.
+- If the user describes ongoing pain or an injury (knee pain, back pain, shoulder issues, etc.), acknowledge it and append [ACTION:update_injuries] so the app can update their profile and regenerate safer workouts.
 - Announce each exercise clearly: name, sets, rep range, and one brief form cue.
 - During rest periods, give brief encouragement or a form tip (1 sentence max).
 - NEVER invent exercises. ONLY reference exercises listed in the Current Workout Plan below.
 - If asked about an exercise not in the plan, say you can only coach what's in today's workout.`;
 
   // Add the workout plan from the Rules Engine
-  if (activeBundle) {
+  if (activeSession && activeBundle) {
     systemPrompt += `
 
 ## Current Workout Plan: "${activeBundle.title}"
@@ -812,6 +819,19 @@ ${i + 1}. ${ex.name} ${statusLabel}
    Sets: ${ex.sets} | Reps: ${ex.rep_min}-${ex.rep_max} | Rest: ${ex.rest_seconds}s
    Form: ${(ex.instructions_text || '').substring(0, 150)}`;
     }
+  } else if (activeBundle) {
+    // Bundle exists but user hasn't started a session — ask them what they want
+    systemPrompt += `
+
+## Available Workout: "${activeBundle.title}"
+Focus: ${activeBundle.focus} | Duration: ~${activeBundle.estimated_duration_min} min | Exercises: ${activeBundle.exercises.length}
+
+IMPORTANT: The user has a workout ready but has NOT started it yet. When they greet you:
+- Say hi warmly
+- Mention you have their "${activeBundle.title}" workout ready (briefly — title and duration only)
+- Ask if they'd like to start that workout, or if they'd prefer to generate a new one
+- Do NOT start coaching exercises until they explicitly say yes or "start"
+- If they want a new workout, tell them to use the app to generate new bundles`;
   } else {
     systemPrompt += `
 
