@@ -221,7 +221,11 @@ export default function ProfileScreen() {
     if (t === 'minimal') setTalkIndex(1);
     else if (t === 'high') setTalkIndex(3);
     else if (t === 'balanced') setTalkIndex(2);
-    if (user?.companion_preferences?.voice_id) setVoice(user.companion_preferences.voice_id);
+    // Prefer the canonical voice_style (what the backend TTS + voice proxy
+    // actually read); fall back to the legacy voice_id for older profiles.
+    const savedStyle =
+      (user?.companion_preferences as any)?.voice_style || user?.companion_preferences?.voice_id;
+    if (savedStyle && VOICES.some((v) => v.key === savedStyle)) setVoice(savedStyle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
@@ -246,6 +250,9 @@ export default function ProfileScreen() {
       const updated = await apiPut<typeof user>('/api/profile', {
         companion_preferences: {
           ...(user?.companion_preferences ?? {}),
+          // voice_style is the field the backend TTS + Gemini Live proxy read;
+          // keep voice_id in sync for backward compatibility.
+          voice_style: voice,
           voice_id: voice,
           talkativeness,
         },
