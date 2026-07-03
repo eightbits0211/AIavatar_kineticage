@@ -11,7 +11,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.mobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Kinetic Age uses the microphone so you can talk to your AI coach Kin."
       }
     },
     "android": {
@@ -34,7 +35,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Kinetic Age uses the microphone so you can talk to your AI coach Kin."
+        }
+      ],
       "expo-asset",
       "expo-web-browser",
       "expo-font"
