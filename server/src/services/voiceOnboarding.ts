@@ -380,6 +380,15 @@ export function extractAnyFieldFromSpeech(
   const text = userText.toLowerCase().trim();
   if (!text || text.length < 2) return null;
 
+  // Priority keywords — always match these to their correct field regardless of order
+  const genderKeywords = ['male', 'female', 'other', 'prefer not to say', 'non-binary', 'man', 'woman'];
+  const hasGenderKeyword = genderKeywords.some(k => text.includes(k));
+
+  if (hasGenderKeyword && alreadyCollected['gender'] === undefined) {
+    const result = extractFieldFromUserSpeech('gender', userText);
+    if (result) return { field: 'gender', value: result.value };
+  }
+
   // Try each uncollected field — high confidence first
   for (const field of ONBOARDING_FIELDS) {
     if (alreadyCollected[field] !== undefined) continue;

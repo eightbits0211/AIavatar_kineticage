@@ -531,6 +531,17 @@ function handleClientMessage(session: VoiceSession, data: any) {
 function handleTypedOnboardingInput(session: VoiceSession, field: string, value: string) {
   if (!session.onboardingState || session.mode !== 'onboarding') return;
 
+  // Inject the typed text into Gemini's conversation so it stays in sync
+  if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+    const injectMessage = {
+      clientContent: {
+        turns: [{ role: 'user', parts: [{ text: value }] }],
+        turnComplete: true,
+      }
+    };
+    session.geminiWs.send(JSON.stringify(injectMessage));
+  }
+
   // Try to extract from typed text using the flexible extractor
   const extraction = extractAnyFieldFromSpeech(value, session.onboardingState.collectedFields);
   if (extraction) {
