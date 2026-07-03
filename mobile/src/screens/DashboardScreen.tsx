@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   chart: { flexDirection: 'row', height: 170, marginTop: spacing.sm },
   yAxis: { width: 30, justifyContent: 'space-between', paddingBottom: 22 },
   yTick: { ...typography.small, fontSize: 10, color: colors.textLight, textAlign: 'right' },
-  barsArea: { flex: 1, flexDirection: 'row', alignItems: 'flex-end' },
+  barsArea: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
   barCol: { flex: 1, alignItems: 'center' },
   barTrackV: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 6 },
   bar: { width: 16, borderRadius: 6 },
