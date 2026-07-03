@@ -323,21 +323,66 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
     session.exercises_completed = completedExercises;
     session.exercises_planned = totalExercises;
 
-    // Calculate calories from bundle's estimate, scaled by completion ratio
+    // Calculate calories based on actual work completed
+    // Formula: For each exercise, estimate calories from actual sets × actual reps completed
+    // Base rate: ~0.15 kcal per rep for strength exercises (varies by muscle group size)
+    // Scale by user weight (heavier people burn more)
     let caloriesBurned = 0;
     try {
-      const bundle = await Bundle.findById(session.bundle_id).lean() as any;
-      if (bundle?.estimated_calorie_burn) {
-        // Use midpoint of the bundle's calorie range, scaled by how much was completed
-        const midCalories = (bundle.estimated_calorie_burn.low + bundle.estimated_calorie_burn.high) / 2;
-        caloriesBurned = Math.round(midCalories * completionRatio);
+      const userWeightKg = user?.weight_kg || 70;
+      const weightMultiplier = userWeightKg / 70; // normalize to 70kg baseline
+
+      // Large muscle groups burn more per rep
+      const muscleGroupCalories: Record<string, number> = {
+        quadriceps: 0.20, glutes: 0.20, hamstrings: 0.18, chest: 0.15,
+        upper_back: 0.15, lats: 0.15, core: 0.10, shoulders: 0.12,
+        biceps: 0.08, triceps: 0.08, calves: 0.08, forearms: 0.06,
+        full_body: 0.25, hip_flexors: 0.10, lower_back: 0.12,
+        cardiovascular_system: 0.30,
+      };
+
+      for (const ex of session.exercises) {
+        if (ex.status === 'completed' || ex.status === 'in_progress') {
+          // Sum actual reps across all completed sets
+          const totalRepsCompleted = ex.sets.reduce((sum: number, set: any) => {
+            if (set.completed && set.actual_reps) {
+              return sum + set.actual_reps;
+            } else if (set.completed) {
+              // Set marked done but no reps logged — use target midpoint as estimate
+              return sum + Math.round((set.target_rep_min + set.target_rep_max) / 2);
+            }
+            return sum;
+          }, 0);
+
+          // Get calorie rate based on primary muscle group
+          const primaryMuscle = (ex as any).muscle_groups?.[0] || 'core';
+          const calPerRep = muscleGroupCalories[primaryMuscle] || 0.12;
+
+          caloriesBurned += totalRepsCompleted * calPerRep * weightMultiplier;
+        }
       }
-    } catch {
-      // Bundle lookup failed — use a duration-based estimate as fallback
+
+      // Add base metabolic cost (being active for the session duration)
       const durationMin = session.completed_at && session.started_at
         ? Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()) / 60000)
         : 30;
-      caloriesBurned = Math.round(durationMin * 6 * completionRatio); // ~6 cal/min average
+      caloriesBurned += durationMin * 2 * weightMultiplier; // ~2 kcal/min base for being active
+
+      caloriesBurned = Math.round(caloriesBurned);
+    } catch {
+      // Fallback: use bundle estimate scaled by completion ratio
+      try {
+        const bundle = await Bundle.findById(session.bundle_id).lean() as any;
+        if (bundle?.estimated_calorie_burn) {
+          const midCalories = (bundle.estimated_calorie_burn.low + bundle.estimated_calorie_burn.high) / 2;
+          caloriesBurned = Math.round(midCalories * completionRatio);
+        }
+      } catch {
+        const durationMin = session.completed_at && session.started_at
+          ? Math.round((new Date(session.completed_at).getTime() - new Date(session.started_at).getTime()) / 60000)
+          : 30;
+        caloriesBurned = Math.round(durationMin * 6 * completionRatio);
+      }
     }
     session.calories_burned = caloriesBurned;
 

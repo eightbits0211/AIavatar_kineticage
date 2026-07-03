@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KineticAge — Proactive AI Trigger Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #0d1b2a; color: #e0e0e0; padding: 2rem; min-height: 100vh; }
+    h1 { color: #fff; margin-bottom: 0.5rem; }
+    .subtitle { color: #888; margin-bottom: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 800px; }
+    .trigger-btn { padding: 1rem; border: 1px solid #2a3a4a; border-radius: 10px; background: #1b2838; color: #ccc; font-size: 0.9rem; cursor: pointer; text-align: left; transition: all 0.15s; }
+    .trigger-btn:hover { background: #2a3a5a; border-color: #4a90c2; }
+    .trigger-btn .label { font-weight: 600; color: #4a90c2; margin-bottom: 0.3rem; }
+    .trigger-btn .desc { font-size: 0.8rem; color: #888; }
+    .response-area { max-width: 800px; margin-top: 2rem; }
+    .response { background: #1b2838; border: 1px solid #2a3a4a; border-radius: 10px; padding: 1rem; margin-top: 0.5rem; min-height: 60px; }
+    .response .kira { color: #4a90c2; font-weight: 600; margin-bottom: 0.3rem; }
+    .response .msg { line-height: 1.5; }
+    .response .meta { color: #555; font-size: 0.75rem; margin-top: 0.5rem; }
+    .loading { color: #888; font-style: italic; }
+    .error { color: #ff6b6b; }
+    .user-select { margin-bottom: 1.5rem; }
+    .user-select label { color: #aaa; margin-right: 0.5rem; }
+    .user-select select { padding: 0.4rem; border-radius: 6px; background: #1b2838; color: #e0e0e0; border: 1px solid #2a3a4a; }
+  </style>
+</head>
+<body>
+  <h1>Proactive AI Trigger Test</h1>
+  <p class="subtitle">Test Kira's proactive messages at key workout moments (no auth required)</p>
+
+  <div class="user-select">
+    <label>Demo user:</label>
+    <select id="userSelect">
+      <option value="demo_alex">Alex (Gym-goer, Strength)</option>
+      <option value="demo_sam">Sam (Beginner, Weight Loss)</option>
+      <option value="demo_jordan">Jordan (Office Pro, Injury)</option>
+    </select>
+  </div>
+
+  <div class="grid">
+    <button class="trigger-btn" onclick="fire('session_start', {bundle_title: 'Push Power', exercises_total: 7})">
+      <div class="label">session_start</div>
+      <div class="desc">User starts their workout</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('exercise_intro', {exercise_name: 'Barbell Back Squat', muscle_groups: ['quadriceps', 'glutes'], total_sets: 4, target_reps: '3-6', exercise_instructions: 'Stand with feet shoulder-width apart, bar on upper traps. Brace core, push hips back, bend knees to parallel. Drive through heels to stand.'})">
+      <div class="label">exercise_intro</div>
+      <div class="desc">Before each exercise</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('set_complete', {exercise_name: 'Barbell Back Squat', set_number: 2, total_sets: 4, feedback: 'felt_easy'})">
+      <div class="label">set_complete (easy)</div>
+      <div class="desc">After a set — user said "felt easy"</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('set_complete', {exercise_name: 'Push-ups', set_number: 3, total_sets: 3, feedback: 'felt_hard'})">
+      <div class="label">set_complete (hard)</div>
+      <div class="desc">After a set — user said "felt hard"</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('rest_start', {rest_seconds: 90, set_number: 2, total_sets: 4})">
+      <div class="label">rest_start</div>
+      <div class="desc">Rest timer begins (90s)</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('exercise_complete', {exercise_name: 'Barbell Back Squat', next_exercise: 'Dumbbell Lunges'})">
+      <div class="label">exercise_complete</div>
+      <div class="desc">All sets done, moving to next</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('session_end', {exercises_completed: 7, exercises_total: 7, bundle_title: 'Push Power'})">
+      <div class="label">session_end</div>
+      <div class="desc">Workout finished!</div>
+    </button>
+    <button class="trigger-btn" onclick="fire('milestone', {milestone_type: '7-day streak', milestone_detail: 'You have worked out every day this week!'})">
+      <div class="label">milestone</div>
+      <div class="desc">7-day streak achieved</div>
+    </button>
+  </div>
+
+  <div class="response-area">
+    <h3 style="color:#aaa; margin-bottom:0.5rem;">Kira's Response</h3>
+    <div class="response" id="response">
+      <div class="msg" style="color:#555;">Click a trigger button above...</div>
+    </div>
+  </div>
+
+  <script>
+    async function fire(trigger, context) {
+      const responseDiv = document.getElementById('response');
+      const userId = document.getElementById('userSelect').value;
+      responseDiv.innerHTML = '<div class="loading">Kira is thinking...</div>';
+
+      try {
+        const res = await fetch('/api/companion/trigger-test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ trigger, context, demo_uid: userId })
+        });
+        const data = await res.json();
+
+        responseDiv.innerHTML = `
+          <div class="kira">Kira (${trigger})</div>
+          <div class="msg">${data.message}</div>
+          <div class="meta">Trigger: ${data.trigger} | User: ${userId}${data.fallback ? ' | ⚠️ FALLBACK' : ''}</div>
+        `;
+      } catch (err) {
+        responseDiv.innerHTML = `<div class="error">Error: ${err.message}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
