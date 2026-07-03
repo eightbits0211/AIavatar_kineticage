@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -12,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Text as SvgText } from 'react-native-svg';
 
-import { apiGet } from '../services/api';
+import { apiGet, apiPost } from '../services/api';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -86,6 +87,10 @@ interface WeightResp {
     change_kg: number;
     total_entries: number;
   };
+}
+interface Insight {
+  type: string;
+  message: string;
 }
 
 /* ───────────────── small icons ───────────────── */
@@ -267,17 +272,21 @@ export default function DashboardScreen() {
   const [strength, setStrength] = useState<StrengthExercise[] | null>(null);
   const [strengthChangePct, setStrengthChangePct] = useState<number>(0);
   const [weightData, setWeightData] = useState<WeightResp | null>(null);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [weightInput, setWeightInput] = useState('');
+  const [loggingWeight, setLoggingWeight] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async (r: Range) => {
     setLoading(true);
     try {
-      const [w, h, g, st, wt] = await Promise.all([
+      const [w, h, g, st, wt, ins] = await Promise.all([
         apiGet<WeeklyResp>(`/api/progress/weekly?range=${r}`).catch(() => null),
         apiGet<{ history: HistoryItem[] }>('/api/progress/history?limit=999').catch(() => null),
         apiGet<GoalResp>('/api/progress/goal').catch(() => null),
         apiGet<StrengthResp>('/api/progress/strength').catch(() => null),
         apiGet<WeightResp>(`/api/progress/weight?range=${r}`).catch(() => null),
+        apiGet<{ insights: Insight[] }>('/api/progress/insights').catch(() => null),
       ]);
       if (w) setWeekly(w);
       if (h) setHistory(h.history ?? []);
@@ -285,10 +294,28 @@ export default function DashboardScreen() {
       setStrength(st?.exercises ?? null);
       setStrengthChangePct(st?.summary?.overall_strength_change_pct ?? 0);
       setWeightData(wt ?? null);
+      setInsights(ins?.insights ?? []);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  // Log today's body weight, then refresh the trend + insights.
+  const logWeight = useCallback(async () => {
+    const kg = parseFloat(weightInput);
+    if (!kg || kg < 20 || kg > 300) return;
+    setLoggingWeight(true);
+    try {
+      await apiPost('/api/progress/weight', { weight_kg: kg });
+      setWeightInput('');
+      await load(range);
+    } catch {
+      // Non-blocking — keep the typed value so the user can retry.
+    } finally {
+      setLoggingWeight(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weightInput, range, load]);
 
   useFocusEffect(
     useCallback(() => {
@@ -422,6 +449,21 @@ export default function DashboardScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
           ) : (
             <>
+              {/* Insights (AI-generated trend observations) */}
+              {insights.length > 0 && (
+                <View style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle}>Insights</Text>
+                  </View>
+                  {insights.map((ins, i) => (
+                    <View key={`${ins.type}-${i}`} style={styles.insightRow}>
+                      <View style={styles.insightDot} />
+                      <Text style={styles.insightText}>{ins.message}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               {/* Calories Burned (real weekly total, distributed) */}
               <View style={styles.card}>
                 <View style={styles.cardHead}>
@@ -493,8 +535,33 @@ export default function DashboardScreen() {
                     />
                   </>
                 ) : (
-                  <Empty text="Add your weight in your profile to start tracking your trend." />
+                  <Empty text="Log your weight below to start tracking your trend." />
                 )}
+
+                {/* Log today's weight */}
+                <View style={styles.weightLogRow}>
+                  <TextInput
+                    style={styles.weightInput}
+                    value={weightInput}
+                    onChangeText={setWeightInput}
+                    placeholder="Today's weight (kg)"
+                    placeholderTextColor={colors.textLight}
+                    keyboardType="numeric"
+                    onSubmitEditing={logWeight}
+                    returnKeyType="done"
+                  />
+                  <Pressable
+                    onPress={logWeight}
+                    disabled={loggingWeight || !weightInput.trim()}
+                    style={[styles.weightLogBtn, (loggingWeight || !weightInput.trim()) && styles.weightLogBtnDisabled]}
+                  >
+                    {loggingWeight ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.weightLogBtnText}>Log</Text>
+                    )}
+                  </Pressable>
+                </View>
               </View>
 
               {/* BMI Tracker (real) */}
@@ -628,7 +695,7 @@ const styles = StyleSheet.create({
   chart: { flexDirection: 'row', height: 170, marginTop: spacing.sm },
   yAxis: { width: 30, justifyContent: 'space-between', paddingBottom: 22 },
   yTick: { ...typography.small, fontSize: 10, color: colors.textLight, textAlign: 'right' },
-  barsArea: { flex: 1, flexDirection: 'row', alignItems: 'flex-end' },
+  barsArea: { flex: 1, flexDirection: 'row', alignItems: 'stretch' },
   barCol: { flex: 1, alignItems: 'center' },
   barTrackV: { flex: 1, width: '100%', justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 6 },
   bar: { width: 16, borderRadius: 6 },
@@ -637,6 +704,32 @@ const styles = StyleSheet.create({
   bmiValue: { fontSize: 40, fontFamily: 'Inter_700Bold', color: colors.primary, marginTop: spacing.sm },
   bmiLabel: { ...typography.caption, color: colors.textSecondary },
   weightSub: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.sm },
+
+  insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
+  insightDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: ORANGE, marginTop: 6 },
+  insightText: { ...typography.caption, color: NAVY, flex: 1, lineHeight: 20 },
+
+  weightLogRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
+  weightInput: {
+    flex: 1,
+    backgroundColor: '#F4F7FB',
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    ...typography.body,
+    color: NAVY,
+  },
+  weightLogBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
+  },
+  weightLogBtnDisabled: { opacity: 0.4 },
+  weightLogBtnText: { ...typography.bodyBold, color: '#FFFFFF' },
   strengthRow: { marginBottom: spacing.lg },
   strengthTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   strengthName: { ...typography.bodyBold, color: NAVY },
