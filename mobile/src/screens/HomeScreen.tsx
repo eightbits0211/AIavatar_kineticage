@@ -368,6 +368,24 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Authoritative workout sync during voice mode. The proxy is the sole writer
+  // while voice is active and emits a `workout_state` event whenever it advances
+  // (set complete / exercise done / skip / pain). We just move the card to the
+  // index it reports — so voice and card stay in lockstep no matter how the user
+  // phrases things. When the index passes the last exercise, the workout is done.
+  const handleWorkoutEvent = useCallback((event: any) => {
+    if (!event || event.type !== 'workout_state') return;
+    const idx = event.current_exercise_index;
+    if (typeof idx !== 'number') return;
+    const w = workoutRef.current;
+    if (!w) return;
+    if (idx >= w.exercises.length) {
+      voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
+      return;
+    }
+    setWorkout((p) => (p && idx !== p.index ? { ...p, index: idx, paused: false } : p));
+  }, []);
+
   // Enter/exit continuous voice-to-voice mode (web). One tap starts a
   // hands-free, real-time speech-to-speech conversation via the backend's
   // Gemini Live proxy; another tap ends it. Kin listens and speaks aloud
@@ -405,9 +423,11 @@ export default function HomeScreen() {
           voiceTurnRef.current = null;
         }
         appendVoiceTranscript(role, text);
-        // Let spoken commands drive the workout card (done/skip/pause/start).
+        // Spoken "start workout" can bring up the card; per-exercise progress is
+        // driven authoritatively by the proxy's workout_state events (onEvent).
         if (role === 'user') handleUserSpeech(text);
       },
+      onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: message }]),
     });
@@ -431,7 +451,7 @@ export default function HomeScreen() {
         },
       ]);
     }
-  }, [appendVoiceTranscript, handleUserSpeech, recommended, user]);
+  }, [appendVoiceTranscript, handleUserSpeech, handleWorkoutEvent, recommended, user]);
 
   // Mic button entry point: continuous voice mode on web, press-to-talk on native.
   const onMicPress = useCallback(() => {
@@ -531,6 +551,9 @@ export default function HomeScreen() {
   // Mark the current exercise complete with the reps the user logged, then advance.
   const handleDone = useCallback(
     async (reps: number) => {
+      // During voice mode the proxy is the sole writer and drives the card via
+      // workout_state events — don't double-write over REST.
+      if (voiceModeRef.current) return;
       const w = workout;
       if (!w) return;
       const ex = w.exercises[w.index];
@@ -571,6 +594,8 @@ export default function HomeScreen() {
 
   // Skip the current exercise, then advance.
   const handleSkip = useCallback(async () => {
+    // In voice mode the proxy owns writes + drives the card (see handleDone).
+    if (voiceModeRef.current) return;
     const w = workout;
     if (!w) return;
     const ex = w.exercises[w.index];
@@ -640,10 +665,11 @@ export default function HomeScreen() {
     ]);
   }, []);
 
-  // Expose the latest workout handlers to the stable voice-command handler.
+  // Expose the latest workout handlers to the stable voice-command + workout
+  // event handlers.
   useEffect(() => {
-    voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause };
-  }, [startWorkout, handleDone, handleSkip, togglePause]);
+    voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause, finishSession };
+  }, [startWorkout, handleDone, handleSkip, togglePause, finishSession]);
 
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
