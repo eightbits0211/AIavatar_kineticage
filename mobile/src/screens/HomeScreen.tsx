@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,7 +23,18 @@ import { FlameIcon, BellIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
 import WorkoutDeck from '../components/WorkoutDeck';
-import { apiGet, apiPost, apiPut } from '../services/api';
+import DailyCheckinCard from '../components/DailyCheckinCard';
+import {
+  useAudioRecorder,
+  createAudioPlayer,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  RecordingPresets,
+  type AudioPlayer,
+} from 'expo-audio';
+import { apiGet, apiPost, apiPut, apiUploadAudio, apiFetchSpeech, WS_BASE_URL } from '../services/api';
+import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
+import { getFreshToken } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
 import type { ExerciseBundle, BundleExercise } from '../../../shared/types';
@@ -66,6 +78,8 @@ export default function HomeScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // An in-progress session found on load, offered for resume (D2).
+  const [resumeInfo, setResumeInfo] = useState<{ sessionId: string; bundleId: string; index: number } | null>(null);
 
   // ── Chat thread (Ask Kin) ──
   type ChatMsg = { id: string; role: 'user' | 'kin'; text: string };
@@ -80,40 +94,377 @@ export default function HomeScreen() {
     }
   }, [messages, kinTyping]);
 
-  const sendMessage = useCallback(async () => {
-    const text = askText.trim();
-    if (!text) return;
-    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text }]);
-    setAskText('');
-    setKinTyping(true);
+  // ── Voice input ──
+  // Native uses press-to-talk (expo-audio). Web uses a continuous, hands-free
+  // real-time voice-to-voice conversation via the Gemini Live proxy
+  // (see webVoiceLive.ts) — Kin listens and speaks aloud, no typing needed.
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const playerRef = useRef<AudioPlayer | null>(null);
+
+  // Continuous voice mode (web): tap the mic to enter/exit; it listens, replies
+  // aloud, then auto-listens again until you tap the mic to turn it off.
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
+  const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+  // Tracks the active workout's session id so voice mode can ground the AI in
+  // the live session (set below, once the workout state exists).
+  const activeSessionIdRef = useRef<string | null>(null);
+  // Refs that let the (stable) voice-command handler read fresh state and
+  // call the latest workout handlers without stale closures.
+  const workoutRef = useRef<any>(null);
+  const voiceModeRef = useRef(false);
+  const voiceActionsRef = useRef<any>(null);
+  const lastVoiceCmdRef = useRef(0);
+
+  // Play Kin's reply aloud via the backend TTS endpoint. Best-effort: if the
+  // audio can't be fetched or played, we silently keep the on-screen text.
+  const speak = useCallback(async (text: string) => {
     try {
-      // General home-screen chat: no session_id, so the backend skips history
-      // persistence and just returns Kin's reply.
-      const res = await apiPost<{ reply: string; action_intent: string | null }>(
-        '/api/companion/message',
-        { message: text, input_mode: 'text' }
-      );
-      setMessages((prev) => [
-        ...prev,
-        { id: `${Date.now()}-k`, role: 'kin', text: res.reply?.trim() || '…' },
-      ]);
-    } catch (err: any) {
+      const voiceStyle = (user?.companion_preferences as any)?.voice_style || undefined;
+      const dataUri = await apiFetchSpeech(text, voiceStyle);
+      if (!dataUri) return;
+      playerRef.current?.remove();
+      const player = createAudioPlayer(dataUri);
+      playerRef.current = player;
+      player.play();
+    } catch {
+      // Ignore playback failures — the text reply is already shown.
+    }
+  }, [user]);
+
+  // ── Proactive coaching (B) ──
+  // Ask the backend for a spoken coaching line at a specific workout moment
+  // (session_start, exercise_intro, exercise_complete, session_end, milestone…),
+  // show it as a Kin bubble, and speak it aloud. Best-effort — the backend
+  // always returns a message (a static fallback if the AI is unavailable), so
+  // we only stay silent on a hard network failure.
+  const coach = useCallback(
+    async (trigger: string, sessionId: string | null, context: Record<string, unknown>) => {
+      // In continuous voice mode Kin (Gemini) is already coaching aloud — skip
+      // the separate REST/TTS coaching line so we don't talk over the stream.
+      if (voiceModeRef.current) return;
+      try {
+        const res = await apiPost<{ message: string }>('/api/companion/trigger', {
+          trigger,
+          ...(sessionId ? { session_id: sessionId } : {}),
+          context,
+        });
+        const msg = res.message?.trim();
+        if (msg) {
+          setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: msg }]);
+          speak(msg);
+        }
+      } catch {
+        // Non-fatal — skip the coaching line.
+      }
+    },
+    [speak]
+  );
+
+  // Build the context payload the "exercise_intro" trigger expects.
+  const exerciseIntroContext = useCallback(
+    (ex: BundleExercise) => ({
+      exercise_name: ex.name,
+      muscle_groups: ex.muscle_groups,
+      total_sets: ex.sets,
+      target_reps: `${ex.rep_min}-${ex.rep_max}`,
+      exercise_instructions: ex.instructions_text,
+    }),
+    []
+  );
+
+  const sendMessage = useCallback(
+    async (overrideText?: string, inputMode: 'text' | 'voice' = 'text') => {
+      const text = (overrideText ?? askText).trim();
+      if (!text) return;
+      setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text }]);
+      if (overrideText === undefined) setAskText('');
+      setKinTyping(true);
+      try {
+        // General home-screen chat: no session_id, so the backend skips history
+        // persistence and just returns Kin's reply.
+        const res = await apiPost<{ reply: string; action_intent: string | null }>(
+          '/api/companion/message',
+          { message: text, input_mode: inputMode }
+        );
+        const reply = res.reply?.trim() || '…';
+        setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: reply }]);
+        // Voice-initiated turns get spoken back so it feels like a conversation.
+        if (inputMode === 'voice' && reply !== '…') speak(reply);
+      } catch (err: any) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-k`,
+            role: 'kin',
+            text: "I couldn't reach the coach just now. Please try again in a moment.",
+          },
+        ]);
+      } finally {
+        setKinTyping(false);
+      }
+    },
+    [askText, speak]
+  );
+
+  // Send the recorded clip to the backend for transcription, then run it
+  // through the same chat flow as typed messages.
+  const transcribeAndSend = useCallback(
+    async (uri: string) => {
+      setTranscribing(true);
+      try {
+        // On web the recorder produces a blob: URL (WebM). We have to fetch it
+        // into a real Blob so the browser can build a proper multipart file.
+        // On native we pass the { uri, name, type } file descriptor directly.
+        let res: { transcript?: string; error?: string; fallback?: boolean };
+        if (Platform.OS === 'web') {
+          const blob = await (await fetch(uri)).blob();
+          res = await apiUploadAudio('/api/stt/transcribe', blob);
+        } else {
+          const isWebm = uri.toLowerCase().endsWith('.webm');
+          res = await apiUploadAudio('/api/stt/transcribe', {
+            uri,
+            name: isWebm ? 'speech.webm' : 'speech.m4a',
+            type: isWebm ? 'audio/webm' : 'audio/m4a',
+          });
+        }
+
+        const transcript = res.transcript?.trim();
+        if (transcript) {
+          await sendMessage(transcript, 'voice');
+        } else if (res.error) {
+          setMessages((prev) => [
+            ...prev,
+            { id: `${Date.now()}-k`, role: 'kin', text: res.error! },
+          ]);
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `${Date.now()}-k`,
+              role: 'kin',
+              text: "I didn't quite catch that. Try again, or type your message.",
+            },
+          ]);
+        }
+      } catch (e: any) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-k`,
+            role: 'kin',
+            text: `Voice input failed: ${e?.message || 'unknown error'}. Please type instead.`,
+          },
+        ]);
+      } finally {
+        setTranscribing(false);
+      }
+    },
+    [sendMessage]
+  );
+
+  // Mic button: tap to start recording, tap again to stop and send.
+  const toggleRecording = useCallback(async () => {
+    if (transcribing) return;
+    if (recording) {
+      try {
+        await audioRecorder.stop();
+        const uri = audioRecorder.uri;
+        setRecording(false);
+        if (uri) await transcribeAndSend(uri);
+      } catch {
+        setRecording(false);
+      }
+      return;
+    }
+    try {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-k`,
+            role: 'kin',
+            text: 'I need microphone access to hear you. Enable it in Settings to use voice.',
+          },
+        ]);
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
+      setRecording(true);
+    } catch {
+      setRecording(false);
+    }
+  }, [recording, transcribing, audioRecorder, transcribeAndSend]);
+
+  // Append a spoken transcript to the chat thread. Live transcription arrives
+  // in small chunks, so we merge consecutive chunks from the same speaker into
+  // one bubble instead of spawning a new bubble per fragment.
+  const voiceTurnRef = useRef<{ role: 'user' | 'kin'; id: string } | null>(null);
+  const appendVoiceTranscript = useCallback((role: 'user' | 'kin', text: string) => {
+    const chunk = text?.trim();
+    if (!chunk) return;
+    setMessages((prev) => {
+      const turn = voiceTurnRef.current;
+      if (turn && turn.role === role) {
+        // Continue the current speaker's bubble.
+        return prev.map((m) =>
+          m.id === turn.id ? { ...m, text: `${m.text} ${chunk}`.replace(/\s+/g, ' ').trim() } : m
+        );
+      }
+      const id = `${Date.now()}-${role === 'user' ? 'u' : 'k'}`;
+      voiceTurnRef.current = { role, id };
+      return [...prev, { id, role, text: chunk }];
+    });
+  }, []);
+
+  // Keep the WorkoutDeck in sync with the spoken conversation. The proxy relays
+  // the user's speech but no workout-state events, so we detect simple spoken
+  // commands ("done", "skip", "pause/resume", "start workout") from the user's
+  // transcript and drive the same handlers the on-screen buttons use — so voice
+  // and the card advance together, and a voice-started workout shows the card.
+  // A short cooldown prevents chunked transcripts from firing a command twice.
+  const handleUserSpeech = useCallback((text: string) => {
+    const t = (text || '').toLowerCase();
+    if (!t.trim()) return;
+    const now = Date.now();
+    if (now - lastVoiceCmdRef.current < 3500) return;
+
+    const actions = voiceActionsRef.current;
+    if (!actions) return;
+    const w = workoutRef.current;
+    const has = (arr: string[]) => arr.some((k) => t.includes(k));
+    // Avoid false positives like "I'm not done yet" / "don't skip".
+    const negated = has(['not done', 'not finished', "aren't done", 'not yet', "don't", 'do not']);
+
+    if (w && !w.paused && !negated && has(['done', 'finished', "i'm done", 'im done', 'next exercise', 'next one', 'completed it', 'mark it done'])) {
+      lastVoiceCmdRef.current = now;
+      const ex = w.exercises[w.index];
+      actions.handleDone(ex?.rep_max ?? ex?.rep_min ?? 10);
+      return;
+    }
+    if (w && !negated && has(['skip'])) {
+      lastVoiceCmdRef.current = now;
+      actions.handleSkip();
+      return;
+    }
+    if (w && !w.paused && has(['pause'])) {
+      lastVoiceCmdRef.current = now;
+      actions.togglePause();
+      return;
+    }
+    if (w && w.paused && has(['resume', 'continue', 'unpause'])) {
+      lastVoiceCmdRef.current = now;
+      actions.togglePause();
+      return;
+    }
+    if (!w && has(['start workout', 'start my workout', 'begin workout', 'start the workout', 'start session', 'start my session', "let's begin"])) {
+      lastVoiceCmdRef.current = now;
+      actions.startWorkout();
+    }
+  }, []);
+
+  // Enter/exit continuous voice-to-voice mode (web). One tap starts a
+  // hands-free, real-time speech-to-speech conversation via the backend's
+  // Gemini Live proxy; another tap ends it. Kin listens and speaks aloud
+  // continuously — no typing, no per-turn buttons.
+  const toggleVoiceMode = useCallback(async () => {
+    if (voiceLoopRef.current?.isActive()) {
+      voiceLoopRef.current.stop();
+      voiceLoopRef.current = null;
+      voiceTurnRef.current = null;
+      setVoiceMode(false);
+      setVoicePhase('idle');
+      return;
+    }
+
+    // A fresh Firebase token authenticates the WebSocket to the proxy.
+    let token: string | null = null;
+    try {
+      token = await getFreshToken();
+    } catch {
+      token = null;
+    }
+
+    const live = new WebVoiceLive({
+      wsBaseUrl: WS_BASE_URL,
+      token,
+      // Ground the voice AI in the live workout so it coaches the actual
+      // exercise/set/reps you're on (not just open chat).
+      sessionId: activeSessionIdRef.current,
+      bundleId: recommended?._id ?? null,
+      voiceStyle: (user?.companion_preferences as any)?.voice_style || null,
+      onPhase: setVoicePhase,
+      onTranscript: (role, text) => {
+        // New turn from a different speaker resets the merge target.
+        if (voiceTurnRef.current && voiceTurnRef.current.role !== role) {
+          voiceTurnRef.current = null;
+        }
+        appendVoiceTranscript(role, text);
+        // Let spoken commands drive the workout card (done/skip/pause/start).
+        if (role === 'user') handleUserSpeech(text);
+      },
+      onNotice: (message: string) =>
+        setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: message }]),
+    });
+
+    try {
+      voiceLoopRef.current = live;
+      voiceTurnRef.current = null;
+      setVoiceMode(true);
+      setVoicePhase('connecting');
+      await live.start();
+    } catch (e: any) {
+      voiceLoopRef.current = null;
+      setVoiceMode(false);
+      setVoicePhase('idle');
       setMessages((prev) => [
         ...prev,
         {
           id: `${Date.now()}-k`,
           role: 'kin',
-          text: "I couldn't reach the coach just now. Please try again in a moment.",
+          text: 'I need microphone access to talk. Allow it in your browser, then tap the mic again.',
         },
       ]);
-    } finally {
-      setKinTyping(false);
     }
-  }, [askText]);
+  }, [appendVoiceTranscript, handleUserSpeech, recommended, user]);
+
+  // Mic button entry point: continuous voice mode on web, press-to-talk on native.
+  const onMicPress = useCallback(() => {
+    if (Platform.OS === 'web') return toggleVoiceMode();
+    return toggleRecording();
+  }, [toggleVoiceMode, toggleRecording]);
+
+  // Clean up any active player/recorder/voice loop when leaving the screen.
+  useEffect(() => {
+    return () => {
+      playerRef.current?.remove();
+      voiceLoopRef.current?.stop();
+      voiceLoopRef.current = null;
+      if (audioRecorder.isRecording) audioRecorder.stop().catch(() => {});
+    };
+  }, [audioRecorder]);
 
   // ── In-chat workout session ──
   type WorkoutState = { exercises: BundleExercise[]; index: number; paused: boolean; title: string; sessionId: string | null };
   const [workout, setWorkout] = useState<WorkoutState | null>(null);
+
+  // Keep the session-id + workout refs in sync so voice mode can ground itself
+  // in the active workout and the voice-command handler reads fresh state.
+  useEffect(() => {
+    activeSessionIdRef.current = workout?.sessionId ?? null;
+    workoutRef.current = workout;
+  }, [workout]);
+
+  // Mirror voice-mode into a ref so coach() can suppress its TTS while Kin is
+  // speaking over the live stream.
+  useEffect(() => {
+    voiceModeRef.current = voiceMode;
+  }, [voiceMode]);
 
   const startWorkout = useCallback(async () => {
     const bundle = recommended;
@@ -122,38 +473,60 @@ export default function HomeScreen() {
       navigation.navigate('BundleSelection');
       return;
     }
-    setMessages((prev) => [
-      ...prev,
-      { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' },
-      { id: `${Date.now()}-k`, role: 'kin', text: "Let's go." },
-    ]);
+    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' }]);
     setWorkout({ exercises, index: 0, paused: false, title: bundle.title ?? 'Workout', sessionId: null });
 
-    // Tell the backend a session has started so the workout gets logged.
+    // Tell the backend a session has started so the workout gets logged, then
+    // let Kin greet the user and introduce the first exercise (proactive coaching).
     try {
       const res = await apiPost<{ session_id: string }>('/api/session/start', { bundle_id: bundle._id });
       setWorkout((w) => (w ? { ...w, sessionId: res.session_id } : w));
+      await coach('session_start', res.session_id, {
+        bundle_title: bundle.title,
+        exercises_total: exercises.length,
+      });
+      if (exercises[0]) await coach('exercise_intro', res.session_id, exerciseIntroContext(exercises[0]));
     } catch {
       // If this fails the workout still runs locally — it just won't be logged.
+      setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: "Let's go." }]);
     }
-  }, [recommended, navigation]);
+  }, [recommended, navigation, coach, exerciseIntroContext]);
 
   // End the session on the backend — this triggers progression, XP, streak,
   // badges, and makes the workout show up in history / the Progress tab.
-  const finishSession = useCallback(async (sessionId: string | null, title: string) => {
-    setWorkout(null);
-    setMessages((m) => [
-      ...m,
-      { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
-    ]);
-    if (sessionId) {
-      try {
-        await apiPost(`/api/session/${sessionId}/end`, {});
-      } catch {
-        // Non-fatal — the summary message is still shown.
+  const finishSession = useCallback(
+    async (sessionId: string | null, title: string) => {
+      setWorkout(null);
+      if (sessionId) {
+        try {
+          const endRes = await apiPost<{ badges_earned?: Array<{ name?: string }> }>(
+            `/api/session/${sessionId}/end`,
+            {}
+          );
+          await coach('session_end', sessionId, { bundle_title: title });
+          // Celebrate any freshly earned badges as a milestone moment.
+          const badges = endRes?.badges_earned ?? [];
+          if (badges.length) {
+            await coach('milestone', sessionId, {
+              milestone_type: 'badge',
+              milestone_detail: badges.map((b) => b.name).filter(Boolean).join(', '),
+            });
+          }
+        } catch {
+          setMessages((m) => [
+            ...m,
+            { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
+          ]);
+        }
+      } else {
+        setMessages((m) => [
+          ...m,
+          { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
+        ]);
       }
-    }
-  }, []);
+    },
+    [coach]
+  );
 
   // Mark the current exercise complete with the reps the user logged, then advance.
   const handleDone = useCallback(
@@ -162,6 +535,7 @@ export default function HomeScreen() {
       if (!w) return;
       const ex = w.exercises[w.index];
       const isLast = w.index >= w.exercises.length - 1;
+      const next = w.exercises[w.index + 1];
 
       if (!isLast) setWorkout({ ...w, index: w.index + 1, paused: false });
 
@@ -185,9 +559,14 @@ export default function HomeScreen() {
         }
       }
 
-      if (isLast) await finishSession(w.sessionId, w.title);
+      if (isLast) {
+        await finishSession(w.sessionId, w.title);
+      } else if (next) {
+        // Kin introduces the next exercise with a form cue.
+        await coach('exercise_intro', w.sessionId, exerciseIntroContext(next));
+      }
     },
-    [workout, finishSession]
+    [workout, finishSession, coach, exerciseIntroContext]
   );
 
   // Skip the current exercise, then advance.
@@ -196,6 +575,7 @@ export default function HomeScreen() {
     if (!w) return;
     const ex = w.exercises[w.index];
     const isLast = w.index >= w.exercises.length - 1;
+    const next = w.exercises[w.index + 1];
 
     if (!isLast) setWorkout({ ...w, index: w.index + 1, paused: false });
 
@@ -211,10 +591,47 @@ export default function HomeScreen() {
       }
     }
 
-    if (isLast) await finishSession(w.sessionId, w.title);
-  }, [workout, finishSession]);
+    if (isLast) {
+      await finishSession(w.sessionId, w.title);
+    } else if (next) {
+      await coach('exercise_intro', w.sessionId, exerciseIntroContext(next));
+    }
+  }, [workout, finishSession, coach, exerciseIntroContext]);
 
-  const togglePause = useCallback(() => setWorkout((p) => (p ? { ...p, paused: !p.paused } : p)), []);
+  const togglePause = useCallback(() => {
+    setWorkout((p) => {
+      if (!p) return p;
+      const paused = !p.paused;
+      // Persist the pause so the session can be resumed within the backend's
+      // 30-minute window (D3).
+      if (paused && p.sessionId) {
+        apiPost(`/api/session/${p.sessionId}/pause`, {}).catch(() => {});
+      }
+      return { ...p, paused };
+    });
+  }, []);
+
+  // Resume an in-progress session found on load (D2). Rebuilds the in-chat
+  // workout from the matching bundle, starting at the first unfinished exercise.
+  const resumeWorkout = useCallback(() => {
+    if (!resumeInfo) return;
+    const all = [recommended, ...others].filter(Boolean) as ExerciseBundle[];
+    const bundle = all.find((b) => b._id === resumeInfo.bundleId) ?? recommended;
+    const exercises = bundle?.exercises ?? [];
+    if (!exercises.length) {
+      setResumeInfo(null);
+      return;
+    }
+    setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: "Welcome back — let's pick up where you left off." }]);
+    setWorkout({
+      exercises,
+      index: Math.min(resumeInfo.index, exercises.length - 1),
+      paused: false,
+      title: bundle?.title ?? 'Workout',
+      sessionId: resumeInfo.sessionId,
+    });
+    setResumeInfo(null);
+  }, [resumeInfo, recommended, others]);
 
   const makeEasier = useCallback(() => {
     setMessages((m) => [
@@ -222,6 +639,11 @@ export default function HomeScreen() {
       { id: `${Date.now()}-k`, role: 'kin', text: 'No problem — take it lighter. Drop a few reps or slow the tempo, and keep your form clean.' },
     ]);
   }, []);
+
+  // Expose the latest workout handlers to the stable voice-command handler.
+  useEffect(() => {
+    voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause };
+  }, [startWorkout, handleDone, handleSkip, togglePause]);
 
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
@@ -257,9 +679,31 @@ export default function HomeScreen() {
         setRecommended(rec);
         setOthers(bundles.filter((b) => b._id !== rec._id));
       }
+
+      // Offer to resume an in-progress session (D2), unless one is already
+      // running in the UI.
+      try {
+        const act = await apiGet<{ has_active_session: boolean; session?: any }>('/api/session/active');
+        if (act.has_active_session && act.session && !workout) {
+          const s = act.session;
+          const idx = (s.exercises ?? []).findIndex(
+            (e: any) => e.status === 'pending' || e.status === 'in_progress'
+          );
+          setResumeInfo({
+            sessionId: String(s._id),
+            bundleId: String(s.bundle_id),
+            index: idx < 0 ? 0 : idx,
+          });
+        } else {
+          setResumeInfo(null);
+        }
+      } catch {
+        setResumeInfo(null);
+      }
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useFocusEffect(
@@ -354,6 +798,20 @@ export default function HomeScreen() {
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
           <View style={styles.body}>
+            {/* Resume in-progress workout (D2) */}
+            {!workout && resumeInfo && (
+              <Pressable style={styles.resumeCard} onPress={resumeWorkout}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.resumeTitle}>Workout in progress</Text>
+                  <Text style={styles.resumeSub}>Tap to pick up where you left off.</Text>
+                </View>
+                <Text style={styles.resumeCta}>Resume ▶</Text>
+              </Pressable>
+            )}
+
+            {/* Daily check-in (D1) — hidden once done or during a workout */}
+            {!workout && <DailyCheckinCard onComplete={load} />}
+
             {/* Today's recommendation */}
             <LinearGradient colors={['#3A7CA8', '#2D6CA8']} style={styles.recCard}>
               <View style={styles.recBadge}>
@@ -491,6 +949,26 @@ export default function HomeScreen() {
 
       {/* Ask Kin bar */}
       <View style={styles.askBar}>
+        {voiceMode ? (
+          <View style={styles.voiceHintRow}>
+            <Text style={styles.voiceHintText}>
+              {voicePhase === 'listening'
+                ? '● Listening… just speak'
+                : voicePhase === 'connecting'
+                ? 'Connecting…'
+                : voicePhase === 'speaking'
+                ? '🔊 Kin is speaking…'
+                : 'Voice mode on'}
+              {'  ·  tap the mic to end'}
+            </Text>
+          </View>
+        ) : (recording || transcribing) ? (
+          <View style={styles.voiceHintRow}>
+            <Text style={styles.voiceHintText}>
+              {recording ? '● Listening… tap the mic again to send' : 'Transcribing…'}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.askRow}>
           <TextInput
             style={styles.askInput}
@@ -498,18 +976,30 @@ export default function HomeScreen() {
             placeholderTextColor={colors.textLight}
             value={askText}
             onChangeText={setAskText}
-            onSubmitEditing={sendMessage}
+            onSubmitEditing={() => sendMessage()}
             returnKeyType="send"
           />
-          <Pressable style={styles.micBtn} accessibilityRole="button" accessibilityLabel="Voice input">
-            <MicIcon size={20} color={colors.primary} />
+          <Pressable
+            style={[styles.micBtn, (recording || voiceMode) && styles.micBtnActive]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              voiceMode ? 'Turn off voice chat' : recording ? 'Stop recording' : 'Voice input'
+            }
+            onPress={onMicPress}
+            disabled={transcribing}
+          >
+            {transcribing || voicePhase === 'connecting' ? (
+              <ActivityIndicator size="small" color={voiceMode ? '#FFFFFF' : colors.primary} />
+            ) : (
+              <MicIcon size={20} color={recording || voiceMode ? '#FFFFFF' : colors.primary} />
+            )}
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Send"
             disabled={!askText.trim()}
             style={[styles.askSend, !askText.trim() && styles.askSendDisabled]}
-            onPress={sendMessage}
+            onPress={() => sendMessage()}
           >
             <SendIcon size={32} />
           </Pressable>
@@ -688,6 +1178,19 @@ const styles = StyleSheet.create({
   },
   quickChipText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  resumeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF6EE',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F5C89B',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  resumeTitle: { ...typography.bodyBold, color: '#B25C10' },
+  resumeSub: { ...typography.small, color: '#B4772E', marginTop: 2 },
+  resumeCta: { ...typography.bodyBold, color: '#F5821F' },
   recCard: { borderRadius: 18, padding: spacing.lg, overflow: 'hidden' },
   recBadge: {
     alignSelf: 'flex-start',
@@ -840,6 +1343,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.xs,
+  },
+  micBtnActive: {
+    backgroundColor: '#FF5A4D',
+  },
+  voiceHintRow: {
+    paddingHorizontal: spacing.xs,
+    paddingBottom: spacing.xs,
+  },
+  voiceHintText: {
+    ...typography.small,
+    color: '#FF5A4D',
+    fontFamily: 'Inter_600SemiBold',
   },
   askSend: {
     width: 36,
