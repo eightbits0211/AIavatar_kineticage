@@ -666,15 +666,30 @@ async function markSetComplete(session: VoiceSession, actualReps?: number) {
 
       // Move to next set or next exercise
       session.currentSetIndex++;
+      let action: 'set_complete' | 'exercise_complete' = 'set_complete';
+
       if (session.currentSetIndex >= exercise.sets.length) {
         // All sets done for this exercise
         exercise.status = 'completed';
         session.currentExerciseIndex++;
         session.currentSetIndex = 0;
+        action = 'exercise_complete';
       }
 
       await dbSession.save();
       console.log(`[VoiceLive] Set completed: exercise ${session.currentExerciseIndex}, set ${session.currentSetIndex}`);
+
+      // Notify client of authoritative state change
+      if (session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({
+          type: 'workout_state',
+          action,
+          current_exercise_index: session.currentExerciseIndex,
+          current_set_index: session.currentSetIndex,
+          exercise_id: exercise.exercise_id,
+          actual_reps: actualReps || set.target_rep_max,
+        }));
+      }
     }
   } catch (err) {
     console.error('[VoiceLive] Error marking set complete:', (err as Error).message);
@@ -701,6 +716,17 @@ async function markExerciseSkipped(session: VoiceSession, reason?: string) {
 
     await dbSession.save();
     console.log(`[VoiceLive] Exercise skipped: moving to index ${session.currentExerciseIndex}`);
+
+    // Notify client of authoritative state change
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'workout_state',
+        action: 'skipped',
+        current_exercise_index: session.currentExerciseIndex,
+        current_set_index: session.currentSetIndex,
+        exercise_id: exercise.exercise_id,
+      }));
+    }
   } catch (err) {
     console.error('[VoiceLive] Error skipping exercise:', (err as Error).message);
   }
@@ -731,6 +757,18 @@ async function reportPain(session: VoiceSession, bodyArea?: string) {
     session.currentSetIndex = 0;
     await dbSession.save();
     console.log(`[VoiceLive] Pain reported: ${bodyArea || 'unspecified'}`);
+
+    // Notify client of authoritative state change
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'workout_state',
+        action: 'pain',
+        current_exercise_index: session.currentExerciseIndex,
+        current_set_index: session.currentSetIndex,
+        exercise_id: exercise?.exercise_id || null,
+        body_area: bodyArea || 'unspecified',
+      }));
+    }
   } catch (err) {
     console.error('[VoiceLive] Error reporting pain:', (err as Error).message);
   }
