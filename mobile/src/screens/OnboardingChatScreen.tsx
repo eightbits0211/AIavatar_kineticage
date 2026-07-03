@@ -16,8 +16,9 @@ import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, typography, borderRadius } from '../theme';
 import { useOnboardingStore } from '../stores/onboardingStore';
 import { useUserStore } from '../stores/userStore';
-import { apiPost, apiPut } from '../services/api';
-import { signOutCurrentUser } from '../services/auth';
+import { apiPost, apiPut, WS_BASE_URL } from '../services/api';
+import { signOutCurrentUser, getFreshToken } from '../services/auth';
+import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
 import KinAvatar from '../components/KinAvatar';
 import ChatMessage from '../components/ChatMessage';
 import HorizontalButtons from '../components/HorizontalButtons';
@@ -48,6 +49,107 @@ export default function OnboardingChatScreen() {
   const [inputValue, setInputValue] = useState('');
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // ── Voice onboarding (web) ──
+  // The backend Gemini Live proxy runs a full spoken onboarding when the user
+  // isn't onboarded yet: it collects every profile field by voice, then saves
+  // the profile and generates bundles. We just stream mic audio and react to
+  // the proxy's onboarding events.
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
+  const [voiceProgress, setVoiceProgress] = useState(0);
+  const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+
+  // Finalize once the proxy reports onboarding is complete: it has already
+  // saved the profile, so run the canonical personalization (same path the
+  // typed flow uses) and move on to the metrics screen.
+  const finalizeVoiceOnboarding = async () => {
+    voiceLoopRef.current?.stop();
+    voiceLoopRef.current = null;
+    setVoiceMode(false);
+    setVoicePhase('idle');
+    setProcessing(true);
+    try {
+      const response = await apiPost<PersonalizeResponse>('/api/personalize', {});
+      setPersonalization(response.calculated_metrics, response.persona_tags);
+      setTimeout(() => navigation.navigate('HealthMetrics'), 1000);
+    } catch (error) {
+      addMessage('kin', "Your profile is saved. Tap Build My Plan when you're ready.");
+      if (__DEV__) console.warn('Voice onboarding finalize failed:', error);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // React to app-level events the proxy emits during voice onboarding.
+  const handleVoiceEvent = (event: any) => {
+    switch (event?.type) {
+      case 'onboarding_progress':
+        if (typeof event.progress === 'number') setVoiceProgress(event.progress);
+        break;
+      case 'onboarding_type_fallback':
+        addMessage('kin', event.message || 'You can type that answer below.');
+        break;
+      case 'onboarding_complete':
+        addMessage('kin', event.message || 'All set! Building your plan…');
+        finalizeVoiceOnboarding();
+        break;
+      case 'onboarding_error':
+        addMessage('kin', event.message || 'Something went wrong. Let\'s try again.');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const toggleVoiceOnboarding = async () => {
+    if (voiceLoopRef.current?.isActive()) {
+      voiceLoopRef.current.stop();
+      voiceLoopRef.current = null;
+      setVoiceMode(false);
+      setVoicePhase('idle');
+      return;
+    }
+
+    let token: string | null = null;
+    try {
+      token = await getFreshToken();
+    } catch {
+      token = null;
+    }
+
+    const live = new WebVoiceLive({
+      wsBaseUrl: WS_BASE_URL,
+      token,
+      onPhase: setVoicePhase,
+      // Show what the user said; Kin replies by voice (true voice-to-voice).
+      onTranscript: (role, text) => {
+        if (role === 'user' && text.trim()) addMessage('user', text.trim());
+      },
+      onNotice: (message) => addMessage('kin', message),
+      onEvent: handleVoiceEvent,
+    });
+
+    try {
+      voiceLoopRef.current = live;
+      setVoiceMode(true);
+      setVoicePhase('connecting');
+      await live.start();
+    } catch {
+      voiceLoopRef.current = null;
+      setVoiceMode(false);
+      setVoicePhase('idle');
+      addMessage('kin', 'I need microphone access to talk. Allow it in your browser, then tap the button again.');
+    }
+  };
+
+  // Release the voice loop when leaving onboarding.
+  useEffect(() => {
+    return () => {
+      voiceLoopRef.current?.stop();
+      voiceLoopRef.current = null;
+    };
+  }, []);
 
   // Calculate progress percentage based on current step
   const getProgressPercentage = () => {
@@ -490,6 +592,35 @@ export default function OnboardingChatScreen() {
         )}
       </ScrollView>
 
+      {/* Voice onboarding (web only) — one tap to set up the whole profile by
+          talking to Kin, hands-free. */}
+      {Platform.OS === 'web' && currentStep !== 'summary' && currentStep !== 'complete' && (
+        <View style={styles.voiceBar}>
+          <Pressable
+            onPress={toggleVoiceOnboarding}
+            style={[styles.voiceButton, voiceMode && styles.voiceButtonActive]}
+            accessibilityRole="button"
+            accessibilityLabel={voiceMode ? 'Stop voice setup' : 'Set up by voice'}
+          >
+            <Text style={[styles.voiceButtonText, voiceMode && styles.voiceButtonTextActive]}>
+              {voiceMode ? '■  Stop voice setup' : '🎙  Set up by voice'}
+            </Text>
+          </Pressable>
+          {voiceMode && (
+            <Text style={styles.voiceStatus}>
+              {voicePhase === 'connecting'
+                ? 'Connecting…'
+                : voicePhase === 'speaking'
+                ? '🔊 Kin is speaking…'
+                : voicePhase === 'listening'
+                ? '● Listening… just speak'
+                : 'Voice mode on'}
+              {voiceProgress > 0 ? `   ·   ${voiceProgress}% done` : ''}
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* Goal cards — special 2-column grid for the fitness goal step */}
       {stepContent.gridCards && (
         <View style={styles.gridContainer}>
@@ -668,6 +799,36 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontWeight: '500',
     letterSpacing: 0.3,
+  },
+  voiceBar: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  voiceButton: {
+    backgroundColor: '#EAF2FB',
+    borderRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: '#CFE0F2',
+  },
+  voiceButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  voiceButtonText: {
+    ...typography.bodyBold,
+    color: colors.primary,
+  },
+  voiceButtonTextActive: {
+    color: colors.surface,
+  },
+  voiceStatus: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 6,
   },
   messagesList: {
     flex: 1,
