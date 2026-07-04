@@ -261,6 +261,8 @@ export default function ProfileScreen() {
     if (savedStyle && VOICES.some((v) => v.key === savedStyle)) setVoice(savedStyle);
     const savedVerbosity = user?.companion_preferences?.in_session_verbosity;
     if (savedVerbosity && VERBOSITY.some((v) => v.key === savedVerbosity)) setVerbosity(savedVerbosity);
+    const savedPersona = (user?.companion_preferences as any)?.coaching_style;
+    if (savedPersona && PERSONAS.some((p) => p.key === savedPersona)) setPersona(savedPersona);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
@@ -298,6 +300,9 @@ export default function ProfileScreen() {
           voice_id: voice,
           talkativeness,
           in_session_verbosity: verbosity,
+          // Coaching personality — now backed by companion_preferences.coaching_style
+          // and injected into the system prompt (text + voice).
+          coaching_style: persona,
         },
       } as any);
       if (updated) setUser(updated as any);
@@ -306,7 +311,7 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [talkIndex, voice, verbosity, user, setUser]);
+  }, [talkIndex, voice, verbosity, persona, user, setUser]);
 
   const handleSignOut = useCallback(async () => {
     setSigningOut(true);
