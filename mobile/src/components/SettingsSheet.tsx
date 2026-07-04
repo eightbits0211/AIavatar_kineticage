@@ -25,11 +25,18 @@ const NAVY = '#16365A';
 const TEAL = '#4FC3E8';
 
 /* ───────────────────────── Section icons ───────────────────────── */
-type IconName = 'robot' | 'target' | 'alert' | 'dumbbell' | 'bell';
+type IconName = 'robot' | 'target' | 'alert' | 'dumbbell' | 'bell' | 'person';
 
 function SectionIcon({ name, size = 18, color = colors.primary }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
   switch (name) {
+    case 'person':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Circle cx={12} cy={8} r={4} {...s} />
+          <Path d="M4 20c0-4 4-6 8-6s8 2 8 6" {...s} />
+        </Svg>
+      );
     case 'robot':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -186,7 +193,6 @@ interface SettingsSheetProps {
 
 export default function SettingsSheet({ visible, onClose, onSave }: SettingsSheetProps) {
   const [mounted, setMounted] = useState(visible);
-  const slide = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
   const user = useUserStore((s) => s.user);
@@ -213,15 +219,11 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(slide, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }),
-      ]).start();
+      Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     } else if (mounted) {
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(slide, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
-      ]).start(({ finished }) => finished && setMounted(false));
+      Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }).start(
+        ({ finished }) => finished && setMounted(false)
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -255,7 +257,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={styles.overlay} pointerEvents="box-none">
       {/* Blurred backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
         <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill}>
@@ -263,15 +265,19 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
         </BlurView>
       </Animated.View>
 
-      {/* Sheet */}
-      <Animated.View style={[styles.sheet, { height: SHEET_HEIGHT, transform: [{ translateY: slide }] }]}>
-        <View style={styles.handleWrap}>
-          <View style={styles.handle} />
-        </View>
-
+      {/* Floating centered window */}
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            opacity: fade,
+            transform: [{ scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
+          },
+        ]}
+      >
         <View style={styles.header}>
-          <SectionIcon name="robot" size={22} color={colors.primary} />
-          <Text style={styles.title}>Kin AI Settings</Text>
+          <SectionIcon name="person" size={22} color={colors.primary} />
+          <Text style={styles.title}>User Preferences</Text>
           <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
             <CloseX />
           </Pressable>
@@ -379,29 +385,31 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: '100%',
+    maxHeight: SHEET_HEIGHT,
     backgroundColor: '#F4F7FB',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
     elevation: 16,
   },
-  handleWrap: { alignItems: 'center', paddingTop: 10, paddingBottom: 6 },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#C7D0DA' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
   },
   title: { ...typography.h3, color: NAVY, flex: 1, fontFamily: 'Inter_700Bold' },
   closeBtn: {
