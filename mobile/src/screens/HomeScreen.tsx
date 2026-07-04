@@ -24,6 +24,7 @@ import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
 import WorkoutDeck from '../components/WorkoutDeck';
 import DailyCheckinCard from '../components/DailyCheckinCard';
+import WorkoutSummaryModal, { type WorkoutSummary } from '../components/WorkoutSummaryModal';
 import {
   useAudioRecorder,
   createAudioPlayer,
@@ -34,6 +35,7 @@ import {
 } from 'expo-audio';
 import { apiGet, apiPost, apiPut, apiUploadAudio, apiFetchSpeech, WS_BASE_URL } from '../services/api';
 import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
+import { WebPushToTalk } from '../services/webPushToTalk';
 import { getFreshToken } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
@@ -66,10 +68,28 @@ const timeGreeting = () => {
 
 const titleize = (s?: string) => (s ? s.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : '');
 
+// Injury areas the user can flag when Kin detects pain (action_intent:
+// update_injuries). The backend only sends the intent, not the area, so we let
+// the user confirm — pre-selecting any area we can detect from Kin's reply.
+const INJURY_AREAS: Array<{ label: string; value: string; keywords: string[] }> = [
+  { label: 'Knee', value: 'knee', keywords: ['knee'] },
+  { label: 'Lower Back', value: 'lower_back', keywords: ['back', 'lower back', 'spine'] },
+  { label: 'Shoulder', value: 'shoulder', keywords: ['shoulder'] },
+  { label: 'Wrist', value: 'wrist', keywords: ['wrist'] },
+  { label: 'Ankle', value: 'ankle', keywords: ['ankle'] },
+  { label: 'Neck', value: 'neck', keywords: ['neck'] },
+];
+
+const detectInjuryAreas = (text: string): string[] => {
+  const t = (text || '').toLowerCase();
+  return INJURY_AREAS.filter((a) => a.keywords.some((k) => t.includes(k))).map((a) => a.value);
+};
+
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
 
   const [dash, setDash] = useState<DashboardData | null>(null);
   const [recommended, setRecommended] = useState<ExerciseBundle | null>(null);
@@ -81,8 +101,13 @@ export default function HomeScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  // Post-workout summary (the /api/session/:id/end response), shown in a modal.
+  const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   // An in-progress session found on load, offered for resume (D2).
   const [resumeInfo, setResumeInfo] = useState<{ sessionId: string; bundleId: string; index: number } | null>(null);
+  // Shown when Kin flags pain (action_intent: update_injuries) — lets the user
+  // confirm which area to protect before we update the profile + regenerate (§8).
+  const [injuryPrompt, setInjuryPrompt] = useState<{ selected: string[] } | null>(null);
 
   // ── Chat thread (Ask Kin) ──
   type ChatMsg = { id: string; role: 'user' | 'kin'; text: string };
@@ -111,6 +136,11 @@ export default function HomeScreen() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
   const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+  // Web REST voice fallback (§6): used when the live voice WebSocket is
+  // unavailable — a simple tap-to-talk that records, transcribes, chats, speaks.
+  const [voiceFallback, setVoiceFallback] = useState(false);
+  const [fallbackRecording, setFallbackRecording] = useState(false);
+  const pttRef = useRef<WebPushToTalk | null>(null);
   // Tracks the active workout's session id so voice mode can ground the AI in
   // the live session (set below, once the workout state exists).
   const activeSessionIdRef = useRef<string | null>(null);
@@ -186,16 +216,23 @@ export default function HomeScreen() {
       if (overrideText === undefined) setAskText('');
       setKinTyping(true);
       try {
-        // General home-screen chat: no session_id, so the backend skips history
-        // persistence and just returns Kin's reply.
+        // During a workout, pass session_id so Kin answers with live session
+        // context (current exercise, sets, history). Outside a workout it's a
+        // general chat (no session_id).
+        const activeSessionId = workoutRef.current?.sessionId ?? undefined;
         const res = await apiPost<{ reply: string; action_intent: string | null }>(
           '/api/companion/message',
-          { message: text, input_mode: inputMode }
+          { message: text, input_mode: inputMode, ...(activeSessionId ? { session_id: activeSessionId } : {}) }
         );
         const reply = res.reply?.trim() || '…';
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: reply }]);
         // Voice-initiated turns get spoken back so it feels like a conversation.
         if (inputMode === 'voice' && reply !== '…') speak(reply);
+        // Kin flagged pain → offer to update the injury profile (§8). The API
+        // only sends the intent, so we pre-select any area detected in the reply.
+        if (res.action_intent === 'update_injuries') {
+          setInjuryPrompt({ selected: detectInjuryAreas(reply) });
+        }
       } catch (err: any) {
         setMessages((prev) => [
           ...prev,
@@ -303,6 +340,65 @@ export default function HomeScreen() {
       setRecording(false);
     }
   }, [recording, transcribing, audioRecorder, transcribeAndSend]);
+
+  // Transcribe a recorded blob (web REST fallback) then run it through the same
+  // chat flow as typed/voice messages (which also handles TTS + action_intent).
+  const transcribeBlobAndSend = useCallback(
+    async (blob: Blob) => {
+      setTranscribing(true);
+      try {
+        const ext = ((blob.type.split('/')[1] || 'webm').split(';')[0]) || 'webm';
+        const res = await apiUploadAudio<{ transcript?: string; error?: string }>(
+          '/api/stt/transcribe',
+          new File([blob], `speech.${ext}`, { type: blob.type || 'audio/webm' })
+        );
+        const transcript = res.transcript?.trim();
+        if (transcript) {
+          await sendMessage(transcript, 'voice');
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { id: `${Date.now()}-k`, role: 'kin', text: res.error || "I didn't quite catch that. Try again, or type your message." },
+          ]);
+        }
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: 'Voice input failed. Please type instead.' },
+        ]);
+      } finally {
+        setTranscribing(false);
+      }
+    },
+    [sendMessage]
+  );
+
+  // Tap-to-talk for the REST fallback: tap to record, tap again to send.
+  const toggleFallbackRecording = useCallback(async () => {
+    if (transcribing) return;
+    if (fallbackRecording) {
+      setFallbackRecording(false);
+      try {
+        const blob = await pttRef.current?.stop();
+        pttRef.current = null;
+        if (blob) await transcribeBlobAndSend(blob);
+      } catch {
+        pttRef.current = null;
+      }
+      return;
+    }
+    try {
+      const ptt = new WebPushToTalk();
+      await ptt.start();
+      pttRef.current = ptt;
+      setFallbackRecording(true);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-k`, role: 'kin', text: 'I need microphone access. Allow it in your browser, then tap the mic again.' },
+      ]);
+    }
+  }, [fallbackRecording, transcribing, transcribeBlobAndSend]);
 
   // Append a spoken transcript to the chat thread. Live transcription arrives
   // in small chunks, so we merge consecutive chunks from the same speaker into
@@ -416,6 +512,21 @@ export default function HomeScreen() {
       onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: message }]),
+      // WebSocket unavailable → drop into the REST tap-to-talk fallback (§6).
+      onError: () => {
+        voiceLoopRef.current = null;
+        setVoiceMode(false);
+        setVoicePhase('idle');
+        setVoiceFallback(true);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-k`,
+            role: 'kin',
+            text: 'Live voice is unavailable right now — switched to tap-to-talk. Tap the mic, speak, then tap again to send.',
+          },
+        ]);
+      },
     });
 
     try {
@@ -441,9 +552,12 @@ export default function HomeScreen() {
 
   // Mic button entry point: continuous voice mode on web, press-to-talk on native.
   const onMicPress = useCallback(() => {
-    if (Platform.OS === 'web') return toggleVoiceMode();
+    if (Platform.OS === 'web') {
+      // After a live-voice failure, the mic drives the REST tap-to-talk fallback.
+      return voiceFallback ? toggleFallbackRecording() : toggleVoiceMode();
+    }
     return toggleRecording();
-  }, [toggleVoiceMode, toggleRecording]);
+  }, [voiceFallback, toggleFallbackRecording, toggleVoiceMode, toggleRecording]);
 
   // Clean up any active player/recorder/voice loop when leaving the screen.
   useEffect(() => {
@@ -451,6 +565,8 @@ export default function HomeScreen() {
       playerRef.current?.remove();
       voiceLoopRef.current?.stop();
       voiceLoopRef.current = null;
+      pttRef.current?.stop();
+      pttRef.current = null;
       if (audioRecorder.isRecording) audioRecorder.stop().catch(() => {});
     };
   }, [audioRecorder]);
@@ -511,17 +627,16 @@ export default function HomeScreen() {
       setWorkout(null);
       if (sessionId) {
         try {
-          const endRes = await apiPost<{ badges_earned?: Array<{ name?: string }> }>(
-            `/api/session/${sessionId}/end`,
-            {}
-          );
+          // One call returns the full post-workout report — show it in the summary modal.
+          const endRes = await apiPost<WorkoutSummary>(`/api/session/${sessionId}/end`, {});
+          setSummary(endRes);
           await coach('session_end', sessionId, { bundle_title: title });
           // Celebrate any freshly earned badges as a milestone moment.
           const badges = endRes?.badges_earned ?? [];
           if (badges.length) {
             await coach('milestone', sessionId, {
               milestone_type: 'badge',
-              milestone_detail: badges.map((b) => b.name).filter(Boolean).join(', '),
+              milestone_detail: badges.map((b: any) => b.name).filter(Boolean).join(', '),
             });
           }
         } catch {
@@ -708,6 +823,33 @@ export default function HomeScreen() {
       setRegenerating(false);
     }
   }, []);
+
+  // Confirm the pain/injury update (§8): merge the chosen areas into the user's
+  // injuries, persist, then regenerate a safer plan (the Filter stage excludes
+  // exercises contraindicated for those injuries).
+  const confirmInjuryUpdate = useCallback(
+    async (areas: string[]) => {
+      setInjuryPrompt(null);
+      if (!areas.length) return;
+      try {
+        const existing = (user?.injuries ?? []).filter((i) => i && i !== 'none');
+        const merged = Array.from(new Set([...existing, ...areas]));
+        const updated = await apiPut<any>('/api/profile', { injuries: merged });
+        if (updated) setUser(updated);
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: "Done — I've updated your profile to protect that area and I'm building you a safer plan." },
+        ]);
+        await regenerateWorkouts();
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: "I couldn't update your profile just now — you can adjust injuries in Settings." },
+        ]);
+      }
+    },
+    [user, regenerateWorkouts, setUser]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -994,6 +1136,48 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
                 )}
+
+                {/* Pain/injury update prompt (§8) */}
+                {injuryPrompt && (
+                  <View style={styles.injuryCard}>
+                    <Text style={styles.injuryTitle}>Protect an area?</Text>
+                    <Text style={styles.injurySub}>
+                      Select where you felt discomfort — I'll avoid exercises that stress it.
+                    </Text>
+                    <View style={styles.injuryChips}>
+                      {INJURY_AREAS.map((a) => {
+                        const sel = injuryPrompt.selected.includes(a.value);
+                        return (
+                          <Pressable
+                            key={a.value}
+                            onPress={() =>
+                              setInjuryPrompt((p) =>
+                                p
+                                  ? { selected: sel ? p.selected.filter((x) => x !== a.value) : [...p.selected, a.value] }
+                                  : p
+                              )
+                            }
+                            style={[styles.injuryChip, sel && styles.injuryChipSel]}
+                          >
+                            <Text style={[styles.injuryChipText, sel && styles.injuryChipTextSel]}>{a.label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.injuryActions}>
+                      <Pressable onPress={() => setInjuryPrompt(null)} style={styles.injuryBtnGhost}>
+                        <Text style={styles.injuryBtnGhostText}>Not now</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => confirmInjuryUpdate(injuryPrompt.selected)}
+                        disabled={!injuryPrompt.selected.length}
+                        style={[styles.injuryBtnPrimary, !injuryPrompt.selected.length && styles.injuryBtnDisabled]}
+                      >
+                        <Text style={styles.injuryBtnPrimaryText}>Update &amp; regenerate</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -1092,6 +1276,15 @@ export default function HomeScreen() {
       />
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <WorkoutSummaryModal
+        visible={!!summary}
+        summary={summary}
+        onClose={() => {
+          setSummary(null);
+          load();
+        }}
+      />
     </View>
   );
 }
@@ -1278,6 +1471,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resumeBtnSecondaryText: { ...typography.bodyBold, color: '#B25C10' },
+  injuryCard: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  injuryTitle: { ...typography.bodyBold, color: '#B02A2A' },
+  injurySub: { ...typography.small, color: '#B4534E', marginTop: 2 },
+  injuryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.sm },
+  injuryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+  },
+  injuryChipSel: { backgroundColor: '#B02A2A', borderColor: '#B02A2A' },
+  injuryChipText: { ...typography.small, color: '#B02A2A', fontFamily: 'Inter_600SemiBold' },
+  injuryChipTextSel: { color: '#FFFFFF' },
+  injuryActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  injuryBtnGhost: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3B4B4' },
+  injuryBtnGhostText: { ...typography.bodyBold, color: '#B4534E' },
+  injuryBtnPrimary: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: '#B02A2A' },
+  injuryBtnPrimaryText: { ...typography.bodyBold, color: '#FFFFFF' },
+  injuryBtnDisabled: { opacity: 0.4 },
   recCard: { borderRadius: 18, padding: spacing.lg, overflow: 'hidden' },
   regenBtn: {
     alignSelf: 'center',
