@@ -64,6 +64,16 @@ function buildUserContext(user: IUser): string {
     .filter(Boolean)
     .join('\n- ') || 'Use a balanced, supportive tone.';
 
+  // Coaching style adjustments
+  const coachingStyleMap: Record<string, string> = {
+    motivational: 'Be a high-energy motivational coach. Push the user harder, celebrate effort loudly, use phrases like "you got this!", "one more!", "dig deep!". Challenge them to do their best every set.',
+    friendly: 'Be a friendly workout buddy. Keep it casual, conversational, and encouraging. Use humor when appropriate. Make the user feel comfortable and never pressured.',
+    strict: 'Be a disciplined, no-nonsense trainer. Keep instructions precise and direct. Correct form immediately. Expect full effort. Minimal chitchat during sets — save conversation for rest periods.',
+    zen: 'Be a calm, mindful guide. Emphasize breath, body awareness, and moving with intention. Use a measured pace. Encourage the user to listen to their body and find flow in the movement.',
+  };
+  const coachingStyle = (user.companion_preferences as any)?.coaching_style || 'friendly';
+  const coachingInstruction = coachingStyleMap[coachingStyle] || coachingStyleMap.friendly;
+
   return `## About This User
 - Name: ${user.name || 'there'}
 - Age: ${user.age || 'unknown'}
@@ -72,6 +82,10 @@ function buildUserContext(user: IUser): string {
 - Injuries: ${user.injuries?.filter(i => i !== 'none').join(', ') || 'none reported'}
 - Talkativeness preference: ${user.companion_preferences?.talkativeness || 'balanced'}
 - In-session verbosity: ${user.companion_preferences?.in_session_verbosity || 'standard'}
+- Coaching style: ${coachingStyle}
+
+## Coaching Personality
+${coachingInstruction}
 
 ## Tone Adjustments for This User
 - ${personaInstructions}`;
