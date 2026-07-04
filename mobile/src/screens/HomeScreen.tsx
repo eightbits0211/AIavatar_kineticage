@@ -976,9 +976,7 @@ export default function HomeScreen() {
               onPress={openHistory}
               style={styles.menuBtn}
             >
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
+              <ChipIcon name="history" size={20} color="#FFFFFF" />
             </Pressable>
             {avatarUrl ? (
               <Image source={{ uri: avatarUrl }} style={styles.headerAvatar} resizeMode="cover" />
@@ -994,11 +992,11 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerActions}>
               <View style={styles.streakPill}>
-                <FlameIcon size={15} />
+                <FlameIcon size={16} />
                 <Text style={styles.streakText}>{streak}</Text>
               </View>
               <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings" onPress={() => setSettingsOpen(true)}>
-                <SlidersIcon size={19} />
+                <SlidersIcon size={20} />
               </Pressable>
             </View>
           </View>
@@ -1280,7 +1278,7 @@ export default function HomeScreen() {
             returnKeyType="send"
           />
           <Pressable
-            style={[styles.micBtn, (recording || voiceMode) && styles.micBtnActive]}
+            style={styles.micBtn}
             accessibilityRole="button"
             accessibilityLabel={
               voiceMode ? 'Turn off voice chat' : recording ? 'Stop recording' : 'Voice input'
@@ -1289,9 +1287,13 @@ export default function HomeScreen() {
             disabled={transcribing}
           >
             {transcribing || voicePhase === 'connecting' ? (
-              <ActivityIndicator size="small" color={voiceMode ? '#FFFFFF' : colors.primary} />
+              <ActivityIndicator size="small" color={recording || voiceMode ? '#E5484D' : colors.primary} />
+            ) : recording || voiceMode ? (
+              <View style={styles.micActiveCircle}>
+                <View style={styles.micStopSquare} />
+              </View>
             ) : (
-              <MicIcon size={20} color={recording || voiceMode ? '#FFFFFF' : colors.primary} />
+              <MicIcon size={24} color="#8A94A6" />
             )}
           </Pressable>
           <Pressable
@@ -1346,7 +1348,7 @@ function QuickChip({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.quickChipWrap, pressed && { opacity: 0.65 }]}>
       <BlurView intensity={32} tint="light" style={styles.quickChip}>
-        <ChipIcon name={icon} size={16} color="#1E4E7E" />
+        <ChipIcon name={icon} size={16} color="#2C4A66" />
         <Text style={styles.quickChipText} numberOfLines={1}>
           {label}
         </Text>
@@ -1379,7 +1381,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
     gap: 3,
   },
   menuLine: {
@@ -1457,8 +1459,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: spacing.lg,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: 18,
+    paddingBottom: 6,
     alignItems: 'center',
   },
   quickChipWrap: {
@@ -1481,10 +1483,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.75)',
-    backgroundColor: '#6E97CE',
+    borderColor: '#4EA8DD',
+    backgroundColor: 'transparent',
   },
-  quickChipText: { ...typography.caption, color: '#1E4E7E', fontFamily: 'Inter_600SemiBold' },
+  quickChipText: { ...typography.caption, color: '#2C4A66', fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   resumeCard: {
     backgroundColor: '#FFF6EE',
@@ -1555,7 +1557,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     minHeight: 32,
   },
-  regenText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  regenText: { ...typography.body, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   recBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#F5821F',
@@ -1691,8 +1693,8 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.md,
     paddingRight: spacing.sm,
     paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: '#CBD3DC',
   },
   askInput: {
     flex: 1,
@@ -1708,8 +1710,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.xs,
   },
-  micBtnActive: {
-    backgroundColor: '#FF5A4D',
+  micActiveCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBE0E0', // light red circle (matches End Workout button + send button size)
+  },
+  micStopSquare: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+    backgroundColor: '#E5484D', // brighter red stop square
   },
   voiceHintRow: {
     paddingHorizontal: spacing.xs,
