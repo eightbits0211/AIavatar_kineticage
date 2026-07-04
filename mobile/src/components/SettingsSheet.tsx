@@ -181,6 +181,18 @@ const LOCATIONS: Array<{ label: string; value: 'home' | 'gym' }> = [
   { label: 'Home', value: 'home' },
   { label: 'Gym', value: 'gym' },
 ];
+// Equipment tokens must match the exercise library's equipment_required values
+// so the Rules Engine filter stage includes the right exercises. Empty → ['none'].
+const EQUIPMENT: Array<{ label: string; value: string }> = [
+  { label: 'Dumbbells', value: 'dumbbells' },
+  { label: 'Barbell', value: 'barbell' },
+  { label: 'Resistance Bands', value: 'resistance_bands' },
+  { label: 'Kettlebell', value: 'kettlebell' },
+  { label: 'Pull-up Bar', value: 'pull_up_bar' },
+  { label: 'Bench', value: 'bench' },
+  { label: 'Machines', value: 'machines' },
+  { label: 'Cardio Equipment', value: 'cardio_equipment' },
+];
 // Snap the free-form duration slider to the backend's allowed values.
 const snapDuration = (d: number): number =>
   [15, 30, 45, 60].reduce((prev, cur) => (Math.abs(cur - d) < Math.abs(prev - d) ? cur : prev));
@@ -203,6 +215,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState('beginner'); // → fitness_level
   const [location, setLocation] = useState<'home' | 'gym'>('home');
+  const [equipment, setEquipment] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Seed the controls from the saved profile each time the sheet opens.
@@ -214,6 +227,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     if (u.workout_duration) setDuration(u.workout_duration);
     if (u.fitness_level) setIntensity(u.fitness_level);
     if (u.workout_location === 'home' || u.workout_location === 'gym') setLocation(u.workout_location);
+    setEquipment((u.equipment || []).filter((e: string) => e && e !== 'none'));
   }, [visible, user]);
 
   useEffect(() => {
@@ -233,6 +247,9 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const toggleConstraint = (c: string) =>
     setConstraints((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
 
+  const toggleEquipment = (e: string) =>
+    setEquipment((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -244,6 +261,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
         workout_duration: snapDuration(duration),
         fitness_level: intensity,
         workout_location: location,
+        equipment: equipment.length ? equipment : ['none'],
       });
       if (updated) setUser(updated);
     } catch {
@@ -251,7 +269,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     } finally {
       setSaving(false);
       // AI personality is managed only in the Profile tab.
-      onSave?.({ goal, constraints, duration, intensity, location });
+      onSave?.({ goal, constraints, duration, intensity, location, equipment });
       onClose();
     }
   };
@@ -317,6 +335,23 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
                 <Pressable key={c.value} onPress={() => toggleConstraint(c.value)} style={[styles.chip, sel && styles.chipSel]}>
                   {sel && <CheckMark size={13} />}
                   <Text style={[styles.chipText, sel && styles.chipTextSel]}>{c.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Equipment — multi-select; feeds the Rules Engine filter stage */}
+          <View style={styles.sectionHead}>
+            <SectionIcon name="dumbbell" />
+            <Text style={styles.sectionTitle}>Equipment</Text>
+          </View>
+          <View style={styles.chipWrap}>
+            {EQUIPMENT.map((e) => {
+              const sel = equipment.includes(e.value);
+              return (
+                <Pressable key={e.value} onPress={() => toggleEquipment(e.value)} style={[styles.chip, sel && styles.chipSel]}>
+                  {sel && <CheckMark size={13} />}
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{e.label}</Text>
                 </Pressable>
               );
             })}
@@ -487,7 +522,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentSel: { backgroundColor: TEAL },
-  segmentText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  segmentText: { ...typography.caption, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   segmentTextSel: { color: '#FFFFFF' },
 
   locationRow: { flexDirection: 'row', gap: 12, marginBottom: spacing.sm },
