@@ -380,6 +380,22 @@ export function extractAnyFieldFromSpeech(
   const text = userText.toLowerCase().trim();
   if (!text || text.length < 2) return null;
 
+  // Detect correction phrases — user is correcting a previous value, not providing new data
+  const correctionPhrases = ['not ', 'i meant', 'sorry', 'i said', 'correction', 'actually'];
+  const isCorrection = correctionPhrases.some(p => text.includes(p));
+
+  // If it's a correction, try to re-extract for already-collected fields too
+  if (isCorrection) {
+    for (const field of ONBOARDING_FIELDS) {
+      // Only try fields that WERE collected (user is correcting them)
+      if (alreadyCollected[field] === undefined) continue;
+      const result = extractFieldFromUserSpeech(field, userText);
+      if (result && result.confidence === 'high') {
+        return { field, value: result.value };
+      }
+    }
+  }
+
   // Priority keywords — always match these to their correct field regardless of order
   const genderKeywords = ['male', 'female', 'other', 'prefer not to say', 'non-binary', 'man', 'woman'];
   const hasGenderKeyword = genderKeywords.some(k => text.includes(k));

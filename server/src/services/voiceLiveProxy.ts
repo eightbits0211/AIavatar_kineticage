@@ -654,24 +654,46 @@ function detectAndExecuteActions(session: VoiceSession, text: string) {
 
   // Auto-start session if Kin starts coaching but no session exists yet
   if (!session.sessionId && session.bundleId) {
-    // Detect if Gemini is coaching (mentions exercise actions)
-    const coachingIndicators = ['first up', 'let\'s start with', 'sets of', 'reps', 'we\'re starting'];
+    const coachingIndicators = ['first up', 'let\'s start with', 'sets of', 'reps', 'we\'re starting', 'let\'s go', 'here we go', 'starting with', 'begin with', 'your first exercise'];
     const isCoaching = coachingIndicators.some(ind => lower.includes(ind));
     if (isCoaching) {
       startSessionFromVoice(session, session.bundleId);
     }
   }
 
-  // Detect set completion acknowledgment
-  if (lower.includes('great set') || lower.includes('nice work') ||
-      lower.includes('set complete') || lower.includes('good job on that set') ||
-      lower.includes('that\'s one set down') || lower.includes('set done')) {
+  // Detect set completion acknowledgment (broadened patterns)
+  const setCompletePhrases = [
+    'great set', 'nice work', 'set complete', 'good job', 'well done',
+    'that\'s one set', 'set done', 'solid effort', 'good effort',
+    'nice one', 'perfect', 'excellent', 'that\'s the set',
+    'awesome set', 'strong set', 'crushed it', 'nailed it',
+    'beautiful', 'take a rest', 'take a breather', 'rest up',
+    'next set', 'set number', 'on to set',
+  ];
+  const isSetComplete = setCompletePhrases.some(p => lower.includes(p));
+  // Avoid false triggers on general conversation (require workout mode)
+  if (isSetComplete && session.mode === 'workout' && session.sessionId) {
     markSetComplete(session);
   }
 
+  // Detect exercise completion / transition to next
+  const exerciseCompletePhrases = [
+    'next exercise', 'moving on to', 'on to the next', 'that\'s all for',
+    'finished with', 'done with this exercise', 'let\'s move on',
+  ];
+  const isExerciseComplete = exerciseCompletePhrases.some(p => lower.includes(p));
+  if (isExerciseComplete && session.mode === 'workout' && session.sessionId) {
+    // Don't mark set complete — mark exercise as done and advance
+    const currentSet = session.currentSetIndex;
+    // If there are remaining sets, mark them all
+    markExerciseComplete(session);
+  }
+
   // Detect exercise skip
-  if (lower.includes('skip') && (lower.includes('next exercise') || lower.includes('moving on'))) {
-    markExerciseSkipped(session, 'user_requested');
+  if (lower.includes('skip') && (lower.includes('exercise') || lower.includes('moving on') || lower.includes('next one'))) {
+    if (session.mode === 'workout' && session.sessionId) {
+      markExerciseSkipped(session, 'user_requested');
+    }
   }
 
   // Detect pain acknowledgment
@@ -690,6 +712,38 @@ async function startSessionFromVoice(session: VoiceSession, bundleId: string) {
   try {
     const bundle = await Bundle.findById(bundleId);
     if (!bundle) return;
+
+    // Check if a session already exists (created by REST at the same time)
+    const existing = await Session.findOne({
+      user_id: session.userObjectId,
+      status: 'in_progress',
+    });
+    if (existing) {
+      // Attach to existing session instead of creating duplicate
+      session.sessionId = existing._id.toString();
+      session.mode = 'workout';
+      session.currentExerciseIndex = existing.exercises.findIndex(
+        (e: any) => e.status === 'pending' || e.status === 'in_progress'
+      );
+      if (session.currentExerciseIndex < 0) session.currentExerciseIndex = 0;
+      session.currentSetIndex = 0;
+      console.log(`[VoiceLive] Attached to existing session: ${session.sessionId}`);
+
+      if (session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({
+          type: 'session_started',
+          session_id: session.sessionId,
+          bundle_id: bundleId,
+          resumed: true,
+          exercises: existing.exercises.map((ex: any) => ({
+            exercise_id: ex.exercise_id,
+            name: ex.exercise_name,
+            status: ex.status,
+          })),
+        }));
+      }
+      return;
+    }
 
     const newSession = await Session.create({
       user_id: session.userObjectId,
@@ -790,6 +844,52 @@ async function markSetComplete(session: VoiceSession, actualReps?: number) {
     }
   } catch (err) {
     console.error('[VoiceLive] Error marking set complete:', (err as Error).message);
+  }
+}
+
+/**
+ * Mark current exercise as fully complete (all sets done).
+ * Used when Gemini says "moving on to next exercise" without individual set tracking.
+ */
+async function markExerciseComplete(session: VoiceSession) {
+  if (!session.sessionId) return;
+
+  try {
+    const dbSession = await Session.findById(session.sessionId);
+    if (!dbSession || dbSession.status !== 'in_progress') return;
+
+    const exercise = dbSession.exercises[session.currentExerciseIndex];
+    if (!exercise || exercise.status === 'completed') return;
+
+    // Mark all sets as completed
+    for (const set of exercise.sets) {
+      if (!set.completed) {
+        set.completed = true;
+        set.completed_at = new Date();
+        set.actual_reps = set.actual_reps || set.target_rep_max;
+      }
+    }
+    exercise.status = 'completed';
+
+    // Advance to next exercise
+    session.currentExerciseIndex++;
+    session.currentSetIndex = 0;
+
+    await dbSession.save();
+    console.log(`[VoiceLive] Exercise complete: moving to index ${session.currentExerciseIndex}`);
+
+    // Notify client
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'workout_state',
+        action: 'exercise_complete',
+        current_exercise_index: session.currentExerciseIndex,
+        current_set_index: session.currentSetIndex,
+        exercise_id: exercise.exercise_id,
+      }));
+    }
+  } catch (err) {
+    console.error('[VoiceLive] Error marking exercise complete:', (err as Error).message);
   }
 }
 

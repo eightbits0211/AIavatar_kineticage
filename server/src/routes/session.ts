@@ -45,14 +45,25 @@ router.post('/start', authMiddleware, async (req: AuthRequest, res: Response) =>
     });
 
     if (existingSession) {
-      // Return existing session for resume
-      res.json({
-        session_id: existingSession._id,
-        resumed: true,
-        exercises: existingSession.exercises,
-        message: 'Resuming your previous session.',
-      });
-      return;
+      // If session is older than 4 hours, mark it as abandoned and create a new one
+      const sessionAge = Date.now() - new Date(existingSession.started_at).getTime();
+      const FOUR_HOURS = 4 * 60 * 60 * 1000;
+
+      if (sessionAge > FOUR_HOURS) {
+        existingSession.status = 'abandoned' as any;
+        existingSession.completed_at = new Date();
+        await existingSession.save();
+        console.log(`[Session] Abandoned stale session: ${existingSession._id}`);
+      } else {
+        // Return existing session for resume
+        res.json({
+          session_id: existingSession._id,
+          resumed: true,
+          exercises: existingSession.exercises,
+          message: 'Resuming your previous session.',
+        });
+        return;
+      }
     }
 
     // Create new session with exercises from bundle
@@ -434,7 +445,32 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
         );
       }
     } catch (genErr) {
-      console.error('[Session End] Auto-regeneration failed:', (genErr as Error).message);
+      console.error('[Session End] Auto-regeneration failed, retrying once:', (genErr as Error).message);
+      // One retry after 2 seconds
+      setTimeout(async () => {
+        try {
+          const { generateBundles } = await import('../services/rulesEngine');
+          const retryUser = await User.findById(user!._id);
+          if (retryUser) {
+            await Bundle.updateMany({ user_id: user!._id, active: true }, { active: false });
+            const result = await generateBundles({ user: retryUser as any, recentMuscleGroups: [] });
+            if (result.bundles.length > 0) {
+              const mongoose = await import('mongoose');
+              const setId = new mongoose.default.Types.ObjectId();
+              await Bundle.insertMany(result.bundles.map(b => ({
+                user_id: user!._id, title: b.title, is_recommended: b.is_recommended,
+                estimated_duration_min: b.estimated_duration_min, estimated_calorie_burn: b.estimated_calorie_burn,
+                exercises: b.exercises.map(e => ({ exercise_id: e.exercise_id, name: e.name, workout_phase: e.workout_phase, sets: e.sets, rep_min: e.rep_min, rep_max: e.rep_max, rest_seconds: e.rest_seconds, instructions_text: e.instructions_text, image_url: e.image_url, image_url_end: e.image_url_end || '', muscle_groups: e.muscle_groups })),
+                focus: b.focus, generation_context: { persona_tags: retryUser.persona_tags, fitness_goal: retryUser.fitness_goal, excluded_exercises: [], recent_muscle_groups: [] },
+                set_id: setId, active: true,
+              })));
+              console.log('[Session End] Retry succeeded');
+            }
+          }
+        } catch (retryErr) {
+          console.error('[Session End] Retry also failed:', (retryErr as Error).message);
+        }
+      }, 2000);
     }
 
     res.json({
