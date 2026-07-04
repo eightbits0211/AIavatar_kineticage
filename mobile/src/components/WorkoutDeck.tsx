@@ -38,6 +38,13 @@ function timedMinutes(ex: BundleExercise, idx: number, total: number): number {
   return 3;
 }
 
+/** Format seconds as M:SS. */
+function mmss(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 /* tiny icons ------------------------------------------------------------ */
 function ClockIcon({ size = 18, color = colors.primary }: { size?: number; color?: string }) {
   const s = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
@@ -100,9 +107,11 @@ interface WorkoutDeckProps {
   onDone: (reps: number) => void;
   onSkip: () => void;
   onPause: () => void;
+  /** End the whole workout early (saves progress so far). */
+  onEnd: () => void;
 }
 
-export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause }: WorkoutDeckProps) {
+export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause, onEnd }: WorkoutDeckProps) {
   const timed = isTimed(exercise, index, total);
   const metric = timed
     ? `${timedMinutes(exercise, index, total)} min`
@@ -116,6 +125,22 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
   useEffect(() => {
     setReps(exercise.rep_max ?? exercise.rep_min ?? 10);
   }, [exercise]);
+
+  // Cosmetic countdown for timed exercises — runs down and then shows "Timer
+  // ended". Purely informational: it never skips/advances the exercise. Resets
+  // when the exercise changes.
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  useEffect(() => {
+    if (!timed) {
+      setSecondsLeft(0);
+      return;
+    }
+    setSecondsLeft(Math.max(1, timedMinutes(exercise, index, total) * 60));
+    const id = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [exercise, timed, index, total]);
 
   return (
     <View style={styles.wrap}>
@@ -176,6 +201,20 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
           </View>
         )}
 
+        {/* Countdown — timed exercises only. Cosmetic; ends with a message. */}
+        {timed && (
+          <View style={styles.timerRow}>
+            {secondsLeft > 0 ? (
+              <>
+                <Text style={styles.timerLabel}>Time remaining</Text>
+                <Text style={styles.timerValue}>{mmss(secondsLeft)}</Text>
+              </>
+            ) : (
+              <Text style={styles.timerDone}>⏱  Timer ended</Text>
+            )}
+          </View>
+        )}
+
         {/* Done */}
         <Pressable onPress={() => onDone(reps)} style={styles.doneWrap}>
           <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.doneBtn}>
@@ -193,8 +232,11 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
           ))}
         </View>
         <View style={styles.controlRight}>
+          <Pressable onPress={onEnd} style={styles.endBtn} accessibilityRole="button" accessibilityLabel="End workout">
+            <View style={styles.endSquare} />
+          </Pressable>
           <Pressable onPress={onPause} style={styles.pauseBtn} accessibilityLabel={paused ? 'Resume' : 'Pause'}>
-            {paused ? <PlayIcon /> : <PauseIcon />}
+            {paused ? <PlayIcon color="#2E9E5B" /> : <PauseIcon color="#2E9E5B" />}
           </Pressable>
           <Pressable onPress={onSkip} style={styles.skipWrap} accessibilityLabel="Skip">
             <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.skipBtn}>
@@ -262,6 +304,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   repLabel: { ...typography.bodyBold, color: NAVY },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F4F7FB',
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+  },
+  timerLabel: { ...typography.bodyBold, color: NAVY },
+  timerValue: { ...typography.h2, color: colors.primary, fontFamily: 'Inter_700Bold' },
+  timerDone: { ...typography.bodyBold, color: ORANGE, flex: 1, textAlign: 'center' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   stepBtn: {
     width: 38,
@@ -303,9 +358,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F4F8',
+    backgroundColor: '#DEF3E5', // light green circle
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  endBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FBE0E0', // light red circle
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endSquare: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+    backgroundColor: '#E5484D', // brighter red square (stop)
   },
   skipWrap: { borderRadius: 22, overflow: 'hidden' },
   skipBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, height: 44, justifyContent: 'center' },
