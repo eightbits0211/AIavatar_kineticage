@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   PanResponder,
@@ -15,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { colors, spacing, typography } from '../theme';
+import { useUserStore } from '../stores/userStore';
+import { apiPut } from '../services/api';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.min(SCREEN_H * 0.82, 720);
@@ -142,10 +145,39 @@ function Slider({
   );
 }
 
-/* ───────────────────────── Data ───────────────────────── */
-const GOALS = ['Weight Loss', 'Muscle Gain', 'Mobility', 'Rehabilitation', 'Healthy Aging'];
-const CONSTRAINTS = ['Knee Issues', 'Back Pain', 'Shoulder Pain', 'Arthritis', 'Limited Mobility'];
-const INTENSITIES = ['Light', 'Moderate', 'Challenging', 'Intense'];
+/* ───────────────────────── Data ─────────────────────────
+ * label = what the user sees, value = the backend enum/token that actually
+ * drives the Rules Engine + persona recalculation on PUT /api/profile.
+ */
+const GOALS: Array<{ label: string; value: string }> = [
+  { label: 'Strength', value: 'strength' },
+  { label: 'Muscle Gain', value: 'hypertrophy' },
+  { label: 'Mobility', value: 'mobility' },
+  { label: 'General Fitness', value: 'general_fitness' },
+  { label: 'Weight Loss', value: 'weight_loss' },
+  { label: 'Home Workout', value: 'home_workout' },
+];
+// Injury tokens matching onboarding + exercise contraindication data.
+const CONSTRAINTS: Array<{ label: string; value: string }> = [
+  { label: 'Knee', value: 'knee' },
+  { label: 'Lower Back', value: 'lower_back' },
+  { label: 'Shoulder', value: 'shoulder' },
+  { label: 'Wrist', value: 'wrist' },
+  { label: 'Ankle', value: 'ankle' },
+];
+// Maps to fitness_level, which gates the max exercise difficulty in the filter stage.
+const INTENSITIES: Array<{ label: string; value: string }> = [
+  { label: 'Light', value: 'beginner' },
+  { label: 'Moderate', value: 'intermediate' },
+  { label: 'Intense', value: 'advanced' },
+];
+const LOCATIONS: Array<{ label: string; value: 'home' | 'gym' }> = [
+  { label: 'Home', value: 'home' },
+  { label: 'Gym', value: 'gym' },
+];
+// Snap the free-form duration slider to the backend's allowed values.
+const snapDuration = (d: number): number =>
+  [15, 30, 45, 60].reduce((prev, cur) => (Math.abs(cur - d) < Math.abs(prev - d) ? cur : prev));
 const PERSONALITIES: Array<{ key: string; desc: string }> = [
   { key: 'Supportive', desc: 'Gentle, encouraging, empathetic' },
   { key: 'Motivational', desc: 'High energy, pushes you harder' },
@@ -178,18 +210,33 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const slide = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
-  const [goal, setGoal] = useState('Weight Loss');
+  const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+
+  const [goal, setGoal] = useState('general_fitness');
   const [constraints, setConstraints] = useState<string[]>([]);
-  const [duration, setDuration] = useState(45);
-  const [intensity, setIntensity] = useState('Challenging');
-  const [location, setLocation] = useState<'Home' | 'Gym'>('Home');
+  const [duration, setDuration] = useState(30);
+  const [intensity, setIntensity] = useState('beginner'); // → fitness_level
+  const [location, setLocation] = useState<'home' | 'gym'>('home');
   const [personality, setPersonality] = useState('Motivational');
+  const [saving, setSaving] = useState(false);
   const [reminders, setReminders] = useState<RemindersState>({
     workout: true,
     recovery: false,
     streak: true,
     weekly: false,
   });
+
+  // Seed the controls from the saved profile each time the sheet opens.
+  useEffect(() => {
+    if (!visible || !user) return;
+    const u = user as any;
+    if (u.fitness_goal) setGoal(u.fitness_goal);
+    setConstraints((u.injuries || []).filter((i: string) => i && i !== 'none'));
+    if (u.workout_duration) setDuration(u.workout_duration);
+    if (u.fitness_level) setIntensity(u.fitness_level);
+    if (u.workout_location === 'home' || u.workout_location === 'gym') setLocation(u.workout_location);
+  }, [visible, user]);
 
   useEffect(() => {
     if (visible) {
@@ -212,9 +259,27 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const toggleConstraint = (c: string) =>
     setConstraints((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
 
-  const handleSave = () => {
-    onSave?.({ goal, constraints, duration, intensity, location, personality, reminders });
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Persist the fields that actually drive workout generation. PUT /api/profile
+      // recalculates persona_tags, so the next generated bundles reflect these.
+      const updated = await apiPut<any>('/api/profile', {
+        fitness_goal: goal,
+        injuries: constraints.length ? constraints : ['none'],
+        workout_duration: snapDuration(duration),
+        fitness_level: intensity,
+        workout_location: location,
+      });
+      if (updated) setUser(updated);
+    } catch {
+      // Non-blocking — keep the sheet's selections even if the save fails.
+    } finally {
+      setSaving(false);
+      // Note: personality + reminders are UI-only for now (no backend field).
+      onSave?.({ goal, constraints, duration, intensity, location, personality, reminders });
+      onClose();
+    }
   };
 
   return (
@@ -252,11 +317,11 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
           </View>
           <View style={styles.chipWrap}>
             {GOALS.map((g) => {
-              const sel = goal === g;
+              const sel = goal === g.value;
               return (
-                <Pressable key={g} onPress={() => setGoal(g)} style={[styles.chip, sel && styles.chipSel]}>
+                <Pressable key={g.value} onPress={() => setGoal(g.value)} style={[styles.chip, sel && styles.chipSel]}>
                   {sel && <CheckMark size={13} />}
-                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{g}</Text>
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{g.label}</Text>
                 </Pressable>
               );
             })}
@@ -269,11 +334,11 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
           </View>
           <View style={styles.chipWrap}>
             {CONSTRAINTS.map((c) => {
-              const sel = constraints.includes(c);
+              const sel = constraints.includes(c.value);
               return (
-                <Pressable key={c} onPress={() => toggleConstraint(c)} style={[styles.chip, sel && styles.chipSel]}>
+                <Pressable key={c.value} onPress={() => toggleConstraint(c.value)} style={[styles.chip, sel && styles.chipSel]}>
                   {sel && <CheckMark size={13} />}
-                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{c}</Text>
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{c.label}</Text>
                 </Pressable>
               );
             })}
@@ -301,10 +366,10 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
             <Text style={[styles.cardLabel, { marginBottom: spacing.sm }]}>Intensity Level</Text>
             <View style={styles.segmentRow}>
               {INTENSITIES.map((i) => {
-                const sel = intensity === i;
+                const sel = intensity === i.value;
                 return (
-                  <Pressable key={i} onPress={() => setIntensity(i)} style={[styles.segment, sel && styles.segmentSel]}>
-                    <Text style={[styles.segmentText, sel && styles.segmentTextSel]}>{i}</Text>
+                  <Pressable key={i.value} onPress={() => setIntensity(i.value)} style={[styles.segment, sel && styles.segmentSel]}>
+                    <Text style={[styles.segmentText, sel && styles.segmentTextSel]}>{i.label}</Text>
                   </Pressable>
                 );
               })}
@@ -312,11 +377,11 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
           </View>
 
           <View style={styles.locationRow}>
-            {(['Home', 'Gym'] as const).map((loc) => {
-              const sel = location === loc;
+            {LOCATIONS.map((loc) => {
+              const sel = location === loc.value;
               return (
-                <Pressable key={loc} onPress={() => setLocation(loc)} style={[styles.locBtn, sel ? styles.locBtnSel : styles.locBtnUnsel]}>
-                  <Text style={[styles.locText, sel ? styles.locTextSel : styles.locTextUnsel]}>{loc}</Text>
+                <Pressable key={loc.value} onPress={() => setLocation(loc.value)} style={[styles.locBtn, sel ? styles.locBtnSel : styles.locBtnUnsel]}>
+                  <Text style={[styles.locText, sel ? styles.locTextSel : styles.locTextUnsel]}>{loc.label}</Text>
                 </Pressable>
               );
             })}
@@ -327,6 +392,9 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
             <SectionIcon name="robot" />
             <Text style={styles.sectionTitle}>AI Personality</Text>
           </View>
+          <Text style={styles.sectionNote}>
+            Coming soon — this doesn't change Kin's coaching style yet. To adjust how chatty Kin is now, use Talkativeness in your Profile.
+          </Text>
           {PERSONALITIES.map((p) => {
             const sel = personality === p.key;
             return (
@@ -346,6 +414,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
             <SectionIcon name="bell" />
             <Text style={styles.sectionTitle}>Reminder Preferences</Text>
           </View>
+          <Text style={styles.sectionNote}>Coming soon — notifications aren't scheduled yet.</Text>
           <View style={styles.card}>
             {REMINDERS.map((r, idx) => (
               <View key={r.key} style={[styles.reminderRow, idx > 0 && styles.reminderDivider]}>
@@ -367,9 +436,13 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 
         {/* Sticky Save */}
         <View style={styles.footer}>
-          <Pressable onPress={handleSave} style={styles.saveWrap} accessibilityLabel="Save preferences">
+          <Pressable onPress={handleSave} disabled={saving} style={styles.saveWrap} accessibilityLabel="Save preferences">
             <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.saveBtn}>
-              <Text style={styles.saveText}>Save Preferences</Text>
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveText}>Save Preferences</Text>
+              )}
             </LinearGradient>
           </Pressable>
         </View>
@@ -416,6 +489,7 @@ const styles = StyleSheet.create({
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.lg, marginBottom: spacing.md },
   sectionTitle: { ...typography.h3, fontSize: 17, color: NAVY, fontFamily: 'Inter_700Bold' },
+  sectionNote: { ...typography.small, color: colors.textSecondary, marginTop: -spacing.sm, marginBottom: spacing.sm } as any,
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
