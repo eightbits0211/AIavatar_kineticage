@@ -410,6 +410,21 @@ function handleGeminiJson(session: VoiceSession, data: any) {
         }
       } else {
         session.onboardingState.failedAttempts = 0;
+
+        // If multiple fields were extracted at once, tell Gemini to skip ahead
+        const extractedCount = Object.keys(tempCollected).length - Object.keys(session.onboardingState.collectedFields).length + attempts;
+        if (attempts > 1 && session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+          const remaining = ONBOARDING_FIELDS.filter(f => session.onboardingState!.collectedFields[f] === undefined);
+          if (remaining.length > 0) {
+            const skipMsg = `[SYSTEM: The user provided multiple answers at once. I've already collected: ${Object.keys(session.onboardingState.collectedFields).join(', ')}. Skip those and ask about: ${remaining[0].replace(/_/g, ' ')} next. Do NOT re-ask anything already collected.]`;
+            session.geminiWs.send(JSON.stringify({
+              clientContent: {
+                turns: [{ role: 'user', parts: [{ text: skipMsg }] }],
+                turnComplete: true,
+              }
+            }));
+          }
+        }
       }
 
       // Check if onboarding is complete
