@@ -18,6 +18,7 @@ import KinAvatar from '../components/KinAvatar';
 import BadgesModal, { type BadgeItem } from '../components/BadgesModal';
 import LevelsModal from '../components/LevelsModal';
 import AvatarPickerModal from '../components/AvatarPickerModal';
+import EditProfileModal from '../components/EditProfileModal';
 import { apiGet, apiPut } from '../services/api';
 import { signOutCurrentUser } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
@@ -209,6 +210,10 @@ const ACTIVITY_TO_LEVEL: Record<string, string> = {
 
 const titleize = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
+// Current Plan section is intentionally hidden from the Profile tab.
+// Flip to true to show it again (the code + data wiring stay intact).
+const SHOW_CURRENT_PLAN = false;
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((st) => st.user);
@@ -222,6 +227,7 @@ export default function ProfileScreen() {
   const [levelsOpen, setLevelsOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [personalityOpen, setPersonalityOpen] = useState(true);
   const [talkIndex, setTalkIndex] = useState(3);
   const [voice, setVoice] = useState('energetic');
@@ -324,10 +330,6 @@ export default function ProfileScreen() {
       ? ACTIVITY_TO_LEVEL[user.activity_level]
       : '—';
   const planPct = plan && plan.planned > 0 ? Math.min(100, Math.round((plan.completed / plan.planned) * 100)) : 0;
-  const equipmentLabel =
-    user?.equipment?.length
-      ? user.equipment.map((e) => (e === 'none' ? 'No equipment' : titleize(e))).join(', ')
-      : 'No equipment';
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -544,15 +546,12 @@ export default function ProfileScreen() {
           {/* Personal */}
           <Text style={styles.overline}>PERSONAL</Text>
           <View style={styles.card}>
-            <Row icon="person" title="Edit Profile" sub="Name, age, height, weight" />
-            <Divider />
-            <Row icon="target" title="Fitness Goals" sub={`${goalLabel} · ${fitnessLevel}`} />
-            <Divider />
-            <Row icon="dumbbell" title="Equipment" sub={equipmentLabel} last />
+            <Row icon="person" title="Edit Profile" sub="Name, age, height, gender" last onPress={() => setEditOpen(true)} />
           </View>
 
-          {/* Current plan — real weekly progress from the dashboard */}
-          {plan && (
+          {/* Current plan — real weekly progress from the dashboard.
+              Hidden from the Profile tab (kept in code, not displayed). */}
+          {plan && SHOW_CURRENT_PLAN && (
             <>
               <Text style={styles.overline}>CURRENT PLAN</Text>
               <View style={styles.card}>
@@ -594,6 +593,8 @@ export default function ProfileScreen() {
         onClose={() => setAvatarOpen(false)}
       />
 
+      <EditProfileModal visible={editOpen} onClose={() => setEditOpen(false)} />
+
       <BadgesModal visible={badgesOpen} badges={allBadges} onClose={() => setBadgesOpen(false)} />
 
       <LevelsModal
@@ -634,9 +635,9 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Row({ icon, title, sub, last }: { icon: Glyph; title: string; sub: string; last?: boolean }) {
+function Row({ icon, title, sub, last, onPress }: { icon: Glyph; title: string; sub: string; last?: boolean; onPress?: () => void }) {
   return (
-    <Pressable style={styles.row}>
+    <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.rowIcon}>
         <Icon name={icon} size={18} />
       </View>
@@ -842,6 +843,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: '#FCE9E9',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.error,
     height: 54,
     marginTop: spacing.sm,
   },
