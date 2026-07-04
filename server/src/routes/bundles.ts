@@ -47,6 +47,34 @@ router.post('/generate', authMiddleware, async (req: AuthRequest, res: Response)
     const recentMuscleGroups: string[] = recentSession?.exercises
       ?.flatMap((e: any) => e.muscle_groups || []) || [];
 
+    // Check today's daily check-in for soreness — deprioritize sore muscle groups
+    const DailyCheckin = mongoose.model('DailyCheckin');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayCheckin = await DailyCheckin.findOne({
+      user_id: user._id,
+      date: { $gte: today },
+    }).lean() as any;
+
+    if (todayCheckin?.soreness?.length) {
+      // Map soreness body areas to muscle groups for deprioritization
+      const sorenessToMuscles: Record<string, string[]> = {
+        chest: ['chest', 'pectorals'],
+        back: ['upper_back', 'lats', 'lower_back'],
+        shoulders: ['front_delts', 'side_delts', 'rear_delts', 'shoulders'],
+        arms: ['biceps', 'triceps', 'forearms'],
+        legs: ['quadriceps', 'hamstrings', 'glutes', 'calves'],
+        core: ['core', 'abs'],
+        knee: ['quadriceps', 'hamstrings'],
+        lower_back: ['lower_back', 'core'],
+      };
+      for (const sore of todayCheckin.soreness) {
+        const muscles = sorenessToMuscles[sore.body_area] || [sore.body_area];
+        // Add sore muscles to "recent" so the engine deprioritizes them
+        recentMuscleGroups.push(...muscles);
+      }
+    }
+
     // Run the Rules Engine
     const result = await generateBundles({ user: effectiveUser as any, recentMuscleGroups });
 
