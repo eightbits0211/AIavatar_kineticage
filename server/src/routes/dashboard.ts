@@ -42,6 +42,9 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     } else if (todaySession && todaySession.status === 'in_progress') {
       todaysWorkout = { state: 'in_progress', session_id: todaySession._id };
     } else if (recommendedBundle) {
+      // Check if bundles are stale (older than 24 hours)
+      const bundleAge = Date.now() - new Date(recommendedBundle.generated_at).getTime();
+      const isStale = bundleAge > 24 * 60 * 60 * 1000;
       todaysWorkout = {
         state: 'ready',
         bundle_id: recommendedBundle._id,
@@ -49,6 +52,7 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
         focus: recommendedBundle.focus,
         exercise_count: recommendedBundle.exercises.length,
         estimated_duration_min: recommendedBundle.estimated_duration_min,
+        bundles_stale: isStale,
       };
     } else {
       todaysWorkout = { state: 'no_plan', message: 'Generate a workout to get started' };

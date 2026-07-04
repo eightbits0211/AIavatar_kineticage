@@ -388,6 +388,55 @@ router.post('/:id/end', authMiddleware, async (req: AuthRequest, res: Response) 
 
     await session.save();
 
+    // Auto-regenerate bundles for next workout (non-blocking)
+    try {
+      const { generateBundles } = await import('../services/rulesEngine');
+      const recentMuscles: string[] = [];
+      for (const ex of session.exercises) {
+        if (ex.status === 'completed' && (ex as any).muscle_groups) {
+          recentMuscles.push(...(ex as any).muscle_groups);
+        }
+      }
+      await Bundle.updateMany({ user_id: user!._id, active: true }, { active: false });
+      const bundleResult = await generateBundles({ user: user as any, recentMuscleGroups: [...new Set(recentMuscles)] });
+      if (bundleResult.bundles.length > 0) {
+        const setId = new mongoose.Types.ObjectId();
+        await Bundle.insertMany(
+          bundleResult.bundles.map(bundle => ({
+            user_id: user!._id,
+            title: bundle.title,
+            is_recommended: bundle.is_recommended,
+            estimated_duration_min: bundle.estimated_duration_min,
+            estimated_calorie_burn: bundle.estimated_calorie_burn,
+            exercises: bundle.exercises.map(e => ({
+              exercise_id: e.exercise_id,
+              name: e.name,
+              workout_phase: e.workout_phase,
+              sets: e.sets,
+              rep_min: e.rep_min,
+              rep_max: e.rep_max,
+              rest_seconds: e.rest_seconds,
+              instructions_text: e.instructions_text,
+              image_url: e.image_url,
+              image_url_end: e.image_url_end || '',
+              muscle_groups: e.muscle_groups,
+            })),
+            focus: bundle.focus,
+            generation_context: {
+              persona_tags: user!.persona_tags,
+              fitness_goal: user!.fitness_goal,
+              excluded_exercises: [],
+              recent_muscle_groups: [...new Set(recentMuscles)],
+            },
+            set_id: setId,
+            active: true,
+          }))
+        );
+      }
+    } catch (genErr) {
+      console.error('[Session End] Auto-regeneration failed:', (genErr as Error).message);
+    }
+
     res.json({
       status,
       exercises_completed: completedExercises,
