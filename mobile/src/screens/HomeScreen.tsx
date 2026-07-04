@@ -19,7 +19,7 @@ import SendIcon from '../components/SendIcon';
 import MicIcon from '../components/MicIcon';
 import ChipIcon, { type ChipIconName } from '../components/ChipIcon';
 import BundleCard from '../components/BundleCard';
-import { FlameIcon, BellIcon, SlidersIcon } from '../components/HeaderIcons';
+import { FlameIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
 import WorkoutDeck from '../components/WorkoutDeck';
@@ -812,10 +812,6 @@ export default function HomeScreen() {
                 <FlameIcon size={15} />
                 <Text style={styles.streakText}>{streak}</Text>
               </View>
-              <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Notifications">
-                <BellIcon size={19} />
-                <View style={styles.iconBadge} />
-              </Pressable>
               <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings" onPress={() => setSettingsOpen(true)}>
                 <SlidersIcon size={19} />
               </Pressable>
