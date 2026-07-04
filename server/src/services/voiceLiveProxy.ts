@@ -499,7 +499,27 @@ async function handleOnboardingComplete(session: VoiceSession) {
             message: 'Your personalized workout options are ready!',
           }));
 
-          console.log(`[VoiceLive/Onboarding] Generated ${storedBundles.length} bundles`);
+          // Update session state with bundles for voice selection
+          session.allBundles = storedBundles;
+          session.bundleId = storedBundles.find(b => b.is_recommended)?._id?.toString() || storedBundles[0]?._id?.toString() || null;
+
+          // Inject bundle options into Gemini so it can present them via voice
+          if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+            const bundleListText = storedBundles.map((b: any, i: number) =>
+              `${i + 1}. "${b.title}" — ${b.focus}, ~${b.estimated_duration_min} min, ${b.exercises.length} exercises${b.is_recommended ? ' (RECOMMENDED)' : ''}`
+            ).join('\n');
+
+            const transitionPrompt = `Great news! I've created ${storedBundles.length} personalized workout options based on your profile. Here they are:\n${bundleListText}\n\nPresent these options to the user. Read them out briefly (title and duration for each). Ask which one they'd like to start with. Accept answers like "the first one", "number 2", the title, or "the recommended one". If they just say "start" or "let's go", use the recommended one.`;
+
+            session.geminiWs.send(JSON.stringify({
+              clientContent: {
+                turns: [{ role: 'user', parts: [{ text: transitionPrompt }] }],
+                turnComplete: true,
+              }
+            }));
+          }
+
+          console.log(`[VoiceLive/Onboarding] Generated ${storedBundles.length} bundles — presenting via voice`);
         }
       }
     } catch (genErr) {
@@ -1091,11 +1111,22 @@ IMPORTANT: The user has ${bundlesList.length} workout options but has NOT starte
 The user doesn't have a workout loaded. Chat naturally about fitness, answer questions, or suggest they generate a new workout plan from the app.`;
   }
 
-  // Gamification context
+  // Gamification context + user stats for voice queries
+  const badges = user.gamification?.badges || [];
+  const earnedBadgeCount = badges.length;
+
   systemPrompt += `
 
-## User Stats
-Level ${user.gamification?.level || 1} | ${user.gamification?.total_xp || 0} XP | Streak: ${user.gamification?.current_streak || 0} days`;
+## User Stats (answer if asked)
+- Level: ${user.gamification?.level || 1}
+- Total XP: ${user.gamification?.total_xp || 0}
+- Current streak: ${user.gamification?.current_streak || 0} days
+- Longest streak: ${user.gamification?.longest_streak || 0} days
+- Badges earned: ${earnedBadgeCount} of 7
+- Weight: ${user.weight_kg || 'not logged'} kg
+- Goal: ${user.fitness_goal || 'general fitness'}
+
+When the user asks about their stats, calories, progress, streak, or badges — answer using the data above. If they ask about calories burned in a specific session, say you can only see their overall stats and suggest they check the Progress tab for detailed history.`;
 
   return systemPrompt;
 }
