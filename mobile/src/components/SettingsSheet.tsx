@@ -7,7 +7,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -178,26 +177,6 @@ const LOCATIONS: Array<{ label: string; value: 'home' | 'gym' }> = [
 // Snap the free-form duration slider to the backend's allowed values.
 const snapDuration = (d: number): number =>
   [15, 30, 45, 60].reduce((prev, cur) => (Math.abs(cur - d) < Math.abs(prev - d) ? cur : prev));
-// Maps to companion_preferences.coaching_style (backend enum) → system prompt.
-const PERSONALITIES: Array<{ key: string; label: string; desc: string }> = [
-  { key: 'motivational', label: 'Motivational', desc: 'High energy, pushes you harder' },
-  { key: 'friendly', label: 'Friendly', desc: 'Casual, warm, like a workout buddy' },
-  { key: 'strict', label: 'Strict', desc: 'Discipline-first, no excuses' },
-  { key: 'zen', label: 'Zen', desc: 'Calm, mindful, breath-focused' },
-];
-const REMINDERS: Array<{ key: keyof RemindersState; title: string; sub: string }> = [
-  { key: 'workout', title: 'Workout Reminders', sub: 'Daily at 6:00 AM' },
-  { key: 'recovery', title: 'Recovery Reminders', sub: 'After intense sessions' },
-  { key: 'streak', title: 'Streak Reminders', sub: "If you're about to break" },
-  { key: 'weekly', title: 'Weekly Challenge Reminders', sub: 'Every Sunday evening' },
-];
-
-interface RemindersState {
-  workout: boolean;
-  recovery: boolean;
-  streak: boolean;
-  weekly: boolean;
-}
 
 interface SettingsSheetProps {
   visible: boolean;
@@ -218,14 +197,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState('beginner'); // → fitness_level
   const [location, setLocation] = useState<'home' | 'gym'>('home');
-  const [personality, setPersonality] = useState('friendly'); // → coaching_style
   const [saving, setSaving] = useState(false);
-  const [reminders, setReminders] = useState<RemindersState>({
-    workout: true,
-    recovery: false,
-    streak: true,
-    weekly: false,
-  });
 
   // Seed the controls from the saved profile each time the sheet opens.
   useEffect(() => {
@@ -236,7 +208,6 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     if (u.workout_duration) setDuration(u.workout_duration);
     if (u.fitness_level) setIntensity(u.fitness_level);
     if (u.workout_location === 'home' || u.workout_location === 'gym') setLocation(u.workout_location);
-    if (u.companion_preferences?.coaching_style) setPersonality(u.companion_preferences.coaching_style);
   }, [visible, user]);
 
   useEffect(() => {
@@ -271,20 +242,14 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
         workout_duration: snapDuration(duration),
         fitness_level: intensity,
         workout_location: location,
-        // Merge existing companion prefs so we only change coaching_style (a
-        // $set on the whole object would otherwise drop voice_style/talkativeness).
-        companion_preferences: {
-          ...((user as any)?.companion_preferences ?? {}),
-          coaching_style: personality,
-        },
       });
       if (updated) setUser(updated);
     } catch {
       // Non-blocking — keep the sheet's selections even if the save fails.
     } finally {
       setSaving(false);
-      // Note: reminders are UI-only for now (no backend field).
-      onSave?.({ goal, constraints, duration, intensity, location, personality, reminders });
+      // AI personality is managed only in the Profile tab.
+      onSave?.({ goal, constraints, duration, intensity, location });
       onClose();
     }
   };
@@ -394,48 +359,6 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
             })}
           </View>
 
-          {/* AI Personality → coaching_style */}
-          <View style={styles.sectionHead}>
-            <SectionIcon name="robot" />
-            <Text style={styles.sectionTitle}>AI Personality</Text>
-          </View>
-          {PERSONALITIES.map((p) => {
-            const sel = personality === p.key;
-            return (
-              <Pressable key={p.key} onPress={() => setPersonality(p.key)} style={[styles.persona, sel && styles.personaSel]}>
-                <View style={[styles.radio, sel && styles.radioSel]}>{sel && <View style={styles.radioDot} />}</View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.personaTitle, sel && styles.personaTitleSel]}>{p.label}</Text>
-                  <Text style={[styles.personaDesc, sel && styles.personaDescSel]}>{p.desc}</Text>
-                </View>
-                {sel && <CheckMark size={16} />}
-              </Pressable>
-            );
-          })}
-
-          {/* Reminder Preferences */}
-          <View style={styles.sectionHead}>
-            <SectionIcon name="bell" />
-            <Text style={styles.sectionTitle}>Reminder Preferences</Text>
-          </View>
-          <Text style={styles.sectionNote}>Coming soon — notifications aren't scheduled yet.</Text>
-          <View style={styles.card}>
-            {REMINDERS.map((r, idx) => (
-              <View key={r.key} style={[styles.reminderRow, idx > 0 && styles.reminderDivider]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.reminderTitle}>{r.title}</Text>
-                  <Text style={styles.reminderSub}>{r.sub}</Text>
-                </View>
-                <Switch
-                  value={reminders[r.key]}
-                  onValueChange={(v) => setReminders((prev) => ({ ...prev, [r.key]: v }))}
-                  trackColor={{ false: '#D5DCE3', true: TEAL }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#D5DCE3"
-                />
-              </View>
-            ))}
-          </View>
         </ScrollView>
 
         {/* Sticky Save */}

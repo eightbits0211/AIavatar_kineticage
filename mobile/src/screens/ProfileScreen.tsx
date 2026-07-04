@@ -505,14 +505,6 @@ export default function ProfileScreen() {
             <Row icon="dumbbell" title="Equipment" sub={equipmentLabel} last />
           </View>
 
-          {/* Preferences */}
-          <Text style={styles.overline}>PREFERENCES</Text>
-          <View style={styles.card}>
-            <Row icon="bell" title="Notifications" sub="Daily reminders at 6:00 AM" />
-            <Divider />
-            <Row icon="shield" title="Privacy" sub="Data usage settings" last />
-          </View>
-
           {/* Current plan — real weekly progress from the dashboard */}
           {plan && (
             <>
