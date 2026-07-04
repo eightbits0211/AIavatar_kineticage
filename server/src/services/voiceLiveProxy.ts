@@ -518,23 +518,91 @@ async function handleOnboardingComplete(session: VoiceSession) {
           session.allBundles = storedBundles;
           session.bundleId = storedBundles.find(b => b.is_recommended)?._id?.toString() || storedBundles[0]?._id?.toString() || null;
 
-          // Inject bundle options into Gemini so it can present them via voice
+          // Reconnect to Gemini with a fresh chat+bundles system prompt
+          // (Gemini Live doesn't support changing system prompt mid-session)
           if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
-            const bundleListText = storedBundles.map((b: any, i: number) =>
-              `${i + 1}. "${b.title}" — ${b.focus}, ~${b.estimated_duration_min} min, ${b.exercises.length} exercises${b.is_recommended ? ' (RECOMMENDED)' : ''}`
-            ).join('\n');
-
-            const transitionPrompt = `Great news! I've created ${storedBundles.length} personalized workout options based on your profile. Here they are:\n${bundleListText}\n\nPresent these options to the user. Read them out briefly (title and duration for each). Ask which one they'd like to start with. Accept answers like "the first one", "number 2", the title, or "the recommended one". If they just say "start" or "let's go", use the recommended one.`;
-
-            session.geminiWs.send(JSON.stringify({
-              clientContent: {
-                turns: [{ role: 'user', parts: [{ text: transitionPrompt }] }],
-                turnComplete: true,
-              }
-            }));
+            session.geminiWs.close();
           }
 
-          console.log(`[VoiceLive/Onboarding] Generated ${storedBundles.length} bundles — presenting via voice`);
+          // Build new prompt with bundle selection context
+          const freshUser = await User.findById(session.userObjectId);
+          if (freshUser) {
+            const recommendedBundle = storedBundles.find((b: any) => b.is_recommended) || storedBundles[0];
+            const newPrompt = buildVoiceSystemPrompt(freshUser, null, recommendedBundle, storedBundles);
+
+            // Reconnect
+            const newGeminiWs = new WebSocket(GEMINI_WS_URL);
+            session.geminiWs = newGeminiWs;
+
+            newGeminiWs.on('open', () => {
+              console.log('[VoiceLive] Reconnected to Gemini post-onboarding');
+
+              // Resolve voice style
+              const voiceStyleToGemini: Record<string, string> = {
+                calm: 'Aoede', energetic: 'Kore', friendly: 'Puck', professional: 'Charon',
+              };
+              const style = (freshUser.companion_preferences as any)?.voice_style || 'friendly';
+              const voiceName = voiceStyleToGemini[style] || 'Puck';
+
+              const setup = {
+                setup: {
+                  model: `models/${MODEL}`,
+                  generationConfig: {
+                    responseModalities: ['AUDIO'],
+                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
+                  },
+                  systemInstruction: { parts: [{ text: newPrompt }] }
+                }
+              };
+              newGeminiWs.send(JSON.stringify(setup));
+
+              // Trigger Gemini to present bundles
+              setTimeout(() => {
+                if (newGeminiWs.readyState === WebSocket.OPEN) {
+                  newGeminiWs.send(JSON.stringify({
+                    clientContent: {
+                      turns: [{ role: 'user', parts: [{ text: 'Hi! My profile is set up. What workouts do you have for me?' }] }],
+                      turnComplete: true,
+                    }
+                  }));
+                }
+              }, 1000);
+            });
+
+            // Wire up event relay (same as initial connection)
+            newGeminiWs.on('message', (data: WebSocket.Data, isBinary: boolean) => {
+              if (session.clientWs.readyState !== WebSocket.OPEN) return;
+              if (isBinary || Buffer.isBuffer(data)) {
+                const buffer = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+                if (buffer.length > 0 && buffer[0] === 0x7B) {
+                  try {
+                    const text = buffer.toString('utf-8');
+                    const json = JSON.parse(text);
+                    handleGeminiJson(session, json);
+                    session.clientWs.send(text);
+                    return;
+                  } catch (e) { /* not JSON */ }
+                }
+                session.clientWs.send(buffer, { binary: true });
+              } else {
+                const text = data.toString();
+                try { handleGeminiJson(session, JSON.parse(text)); } catch (e) { /* not JSON */ }
+                session.clientWs.send(text);
+              }
+            });
+
+            newGeminiWs.on('close', () => {
+              if (session.clientWs.readyState === WebSocket.OPEN) {
+                session.clientWs.close(1000, 'Gemini session ended');
+              }
+            });
+
+            newGeminiWs.on('error', (err) => {
+              console.error('[VoiceLive] Gemini reconnect error:', err.message);
+            });
+          }
+
+          console.log(`[VoiceLive/Onboarding] Generated ${storedBundles.length} bundles — reconnecting for voice selection`);
         }
       }
     } catch (genErr) {
