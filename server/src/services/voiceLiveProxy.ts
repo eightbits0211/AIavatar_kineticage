@@ -139,10 +139,23 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
     systemPrompt = buildOnboardingPrompt(user, onboardingState);
     console.log('[VoiceLive] Mode: ONBOARDING');
   } else if (activeSession) {
-    // Only enter workout mode if there's an IN-PROGRESS session
+    // In-progress session exists — enter workout mode but prompt about resuming
     mode = 'workout';
     systemPrompt = buildVoiceSystemPrompt(user, activeSession, activeBundle);
-    console.log('[VoiceLive] Mode: WORKOUT (session in progress)');
+    // Add resume prompt to system instructions
+    const completedCount = activeSession.exercises.filter((e: any) => e.status === 'completed').length;
+    const totalCount = activeSession.exercises.length;
+    const currentExercise = activeSession.exercises.find((e: any) => e.status === 'in_progress' || e.status === 'pending');
+    systemPrompt += `
+
+## IMPORTANT — FIRST MESSAGE
+You have an unfinished workout from earlier (${completedCount}/${totalCount} exercises done). When the user greets you:
+- Mention they have an unfinished workout (briefly: "${completedCount} of ${totalCount} exercises done, left off at ${currentExercise?.exercise_name || 'the next exercise'}")
+- Ask: "Want to pick up where you left off, or start fresh with a new workout?"
+- If they say resume/continue/yes → start coaching from the current exercise
+- If they say new/fresh/different → tell them to generate a new workout from the app (you cannot generate bundles)
+- Do NOT start coaching until they answer`;
+    console.log('[VoiceLive] Mode: WORKOUT (session in progress — will ask about resume)');
   } else if (activeBundle) {
     // Bundle exists but no active session — ask user before jumping in
     mode = 'chat';
@@ -519,6 +532,9 @@ function handleClientMessage(session: VoiceSession, data: any) {
     reportPain(session, data.body_area);
   } else if (data.action === 'end_session') {
     // Will be handled by session end route
+  } else if (data.action === 'start_workout') {
+    // Start a session from voice mode (auto or manual)
+    startSessionFromVoice(session, data.bundle_id);
   } else if (data.action === 'onboarding_typed_input') {
     // User typed a value for an onboarding field
     handleTypedOnboardingInput(session, data.field, data.value);
@@ -530,6 +546,17 @@ function handleClientMessage(session: VoiceSession, data: any) {
  */
 function handleTypedOnboardingInput(session: VoiceSession, field: string, value: string) {
   if (!session.onboardingState || session.mode !== 'onboarding') return;
+
+  // Inject the typed text into Gemini's conversation so it stays in sync
+  if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+    const injectMessage = {
+      clientContent: {
+        turns: [{ role: 'user', parts: [{ text: value }] }],
+        turnComplete: true,
+      }
+    };
+    session.geminiWs.send(JSON.stringify(injectMessage));
+  }
 
   // Try to extract from typed text using the flexible extractor
   const extraction = extractAnyFieldFromSpeech(value, session.onboardingState.collectedFields);
@@ -625,22 +652,146 @@ function parseRawTypedValue(field: string, value: string): any {
 function detectAndExecuteActions(session: VoiceSession, text: string) {
   const lower = text.toLowerCase();
 
-  // Detect set completion acknowledgment
-  if (lower.includes('great set') || lower.includes('nice work') ||
-      lower.includes('set complete') || lower.includes('good job on that set') ||
-      lower.includes('that\'s one set down') || lower.includes('set done')) {
-    // Gemini acknowledged a completed set — mark it
+  // Auto-start session if Kin starts coaching but no session exists yet
+  if (!session.sessionId && session.bundleId) {
+    const coachingIndicators = ['first up', 'let\'s start with', 'sets of', 'reps', 'we\'re starting', 'let\'s go', 'here we go', 'starting with', 'begin with', 'your first exercise'];
+    const isCoaching = coachingIndicators.some(ind => lower.includes(ind));
+    if (isCoaching) {
+      startSessionFromVoice(session, session.bundleId);
+    }
+  }
+
+  // Detect set completion acknowledgment (broadened patterns)
+  const setCompletePhrases = [
+    'great set', 'nice work', 'set complete', 'good job', 'well done',
+    'that\'s one set', 'set done', 'solid effort', 'good effort',
+    'nice one', 'perfect', 'excellent', 'that\'s the set',
+    'awesome set', 'strong set', 'crushed it', 'nailed it',
+    'beautiful', 'take a rest', 'take a breather', 'rest up',
+    'next set', 'set number', 'on to set',
+  ];
+  const isSetComplete = setCompletePhrases.some(p => lower.includes(p));
+  // Avoid false triggers on general conversation (require workout mode)
+  if (isSetComplete && session.mode === 'workout' && session.sessionId) {
     markSetComplete(session);
   }
 
+  // Detect exercise completion / transition to next
+  const exerciseCompletePhrases = [
+    'next exercise', 'moving on to', 'on to the next', 'that\'s all for',
+    'finished with', 'done with this exercise', 'let\'s move on',
+  ];
+  const isExerciseComplete = exerciseCompletePhrases.some(p => lower.includes(p));
+  if (isExerciseComplete && session.mode === 'workout' && session.sessionId) {
+    // Don't mark set complete — mark exercise as done and advance
+    const currentSet = session.currentSetIndex;
+    // If there are remaining sets, mark them all
+    markExerciseComplete(session);
+  }
+
   // Detect exercise skip
-  if (lower.includes('skip') && (lower.includes('next exercise') || lower.includes('moving on'))) {
-    markExerciseSkipped(session, 'user_requested');
+  if (lower.includes('skip') && (lower.includes('exercise') || lower.includes('moving on') || lower.includes('next one'))) {
+    if (session.mode === 'workout' && session.sessionId) {
+      markExerciseSkipped(session, 'user_requested');
+    }
   }
 
   // Detect pain acknowledgment
   if (lower.includes('pain') && (lower.includes('stop') || lower.includes('skip') || lower.includes('rest'))) {
     // Pain was acknowledged — the exercise update will come from explicit client action
+  }
+}
+
+/**
+ * Auto-start a workout session from voice mode.
+ * Called when Kin starts coaching and no session exists yet.
+ */
+async function startSessionFromVoice(session: VoiceSession, bundleId: string) {
+  if (session.sessionId) return; // Already has a session
+
+  try {
+    const bundle = await Bundle.findById(bundleId);
+    if (!bundle) return;
+
+    // Check if a session already exists (created by REST at the same time)
+    const existing = await Session.findOne({
+      user_id: session.userObjectId,
+      status: 'in_progress',
+    });
+    if (existing) {
+      // Attach to existing session instead of creating duplicate
+      session.sessionId = existing._id.toString();
+      session.mode = 'workout';
+      session.currentExerciseIndex = existing.exercises.findIndex(
+        (e: any) => e.status === 'pending' || e.status === 'in_progress'
+      );
+      if (session.currentExerciseIndex < 0) session.currentExerciseIndex = 0;
+      session.currentSetIndex = 0;
+      console.log(`[VoiceLive] Attached to existing session: ${session.sessionId}`);
+
+      if (session.clientWs.readyState === WebSocket.OPEN) {
+        session.clientWs.send(JSON.stringify({
+          type: 'session_started',
+          session_id: session.sessionId,
+          bundle_id: bundleId,
+          resumed: true,
+          exercises: existing.exercises.map((ex: any) => ({
+            exercise_id: ex.exercise_id,
+            name: ex.exercise_name,
+            status: ex.status,
+          })),
+        }));
+      }
+      return;
+    }
+
+    const newSession = await Session.create({
+      user_id: session.userObjectId,
+      bundle_id: bundle._id,
+      status: 'in_progress',
+      started_at: new Date(),
+      exercises: bundle.exercises.map((ex: any) => ({
+        exercise_id: ex.exercise_id,
+        exercise_name: ex.name,
+        status: 'pending',
+        sets: Array.from({ length: ex.sets }, (_, i) => ({
+          set_number: i + 1,
+          target_rep_min: ex.rep_min,
+          target_rep_max: ex.rep_max,
+          completed: false,
+        })),
+        rest_seconds: ex.rest_seconds,
+        feedback: null,
+      })),
+      pain_events: [],
+    });
+
+    session.sessionId = newSession._id.toString();
+    session.mode = 'workout';
+    session.currentExerciseIndex = 0;
+    session.currentSetIndex = 0;
+
+    console.log(`[VoiceLive] Auto-started session: ${session.sessionId}`);
+
+    // Notify client that session was auto-created
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'session_started',
+        session_id: session.sessionId,
+        bundle_id: bundleId,
+        exercises: bundle.exercises.map((ex: any) => ({
+          exercise_id: ex.exercise_id,
+          name: ex.name,
+          sets: ex.sets,
+          rep_min: ex.rep_min,
+          rep_max: ex.rep_max,
+          rest_seconds: ex.rest_seconds,
+          image_url: ex.image_url,
+        })),
+      }));
+    }
+  } catch (err) {
+    console.error('[VoiceLive] Error auto-starting session:', (err as Error).message);
   }
 }
 
@@ -693,6 +844,52 @@ async function markSetComplete(session: VoiceSession, actualReps?: number) {
     }
   } catch (err) {
     console.error('[VoiceLive] Error marking set complete:', (err as Error).message);
+  }
+}
+
+/**
+ * Mark current exercise as fully complete (all sets done).
+ * Used when Gemini says "moving on to next exercise" without individual set tracking.
+ */
+async function markExerciseComplete(session: VoiceSession) {
+  if (!session.sessionId) return;
+
+  try {
+    const dbSession = await Session.findById(session.sessionId);
+    if (!dbSession || dbSession.status !== 'in_progress') return;
+
+    const exercise = dbSession.exercises[session.currentExerciseIndex];
+    if (!exercise || exercise.status === 'completed') return;
+
+    // Mark all sets as completed
+    for (const set of exercise.sets) {
+      if (!set.completed) {
+        set.completed = true;
+        set.completed_at = new Date();
+        set.actual_reps = set.actual_reps || set.target_rep_max;
+      }
+    }
+    exercise.status = 'completed';
+
+    // Advance to next exercise
+    session.currentExerciseIndex++;
+    session.currentSetIndex = 0;
+
+    await dbSession.save();
+    console.log(`[VoiceLive] Exercise complete: moving to index ${session.currentExerciseIndex}`);
+
+    // Notify client
+    if (session.clientWs.readyState === WebSocket.OPEN) {
+      session.clientWs.send(JSON.stringify({
+        type: 'workout_state',
+        action: 'exercise_complete',
+        current_exercise_index: session.currentExerciseIndex,
+        current_set_index: session.currentSetIndex,
+        exercise_id: exercise.exercise_id,
+      }));
+    }
+  } catch (err) {
+    console.error('[VoiceLive] Error marking exercise complete:', (err as Error).message);
   }
 }
 
