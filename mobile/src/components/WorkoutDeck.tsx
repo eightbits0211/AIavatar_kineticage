@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
@@ -132,8 +132,12 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
         </View>
 
         <View style={styles.mainRow}>
-          {/* animation placeholder (left blank for now) */}
-          <View style={styles.animBox} />
+          {/* Exercise demo GIF (image_url), placeholder while none/loading */}
+          {exercise.image_url ? (
+            <Image source={{ uri: exercise.image_url }} style={styles.animBox} resizeMode="cover" />
+          ) : (
+            <View style={styles.animBox} />
+          )}
 
           <View style={styles.info}>
             <Text style={styles.phase}>{phaseLabel(exercise, index, total)}</Text>

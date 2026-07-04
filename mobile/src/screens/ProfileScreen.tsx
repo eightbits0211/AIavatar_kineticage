@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
@@ -166,6 +167,13 @@ const VOICES: Array<{ key: string; label: string; sub: string; icon: Glyph }> = 
   { key: 'friendly', label: 'Friendly', sub: 'Warm & casual', icon: 'heart' },
   { key: 'professional', label: 'Professional', sub: 'Focused & precise', icon: 'target' },
 ];
+// Maps to companion_preferences.in_session_verbosity — how much detail Kin gives
+// during a workout (fed into the system prompt).
+const VERBOSITY: Array<{ key: 'quiet' | 'standard' | 'detailed'; label: string }> = [
+  { key: 'quiet', label: 'Quiet' },
+  { key: 'standard', label: 'Standard' },
+  { key: 'detailed', label: 'Detailed' },
+];
 const PERSONAS: Array<{ key: string; label: string; sub: string; icon: Glyph }> = [
   { key: 'motivational', label: 'Motivational Coach', sub: 'Pushes you harder every session', icon: 'flame' },
   { key: 'friendly', label: 'Friendly Buddy', sub: 'Supportive and fun companion', icon: 'heart' },
@@ -202,18 +210,43 @@ export default function ProfileScreen() {
   const setUser = useUserStore((st) => st.setUser);
 
   const [workouts, setWorkouts] = useState(0);
+  const [plan, setPlan] = useState<{ completed: number; planned: number; title: string } | null>(null);
   const [personalityOpen, setPersonalityOpen] = useState(true);
   const [talkIndex, setTalkIndex] = useState(3);
   const [voice, setVoice] = useState('energetic');
+  const [verbosity, setVerbosity] = useState<'quiet' | 'standard' | 'detailed'>('standard');
   const [persona, setPersona] = useState('motivational');
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  useEffect(() => {
-    apiGet<{ history: unknown[] }>('/api/progress/history?limit=999')
-      .then((r) => setWorkouts(r.history?.length ?? 0))
-      .catch(() => setWorkouts(0));
-  }, []);
+  // Refetch on every focus so the fitness card + plan reflect the latest
+  // profile (e.g. weight logged on the Progress tab, goal/level changed in
+  // settings). The backend recalculates BMI/metrics, so this stays in sync.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        const [p, d, h] = await Promise.all([
+          apiGet<any>('/api/profile').catch(() => null),
+          apiGet<any>('/api/dashboard').catch(() => null),
+          apiGet<{ history: unknown[] }>('/api/progress/history?limit=999').catch(() => null),
+        ]);
+        if (!active) return;
+        if (p) setUser(p);
+        if (h) setWorkouts(h.history?.length ?? 0);
+        if (d?.weekly_progress) {
+          setPlan({
+            completed: d.weekly_progress.completed ?? 0,
+            planned: d.weekly_progress.planned ?? 3,
+            title: d.todays_workout?.title || 'Your Weekly Plan',
+          });
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [setUser])
+  );
 
   // Seed AI settings from the stored profile once.
   useEffect(() => {
@@ -226,6 +259,10 @@ export default function ProfileScreen() {
     const savedStyle =
       (user?.companion_preferences as any)?.voice_style || user?.companion_preferences?.voice_id;
     if (savedStyle && VOICES.some((v) => v.key === savedStyle)) setVoice(savedStyle);
+    const savedVerbosity = user?.companion_preferences?.in_session_verbosity;
+    if (savedVerbosity && VERBOSITY.some((v) => v.key === savedVerbosity)) setVerbosity(savedVerbosity);
+    const savedPersona = (user?.companion_preferences as any)?.coaching_style;
+    if (savedPersona && PERSONAS.some((p) => p.key === savedPersona)) setPersona(savedPersona);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
@@ -237,7 +274,14 @@ export default function ProfileScreen() {
   const bmi = user?.calculated_metrics?.bmi;
   const bmiCat = user?.calculated_metrics?.bmi_category;
   const goalLabel = user?.fitness_goal ? GOAL_LABELS[user.fitness_goal] : '—';
-  const fitnessLevel = user?.activity_level ? ACTIVITY_TO_LEVEL[user.activity_level] : '—';
+  // Prefer the explicit fitness_level (set via Settings → Intensity); fall back
+  // to deriving it from activity_level for older profiles.
+  const fitnessLevel = (user as any)?.fitness_level
+    ? titleize((user as any).fitness_level)
+    : user?.activity_level
+      ? ACTIVITY_TO_LEVEL[user.activity_level]
+      : '—';
+  const planPct = plan && plan.planned > 0 ? Math.min(100, Math.round((plan.completed / plan.planned) * 100)) : 0;
   const equipmentLabel =
     user?.equipment?.length
       ? user.equipment.map((e) => (e === 'none' ? 'No equipment' : titleize(e))).join(', ')
@@ -255,6 +299,10 @@ export default function ProfileScreen() {
           voice_style: voice,
           voice_id: voice,
           talkativeness,
+          in_session_verbosity: verbosity,
+          // Coaching personality — now backed by companion_preferences.coaching_style
+          // and injected into the system prompt (text + voice).
+          coaching_style: persona,
         },
       } as any);
       if (updated) setUser(updated as any);
@@ -263,7 +311,7 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false);
     }
-  }, [talkIndex, voice, user, setUser]);
+  }, [talkIndex, voice, verbosity, persona, user, setUser]);
 
   const handleSignOut = useCallback(async () => {
     setSigningOut(true);
@@ -370,6 +418,25 @@ export default function ProfileScreen() {
                   })}
                 </View>
               </View>
+
+              {/* In-Session Detail (companion_preferences.in_session_verbosity) */}
+              <View style={styles.card}>
+                <View style={styles.cardTitleRow}>
+                  <Icon name="chat" size={18} />
+                  <Text style={styles.cardTitle}>In-Session Detail</Text>
+                </View>
+                <Text style={styles.cardSub}>How much guidance Kin gives during a workout</Text>
+                <View style={styles.segmentRow}>
+                  {VERBOSITY.map((v) => {
+                    const sel = verbosity === v.key;
+                    return (
+                      <Pressable key={v.key} onPress={() => setVerbosity(v.key)} style={[styles.segment, sel && styles.segmentSel]}>
+                        <Text style={[styles.segmentText, sel && styles.segmentTextSel]}>{v.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
             </>
           )}
 
@@ -438,31 +505,27 @@ export default function ProfileScreen() {
             <Row icon="dumbbell" title="Equipment" sub={equipmentLabel} last />
           </View>
 
-          {/* Preferences */}
-          <Text style={styles.overline}>PREFERENCES</Text>
-          <View style={styles.card}>
-            <Row icon="bell" title="Notifications" sub="Daily reminders at 6:00 AM" />
-            <Divider />
-            <Row icon="shield" title="Privacy" sub="Data usage settings" last />
-          </View>
-
-          {/* Current plan */}
-          <Text style={styles.overline}>CURRENT PLAN</Text>
-          <View style={styles.card}>
-            <View style={styles.planRow}>
-              <View style={styles.planIcon}>
-                <Icon name="target" size={20} />
+          {/* Current plan — real weekly progress from the dashboard */}
+          {plan && (
+            <>
+              <Text style={styles.overline}>CURRENT PLAN</Text>
+              <View style={styles.card}>
+                <View style={styles.planRow}>
+                  <View style={styles.planIcon}>
+                    <Icon name="target" size={20} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.planTitle}>{plan.title}</Text>
+                    <Text style={styles.planSub}>{plan.completed} of {plan.planned} workouts this week</Text>
+                  </View>
+                </View>
+                <View style={styles.planBarTrack}>
+                  <LinearGradient colors={['#5BB7E8', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.planBarFill, { width: `${planPct}%` }]} />
+                </View>
+                <Text style={styles.planPct}>{planPct}% of weekly goal</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.planTitle}>Personalised 4-Week Plan</Text>
-                <Text style={styles.planSub}>Week 3 of 4 · 5 days / week</Text>
-              </View>
-            </View>
-            <View style={styles.planBarTrack}>
-              <LinearGradient colors={['#5BB7E8', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.planBarFill, { width: '68%' }]} />
-            </View>
-            <Text style={styles.planPct}>68% complete</Text>
-          </View>
+            </>
+          )}
 
           {/* Sign out */}
           <Pressable onPress={handleSignOut} disabled={signingOut} style={styles.signOut}>
@@ -616,6 +679,18 @@ const styles = StyleSheet.create({
   voiceIconSel: { backgroundColor: '#FCEBDD' },
   voiceLabel: { ...typography.bodyBold, fontSize: 14, color: NAVY },
   voiceSub: { ...typography.small, fontSize: 11, color: colors.textSecondary },
+  segmentRow: { flexDirection: 'row', gap: 8, marginTop: spacing.xs },
+  segment: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#F1F4F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentSel: { backgroundColor: colors.primary },
+  segmentText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  segmentTextSel: { color: '#FFFFFF' },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.sm },
   sectionTitle: { ...typography.h3, fontSize: 18, color: NAVY, fontFamily: 'Inter_700Bold' },

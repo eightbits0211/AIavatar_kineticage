@@ -5,11 +5,13 @@ import { colors, spacing, typography } from '../theme';
 interface BundleCardProps {
   bundle: ExerciseBundle;
   onPress: () => void;
+  /** When provided, shows a "Start" button that begins this workout in chat. */
+  onStart?: () => void;
 }
 
 const titleize = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-export default function BundleCard({ bundle, onPress }: BundleCardProps) {
+export default function BundleCard({ bundle, onPress, onStart }: BundleCardProps) {
   const recommended = bundle.is_recommended;
   const cal = bundle.estimated_calorie_burn;
 
@@ -47,6 +49,19 @@ export default function BundleCard({ bundle, onPress }: BundleCardProps) {
 
       {!!bundle.rationale && (
         <Text style={styles.rationale} numberOfLines={2}>{bundle.rationale}</Text>
+      )}
+
+      {!!onStart && (
+        <View style={styles.footer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Start ${bundle.title}`}
+            onPress={onStart}
+            style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.startText}>▶  Start</Text>
+          </Pressable>
+        </View>
       )}
     </Pressable>
   );
@@ -124,5 +139,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.sm,
     lineHeight: 19,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: spacing.md,
+  },
+  startBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 8,
+  },
+  startText: {
+    ...typography.bodyBold,
+    color: '#FFFFFF',
   },
 });

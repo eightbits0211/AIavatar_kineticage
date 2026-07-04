@@ -19,11 +19,12 @@ import SendIcon from '../components/SendIcon';
 import MicIcon from '../components/MicIcon';
 import ChipIcon, { type ChipIconName } from '../components/ChipIcon';
 import BundleCard from '../components/BundleCard';
-import { FlameIcon, BellIcon, SlidersIcon } from '../components/HeaderIcons';
+import { FlameIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
 import WorkoutDeck from '../components/WorkoutDeck';
 import DailyCheckinCard from '../components/DailyCheckinCard';
+import WorkoutSummaryModal, { type WorkoutSummary } from '../components/WorkoutSummaryModal';
 import {
   useAudioRecorder,
   createAudioPlayer,
@@ -34,6 +35,7 @@ import {
 } from 'expo-audio';
 import { apiGet, apiPost, apiPut, apiUploadAudio, apiFetchSpeech, WS_BASE_URL } from '../services/api';
 import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
+import { WebPushToTalk } from '../services/webPushToTalk';
 import { getFreshToken } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
@@ -43,12 +45,14 @@ interface DashboardData {
   greeting: string;
   persona_label: string;
   todays_workout: {
-    state: string;
+    state: 'in_progress' | 'ready' | 'completed' | 'no_plan' | string;
+    session_id?: string;
     bundle_id?: string;
     title?: string;
     focus?: string;
     exercise_count?: number;
     estimated_duration_min?: number;
+    bundles_stale?: boolean;
   };
   streak: { current: number; longest: number };
   xp: { total: number; level: number; xp_into_level: number; xp_needed: number };
@@ -64,10 +68,28 @@ const timeGreeting = () => {
 
 const titleize = (s?: string) => (s ? s.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()) : '');
 
+// Injury areas the user can flag when Kin detects pain (action_intent:
+// update_injuries). The backend only sends the intent, not the area, so we let
+// the user confirm — pre-selecting any area we can detect from Kin's reply.
+const INJURY_AREAS: Array<{ label: string; value: string; keywords: string[] }> = [
+  { label: 'Knee', value: 'knee', keywords: ['knee'] },
+  { label: 'Lower Back', value: 'lower_back', keywords: ['back', 'lower back', 'spine'] },
+  { label: 'Shoulder', value: 'shoulder', keywords: ['shoulder'] },
+  { label: 'Wrist', value: 'wrist', keywords: ['wrist'] },
+  { label: 'Ankle', value: 'ankle', keywords: ['ankle'] },
+  { label: 'Neck', value: 'neck', keywords: ['neck'] },
+];
+
+const detectInjuryAreas = (text: string): string[] => {
+  const t = (text || '').toLowerCase();
+  return INJURY_AREAS.filter((a) => a.keywords.some((k) => t.includes(k))).map((a) => a.value);
+};
+
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
 
   const [dash, setDash] = useState<DashboardData | null>(null);
   const [recommended, setRecommended] = useState<ExerciseBundle | null>(null);
@@ -78,8 +100,14 @@ export default function HomeScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  // Post-workout summary (the /api/session/:id/end response), shown in a modal.
+  const [summary, setSummary] = useState<WorkoutSummary | null>(null);
   // An in-progress session found on load, offered for resume (D2).
   const [resumeInfo, setResumeInfo] = useState<{ sessionId: string; bundleId: string; index: number } | null>(null);
+  // Shown when Kin flags pain (action_intent: update_injuries) — lets the user
+  // confirm which area to protect before we update the profile + regenerate (§8).
+  const [injuryPrompt, setInjuryPrompt] = useState<{ selected: string[] } | null>(null);
 
   // ── Chat thread (Ask Kin) ──
   type ChatMsg = { id: string; role: 'user' | 'kin'; text: string };
@@ -108,6 +136,11 @@ export default function HomeScreen() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
   const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+  // Web REST voice fallback (§6): used when the live voice WebSocket is
+  // unavailable — a simple tap-to-talk that records, transcribes, chats, speaks.
+  const [voiceFallback, setVoiceFallback] = useState(false);
+  const [fallbackRecording, setFallbackRecording] = useState(false);
+  const pttRef = useRef<WebPushToTalk | null>(null);
   // Tracks the active workout's session id so voice mode can ground the AI in
   // the live session (set below, once the workout state exists).
   const activeSessionIdRef = useRef<string | null>(null);
@@ -116,7 +149,7 @@ export default function HomeScreen() {
   const workoutRef = useRef<any>(null);
   const voiceModeRef = useRef(false);
   const voiceActionsRef = useRef<any>(null);
-  const lastVoiceCmdRef = useRef(0);
+  const bundlesRef = useRef<ExerciseBundle[]>([]);
 
   // Play Kin's reply aloud via the backend TTS endpoint. Best-effort: if the
   // audio can't be fetched or played, we silently keep the on-screen text.
@@ -183,16 +216,23 @@ export default function HomeScreen() {
       if (overrideText === undefined) setAskText('');
       setKinTyping(true);
       try {
-        // General home-screen chat: no session_id, so the backend skips history
-        // persistence and just returns Kin's reply.
+        // During a workout, pass session_id so Kin answers with live session
+        // context (current exercise, sets, history). Outside a workout it's a
+        // general chat (no session_id).
+        const activeSessionId = workoutRef.current?.sessionId ?? undefined;
         const res = await apiPost<{ reply: string; action_intent: string | null }>(
           '/api/companion/message',
-          { message: text, input_mode: inputMode }
+          { message: text, input_mode: inputMode, ...(activeSessionId ? { session_id: activeSessionId } : {}) }
         );
         const reply = res.reply?.trim() || '…';
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: reply }]);
         // Voice-initiated turns get spoken back so it feels like a conversation.
         if (inputMode === 'voice' && reply !== '…') speak(reply);
+        // Kin flagged pain → offer to update the injury profile (§8). The API
+        // only sends the intent, so we pre-select any area detected in the reply.
+        if (res.action_intent === 'update_injuries') {
+          setInjuryPrompt({ selected: detectInjuryAreas(reply) });
+        }
       } catch (err: any) {
         setMessages((prev) => [
           ...prev,
@@ -301,6 +341,65 @@ export default function HomeScreen() {
     }
   }, [recording, transcribing, audioRecorder, transcribeAndSend]);
 
+  // Transcribe a recorded blob (web REST fallback) then run it through the same
+  // chat flow as typed/voice messages (which also handles TTS + action_intent).
+  const transcribeBlobAndSend = useCallback(
+    async (blob: Blob) => {
+      setTranscribing(true);
+      try {
+        const ext = ((blob.type.split('/')[1] || 'webm').split(';')[0]) || 'webm';
+        const res = await apiUploadAudio<{ transcript?: string; error?: string }>(
+          '/api/stt/transcribe',
+          new File([blob], `speech.${ext}`, { type: blob.type || 'audio/webm' })
+        );
+        const transcript = res.transcript?.trim();
+        if (transcript) {
+          await sendMessage(transcript, 'voice');
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            { id: `${Date.now()}-k`, role: 'kin', text: res.error || "I didn't quite catch that. Try again, or type your message." },
+          ]);
+        }
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: 'Voice input failed. Please type instead.' },
+        ]);
+      } finally {
+        setTranscribing(false);
+      }
+    },
+    [sendMessage]
+  );
+
+  // Tap-to-talk for the REST fallback: tap to record, tap again to send.
+  const toggleFallbackRecording = useCallback(async () => {
+    if (transcribing) return;
+    if (fallbackRecording) {
+      setFallbackRecording(false);
+      try {
+        const blob = await pttRef.current?.stop();
+        pttRef.current = null;
+        if (blob) await transcribeBlobAndSend(blob);
+      } catch {
+        pttRef.current = null;
+      }
+      return;
+    }
+    try {
+      const ptt = new WebPushToTalk();
+      await ptt.start();
+      pttRef.current = ptt;
+      setFallbackRecording(true);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: `${Date.now()}-k`, role: 'kin', text: 'I need microphone access. Allow it in your browser, then tap the mic again.' },
+      ]);
+    }
+  }, [fallbackRecording, transcribing, transcribeBlobAndSend]);
+
   // Append a spoken transcript to the chat thread. Live transcription arrives
   // in small chunks, so we merge consecutive chunks from the same speaker into
   // one bubble instead of spawning a new bubble per fragment.
@@ -322,49 +421,53 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Keep the WorkoutDeck in sync with the spoken conversation. The proxy relays
-  // the user's speech but no workout-state events, so we detect simple spoken
-  // commands ("done", "skip", "pause/resume", "start workout") from the user's
-  // transcript and drive the same handlers the on-screen buttons use — so voice
-  // and the card advance together, and a voice-started workout shows the card.
-  // A short cooldown prevents chunked transcripts from firing a command twice.
-  const handleUserSpeech = useCallback((text: string) => {
-    const t = (text || '').toLowerCase();
-    if (!t.trim()) return;
-    const now = Date.now();
-    if (now - lastVoiceCmdRef.current < 3500) return;
+  // Proxy events during voice mode (doc §13). The proxy is the SOLE DB writer
+  // while voice is active; the client just mirrors its authoritative state:
+  //  • session_started — Kin auto-created/attached a session → show the deck.
+  //  • workout_state    — proxy advanced → move the card to current_exercise_index.
+  // Spoken commands are detected server-side (from Kin's audio) and surface as
+  // workout_state, so the client never advances the card or writes REST itself.
+  const handleWorkoutEvent = useCallback((event: any) => {
+    if (!event || typeof event.type !== 'string') return;
 
-    const actions = voiceActionsRef.current;
-    if (!actions) return;
-    const w = workoutRef.current;
-    const has = (arr: string[]) => arr.some((k) => t.includes(k));
-    // Avoid false positives like "I'm not done yet" / "don't skip".
-    const negated = has(['not done', 'not finished', "aren't done", 'not yet', "don't", 'do not']);
+    if (event.type === 'session_started') {
+      if (workoutRef.current) return; // deck already showing
+      // Prefer full bundle data (instructions, images) by matching bundle_id;
+      // fall back to the exercise summaries the event provides.
+      const bundle = bundlesRef.current.find((b) => b._id === event.bundle_id);
+      let exercises: BundleExercise[] = bundle?.exercises ?? [];
+      if (!exercises.length && Array.isArray(event.exercises)) {
+        exercises = event.exercises.map((e: any) => ({
+          exercise_id: e.exercise_id,
+          name: e.name,
+          sets: e.sets ?? 1,
+          rep_min: e.rep_min ?? 8,
+          rep_max: e.rep_max ?? 12,
+          rest_seconds: e.rest_seconds ?? 60,
+          instructions_text: '',
+          image_url: e.image_url ?? '',
+          image_url_end: '',
+          muscle_groups: [],
+        }));
+      }
+      if (exercises.length) {
+        activeSessionIdRef.current = event.session_id;
+        setWorkout({ exercises, index: 0, paused: false, title: bundle?.title ?? 'Workout', sessionId: event.session_id });
+      }
+      return;
+    }
 
-    if (w && !w.paused && !negated && has(['done', 'finished', "i'm done", 'im done', 'next exercise', 'next one', 'completed it', 'mark it done'])) {
-      lastVoiceCmdRef.current = now;
-      const ex = w.exercises[w.index];
-      actions.handleDone(ex?.rep_max ?? ex?.rep_min ?? 10);
-      return;
-    }
-    if (w && !negated && has(['skip'])) {
-      lastVoiceCmdRef.current = now;
-      actions.handleSkip();
-      return;
-    }
-    if (w && !w.paused && has(['pause'])) {
-      lastVoiceCmdRef.current = now;
-      actions.togglePause();
-      return;
-    }
-    if (w && w.paused && has(['resume', 'continue', 'unpause'])) {
-      lastVoiceCmdRef.current = now;
-      actions.togglePause();
-      return;
-    }
-    if (!w && has(['start workout', 'start my workout', 'begin workout', 'start the workout', 'start session', 'start my session', "let's begin"])) {
-      lastVoiceCmdRef.current = now;
-      actions.startWorkout();
+    if (event.type === 'workout_state') {
+      const idx = event.current_exercise_index;
+      if (typeof idx !== 'number') return;
+      const w = workoutRef.current;
+      if (!w) return;
+      if (idx >= w.exercises.length) {
+        voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
+        return;
+      }
+      // Forward-only guard against out-of-order events.
+      setWorkout((p) => (p && idx > p.index ? { ...p, index: idx, paused: false } : p));
     }
   }, []);
 
@@ -405,11 +508,25 @@ export default function HomeScreen() {
           voiceTurnRef.current = null;
         }
         appendVoiceTranscript(role, text);
-        // Let spoken commands drive the workout card (done/skip/pause/start).
-        if (role === 'user') handleUserSpeech(text);
       },
+      onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: message }]),
+      // WebSocket unavailable → drop into the REST tap-to-talk fallback (§6).
+      onError: () => {
+        voiceLoopRef.current = null;
+        setVoiceMode(false);
+        setVoicePhase('idle');
+        setVoiceFallback(true);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-k`,
+            role: 'kin',
+            text: 'Live voice is unavailable right now — switched to tap-to-talk. Tap the mic, speak, then tap again to send.',
+          },
+        ]);
+      },
     });
 
     try {
@@ -431,13 +548,16 @@ export default function HomeScreen() {
         },
       ]);
     }
-  }, [appendVoiceTranscript, handleUserSpeech, recommended, user]);
+  }, [appendVoiceTranscript, handleWorkoutEvent, recommended, user]);
 
   // Mic button entry point: continuous voice mode on web, press-to-talk on native.
   const onMicPress = useCallback(() => {
-    if (Platform.OS === 'web') return toggleVoiceMode();
+    if (Platform.OS === 'web') {
+      // After a live-voice failure, the mic drives the REST tap-to-talk fallback.
+      return voiceFallback ? toggleFallbackRecording() : toggleVoiceMode();
+    }
     return toggleRecording();
-  }, [toggleVoiceMode, toggleRecording]);
+  }, [voiceFallback, toggleFallbackRecording, toggleVoiceMode, toggleRecording]);
 
   // Clean up any active player/recorder/voice loop when leaving the screen.
   useEffect(() => {
@@ -445,6 +565,8 @@ export default function HomeScreen() {
       playerRef.current?.remove();
       voiceLoopRef.current?.stop();
       voiceLoopRef.current = null;
+      pttRef.current?.stop();
+      pttRef.current = null;
       if (audioRecorder.isRecording) audioRecorder.stop().catch(() => {});
     };
   }, [audioRecorder]);
@@ -466,14 +588,20 @@ export default function HomeScreen() {
     voiceModeRef.current = voiceMode;
   }, [voiceMode]);
 
-  const startWorkout = useCallback(async () => {
-    const bundle = recommended;
+  // Let the voice event handler rebuild the deck from full bundle data on
+  // session_started (see handleWorkoutEvent).
+  useEffect(() => {
+    bundlesRef.current = [recommended, ...others].filter(Boolean) as ExerciseBundle[];
+  }, [recommended, others]);
+
+  const startWorkout = useCallback(async (bundleArg?: ExerciseBundle) => {
+    const bundle = bundleArg ?? recommended;
     const exercises = bundle?.exercises ?? [];
     if (!bundle || !exercises.length) {
       navigation.navigate('BundleSelection');
       return;
     }
-    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' }]);
+    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text: `Start ${bundle.title ?? 'workout'}` }]);
     setWorkout({ exercises, index: 0, paused: false, title: bundle.title ?? 'Workout', sessionId: null });
 
     // Tell the backend a session has started so the workout gets logged, then
@@ -499,17 +627,16 @@ export default function HomeScreen() {
       setWorkout(null);
       if (sessionId) {
         try {
-          const endRes = await apiPost<{ badges_earned?: Array<{ name?: string }> }>(
-            `/api/session/${sessionId}/end`,
-            {}
-          );
+          // One call returns the full post-workout report — show it in the summary modal.
+          const endRes = await apiPost<WorkoutSummary>(`/api/session/${sessionId}/end`, {});
+          setSummary(endRes);
           await coach('session_end', sessionId, { bundle_title: title });
           // Celebrate any freshly earned badges as a milestone moment.
           const badges = endRes?.badges_earned ?? [];
           if (badges.length) {
             await coach('milestone', sessionId, {
               milestone_type: 'badge',
-              milestone_detail: badges.map((b) => b.name).filter(Boolean).join(', '),
+              milestone_detail: badges.map((b: any) => b.name).filter(Boolean).join(', '),
             });
           }
         } catch {
@@ -531,6 +658,12 @@ export default function HomeScreen() {
   // Mark the current exercise complete with the reps the user logged, then advance.
   const handleDone = useCallback(
     async (reps: number) => {
+      // Voice mode: the proxy is the sole DB writer. Send the action over the
+      // socket; the card advances when the proxy emits workout_state (doc §13).
+      if (voiceModeRef.current) {
+        voiceLoopRef.current?.sendAction('complete_set', { actual_reps: reps });
+        return;
+      }
       const w = workout;
       if (!w) return;
       const ex = w.exercises[w.index];
@@ -571,6 +704,11 @@ export default function HomeScreen() {
 
   // Skip the current exercise, then advance.
   const handleSkip = useCallback(async () => {
+    // Voice mode: send the action to the proxy (sole writer); card follows workout_state.
+    if (voiceModeRef.current) {
+      voiceLoopRef.current?.sendAction('skip_exercise');
+      return;
+    }
     const w = workout;
     if (!w) return;
     const ex = w.exercises[w.index];
@@ -633,6 +771,13 @@ export default function HomeScreen() {
     setResumeInfo(null);
   }, [resumeInfo, recommended, others]);
 
+  // "Start New" from the in-progress prompt: dismiss resume and open the bundle
+  // picker (which generates fresh bundles and shows the cards).
+  const startNew = useCallback(() => {
+    setResumeInfo(null);
+    navigation.navigate('BundleSelection');
+  }, [navigation]);
+
   const makeEasier = useCallback(() => {
     setMessages((m) => [
       ...m,
@@ -640,10 +785,11 @@ export default function HomeScreen() {
     ]);
   }, []);
 
-  // Expose the latest workout handlers to the stable voice-command handler.
+  // Expose the latest workout handlers to the stable voice-command + workout
+  // event handlers.
   useEffect(() => {
-    voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause };
-  }, [startWorkout, handleDone, handleSkip, togglePause]);
+    voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause, finishSession };
+  }, [startWorkout, handleDone, handleSkip, togglePause, finishSession]);
 
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
@@ -658,6 +804,53 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Regenerate the full bundle set via the Rules Engine. The backend deactivates
+  // the old active bundles and returns a fresh set, which we swap in.
+  const regenerateWorkouts = useCallback(async () => {
+    setRegenerating(true);
+    try {
+      const res = await apiPost<{ bundles: ExerciseBundle[] }>('/api/bundles/generate', {});
+      const bundles = res?.bundles ?? [];
+      if (bundles.length) {
+        const rec = bundles.find((b) => b.is_recommended) ?? bundles[0];
+        setRecommended(rec);
+        setOthers(bundles.filter((b) => b._id !== rec._id));
+        setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: 'Fresh workouts are ready — pick one to start.' }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: "I couldn't regenerate your workouts just now. Please try again in a moment." }]);
+    } finally {
+      setRegenerating(false);
+    }
+  }, []);
+
+  // Confirm the pain/injury update (§8): merge the chosen areas into the user's
+  // injuries, persist, then regenerate a safer plan (the Filter stage excludes
+  // exercises contraindicated for those injuries).
+  const confirmInjuryUpdate = useCallback(
+    async (areas: string[]) => {
+      setInjuryPrompt(null);
+      if (!areas.length) return;
+      try {
+        const existing = (user?.injuries ?? []).filter((i) => i && i !== 'none');
+        const merged = Array.from(new Set([...existing, ...areas]));
+        const updated = await apiPut<any>('/api/profile', { injuries: merged });
+        if (updated) setUser(updated);
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: "Done — I've updated your profile to protect that area and I'm building you a safer plan." },
+        ]);
+        await regenerateWorkouts();
+      } catch {
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: "I couldn't update your profile just now — you can adjust injuries in Settings." },
+        ]);
+      }
+    },
+    [user, regenerateWorkouts, setUser]
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -668,11 +861,12 @@ export default function HomeScreen() {
       if (d) setDash(d);
 
       let bundles = active?.bundles ?? [];
-      // No active plan yet (e.g. right after onboarding) — generate the 3-4
-      // bundles from the backend Rules Engine, one of which is recommended.
-      if (bundles.length === 0) {
+      // Regenerate when there's no plan yet (e.g. right after onboarding) or the
+      // dashboard flags the current bundles as stale (>24h old).
+      const bundlesStale = d?.todays_workout?.bundles_stale === true;
+      if (bundles.length === 0 || bundlesStale) {
         const gen = await apiPost<{ bundles: ExerciseBundle[] }>('/api/bundles/generate', {}).catch(() => null);
-        bundles = gen?.bundles ?? [];
+        if (gen?.bundles?.length) bundles = gen.bundles;
       }
       if (bundles.length) {
         const rec = bundles.find((b) => b.is_recommended) ?? bundles[0];
@@ -760,10 +954,6 @@ export default function HomeScreen() {
                 <FlameIcon size={15} />
                 <Text style={styles.streakText}>{streak}</Text>
               </View>
-              <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Notifications">
-                <BellIcon size={19} />
-                <View style={styles.iconBadge} />
-              </Pressable>
               <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings" onPress={() => setSettingsOpen(true)}>
                 <SlidersIcon size={19} />
               </Pressable>
@@ -798,15 +988,20 @@ export default function HomeScreen() {
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
           <View style={styles.body}>
-            {/* Resume in-progress workout (D2) */}
+            {/* In-progress workout: resume it or start a fresh one (D2) */}
             {!workout && resumeInfo && (
-              <Pressable style={styles.resumeCard} onPress={resumeWorkout}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.resumeTitle}>Workout in progress</Text>
-                  <Text style={styles.resumeSub}>Tap to pick up where you left off.</Text>
+              <View style={styles.resumeCard}>
+                <Text style={styles.resumeTitle}>Workout in progress</Text>
+                <Text style={styles.resumeSub}>Pick up where you left off, or start fresh.</Text>
+                <View style={styles.resumeActions}>
+                  <Pressable style={styles.resumeBtnPrimary} onPress={resumeWorkout}>
+                    <Text style={styles.resumeBtnPrimaryText}>Resume ▶</Text>
+                  </Pressable>
+                  <Pressable style={styles.resumeBtnSecondary} onPress={startNew}>
+                    <Text style={styles.resumeBtnSecondaryText}>Start New</Text>
+                  </Pressable>
                 </View>
-                <Text style={styles.resumeCta}>Resume ▶</Text>
-              </Pressable>
+              </View>
             )}
 
             {/* Daily check-in (D1) — hidden once done or during a workout */}
@@ -835,7 +1030,7 @@ export default function HomeScreen() {
             </LinearGradient>
 
             <View style={styles.recActions}>
-              <Pressable style={styles.startWrap} onPress={openRecommended}>
+              <Pressable style={styles.startWrap} onPress={() => startWorkout(recommended ?? undefined)}>
                 <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startBtn}>
                   <Text style={styles.startText}>▶  Start Now</Text>
                 </LinearGradient>
@@ -868,9 +1063,27 @@ export default function HomeScreen() {
                     key={bundle._id}
                     bundle={bundle}
                     onPress={() => navigation.navigate('BundleDetail', { bundle })}
+                    onStart={() => startWorkout(bundle)}
                   />
                 ))}
               </>
+            )}
+
+            {/* Regenerate the whole plan (small link below the last card) */}
+            {!workout && recommended && (
+              <Pressable
+                onPress={regenerateWorkouts}
+                disabled={regenerating}
+                style={styles.regenBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Regenerate workouts"
+              >
+                {regenerating ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.regenText}>↻  Regenerate workouts</Text>
+                )}
+              </Pressable>
             )}
 
             {/* Chat thread with Kin */}
@@ -923,6 +1136,48 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
                 )}
+
+                {/* Pain/injury update prompt (§8) */}
+                {injuryPrompt && (
+                  <View style={styles.injuryCard}>
+                    <Text style={styles.injuryTitle}>Protect an area?</Text>
+                    <Text style={styles.injurySub}>
+                      Select where you felt discomfort — I'll avoid exercises that stress it.
+                    </Text>
+                    <View style={styles.injuryChips}>
+                      {INJURY_AREAS.map((a) => {
+                        const sel = injuryPrompt.selected.includes(a.value);
+                        return (
+                          <Pressable
+                            key={a.value}
+                            onPress={() =>
+                              setInjuryPrompt((p) =>
+                                p
+                                  ? { selected: sel ? p.selected.filter((x) => x !== a.value) : [...p.selected, a.value] }
+                                  : p
+                              )
+                            }
+                            style={[styles.injuryChip, sel && styles.injuryChipSel]}
+                          >
+                            <Text style={[styles.injuryChipText, sel && styles.injuryChipTextSel]}>{a.label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.injuryActions}>
+                      <Pressable onPress={() => setInjuryPrompt(null)} style={styles.injuryBtnGhost}>
+                        <Text style={styles.injuryBtnGhostText}>Not now</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => confirmInjuryUpdate(injuryPrompt.selected)}
+                        disabled={!injuryPrompt.selected.length}
+                        style={[styles.injuryBtnPrimary, !injuryPrompt.selected.length && styles.injuryBtnDisabled]}
+                      >
+                        <Text style={styles.injuryBtnPrimaryText}>Update &amp; regenerate</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -937,7 +1192,7 @@ export default function HomeScreen() {
           style={styles.quickRowScroll}
           contentContainerStyle={styles.quickRow}
         >
-          <QuickChip icon="workout" label="Start Workout" onPress={startWorkout} />
+          <QuickChip icon="workout" label="Start Workout" onPress={() => startWorkout()} />
           <QuickChip icon="progress" label="Show Progress" onPress={() => navigation.navigate('Progress' as never)} />
           <QuickChip icon="plan" label="Weekly Plan" onPress={openBundles} />
           <QuickChip icon="history" label="Workout History" onPress={openHistory} />
@@ -1021,6 +1276,15 @@ export default function HomeScreen() {
       />
 
       <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <WorkoutSummaryModal
+        visible={!!summary}
+        summary={summary}
+        onClose={() => {
+          setSummary(null);
+          load();
+        }}
+      />
     </View>
   );
 }
@@ -1179,8 +1443,6 @@ const styles = StyleSheet.create({
   quickChipText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   resumeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFF6EE',
     borderRadius: 16,
     borderWidth: 1,
@@ -1190,8 +1452,66 @@ const styles = StyleSheet.create({
   },
   resumeTitle: { ...typography.bodyBold, color: '#B25C10' },
   resumeSub: { ...typography.small, color: '#B4772E', marginTop: 2 },
-  resumeCta: { ...typography.bodyBold, color: '#F5821F' },
+  resumeActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  resumeBtnPrimary: {
+    flex: 1,
+    backgroundColor: '#F5821F',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  resumeBtnPrimaryText: { ...typography.bodyBold, color: '#FFFFFF' },
+  resumeBtnSecondary: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F5C89B',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  resumeBtnSecondaryText: { ...typography.bodyBold, color: '#B25C10' },
+  injuryCard: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
+  injuryTitle: { ...typography.bodyBold, color: '#B02A2A' },
+  injurySub: { ...typography.small, color: '#B4534E', marginTop: 2 },
+  injuryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: spacing.sm },
+  injuryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F3B4B4',
+  },
+  injuryChipSel: { backgroundColor: '#B02A2A', borderColor: '#B02A2A' },
+  injuryChipText: { ...typography.small, color: '#B02A2A', fontFamily: 'Inter_600SemiBold' },
+  injuryChipTextSel: { color: '#FFFFFF' },
+  injuryActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  injuryBtnGhost: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#F3B4B4' },
+  injuryBtnGhostText: { ...typography.bodyBold, color: '#B4534E' },
+  injuryBtnPrimary: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: '#B02A2A' },
+  injuryBtnPrimaryText: { ...typography.bodyBold, color: '#FFFFFF' },
+  injuryBtnDisabled: { opacity: 0.4 },
   recCard: { borderRadius: 18, padding: spacing.lg, overflow: 'hidden' },
+  regenBtn: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    minHeight: 32,
+  },
+  regenText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   recBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#F5821F',

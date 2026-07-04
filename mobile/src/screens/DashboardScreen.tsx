@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Text as SvgText } from 'react-native-svg';
 
-import { apiGet, apiPost } from '../services/api';
+import { apiGet, apiPost, apiPut } from '../services/api';
 import { useUserStore } from '../stores/userStore';
 import { colors, spacing, typography } from '../theme';
 
@@ -264,6 +264,7 @@ function StrengthRow({ ex, scaleMax }: { ex: StrengthExercise; scaleMax: number 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
 
   const [range, setRange] = useState<Range>('week');
   const [weekly, setWeekly] = useState<WeeklyResp | null>(null);
@@ -306,7 +307,17 @@ export default function DashboardScreen() {
     if (!kg || kg < 20 || kg > 300) return;
     setLoggingWeight(true);
     try {
+      // 1. Log the entry (feeds the weight graph history).
       await apiPost('/api/progress/weight', { weight_kg: kg });
+      // 2. Recalculate BMI/metrics via the profile update (the weight route
+      //    alone doesn't) and sync the store so the Profile tab's fitness card
+      //    reflects the new weight + BMI immediately.
+      try {
+        const updated = await apiPut('/api/profile', { weight_kg: kg });
+        if (updated) setUser(updated as any);
+      } catch {
+        // Metrics refresh is best-effort.
+      }
       setWeightInput('');
       await load(range);
     } catch {
@@ -315,7 +326,7 @@ export default function DashboardScreen() {
       setLoggingWeight(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weightInput, range, load]);
+  }, [weightInput, range, load, setUser]);
 
   useFocusEffect(
     useCallback(() => {
