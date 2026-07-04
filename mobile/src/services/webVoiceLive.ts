@@ -43,6 +43,11 @@ interface WebVoiceLiveOptions {
   /** Surface a status / error message in the chat thread. */
   onNotice?: (message: string) => void;
   /**
+   * Fired when the WebSocket connection fails or drops before/without a
+   * successful session (so the caller can fall back to REST voice).
+   */
+  onError?: () => void;
+  /**
    * App-level proxy events (any JSON message carrying a `type`), e.g.
    * `context_loaded`, `onboarding_progress`, `onboarding_complete`,
    * `bundles_generated`, `session_started`. Used mainly by voice onboarding.
@@ -149,15 +154,13 @@ export class WebVoiceLive {
     };
     ws.onmessage = (event: any) => this.onMessage(event);
     ws.onerror = () => {
-      this.opts.onNotice?.('Voice connection error. Tap the mic to try again.');
+      if (this.active && !this.connected) this.opts.onError?.();
     };
     ws.onclose = (event: any) => {
-      if (this.active && !this.connected) {
-        this.opts.onNotice?.(
-          `Couldn't start voice chat${event?.reason ? `: ${event.reason}` : ''}. Tap the mic to retry.`
-        );
-      }
+      // Failed before we ever connected → signal the caller to fall back to REST.
+      const failedToConnect = this.active && !this.connected;
       this.stop();
+      if (failedToConnect) this.opts.onError?.();
     };
   }
 
