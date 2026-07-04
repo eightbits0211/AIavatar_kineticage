@@ -43,12 +43,14 @@ interface DashboardData {
   greeting: string;
   persona_label: string;
   todays_workout: {
-    state: string;
+    state: 'in_progress' | 'ready' | 'completed' | 'no_plan' | string;
+    session_id?: string;
     bundle_id?: string;
     title?: string;
     focus?: string;
     exercise_count?: number;
     estimated_duration_min?: number;
+    bundles_stale?: boolean;
   };
   streak: { current: number; longest: number };
   xp: { total: number; level: number; xp_into_level: number; xp_needed: number };
@@ -78,6 +80,7 @@ export default function HomeScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   // An in-progress session found on load, offered for resume (D2).
   const [resumeInfo, setResumeInfo] = useState<{ sessionId: string; bundleId: string; index: number } | null>(null);
 
@@ -116,7 +119,7 @@ export default function HomeScreen() {
   const workoutRef = useRef<any>(null);
   const voiceModeRef = useRef(false);
   const voiceActionsRef = useRef<any>(null);
-  const lastVoiceCmdRef = useRef(0);
+  const bundlesRef = useRef<ExerciseBundle[]>([]);
 
   // Play Kin's reply aloud via the backend TTS endpoint. Best-effort: if the
   // audio can't be fetched or played, we silently keep the on-screen text.
@@ -322,83 +325,54 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Keep the WorkoutDeck in sync with the spoken conversation. The proxy relays
-  // the user's speech but no workout-state events, so we detect simple spoken
-  // commands ("done", "skip", "pause/resume", "start workout") from the user's
-  // transcript and drive the same handlers the on-screen buttons use — so voice
-  // and the card advance together, and a voice-started workout shows the card.
-  // A short cooldown prevents chunked transcripts from firing a command twice.
-  const handleUserSpeech = useCallback((text: string) => {
-    const t = (text || '').toLowerCase();
-    if (!t.trim()) return;
-    const now = Date.now();
-    if (now - lastVoiceCmdRef.current < 3500) return;
-
-    const actions = voiceActionsRef.current;
-    if (!actions) return;
-    const w = workoutRef.current;
-    const has = (arr: string[]) => arr.some((k) => t.includes(k));
-    // Avoid false positives like "I'm not done yet" / "don't skip".
-    const negated = has(['not done', 'not finished', "aren't done", 'not yet', "don't", 'do not']);
-
-    // Advance the card by ONE exercise, UI-only (no REST). The proxy remains the
-    // sole DB writer during voice mode; this just keeps the visible card in step
-    // with the spoken conversation, since the proxy advances its own index only
-    // after every set is individually acknowledged.
-    const advanceCard = () => {
-      const cur = workoutRef.current;
-      if (!cur) return;
-      if (cur.index >= cur.exercises.length - 1) {
-        voiceActionsRef.current?.finishSession?.(cur.sessionId, cur.title);
-      } else {
-        setWorkout((p) => (p ? { ...p, index: p.index + 1, paused: false } : p));
-      }
-    };
-
-    if (w && !w.paused && !negated && has(['done', 'finished', "i'm done", 'im done', 'next exercise', 'next one', 'completed it', 'mark it done'])) {
-      lastVoiceCmdRef.current = now;
-      advanceCard();
-      return;
-    }
-    if (w && !negated && has(['skip'])) {
-      lastVoiceCmdRef.current = now;
-      advanceCard();
-      return;
-    }
-    if (w && !w.paused && has(['pause'])) {
-      lastVoiceCmdRef.current = now;
-      actions.togglePause();
-      return;
-    }
-    if (w && w.paused && has(['resume', 'continue', 'unpause'])) {
-      lastVoiceCmdRef.current = now;
-      actions.togglePause();
-      return;
-    }
-    if (!w && has(['start workout', 'start my workout', 'begin workout', 'start the workout', 'start session', 'start my session', "let's begin"])) {
-      lastVoiceCmdRef.current = now;
-      actions.startWorkout();
-    }
-  }, []);
-
-  // Authoritative workout sync during voice mode. The proxy is the sole writer
-  // while voice is active and emits a `workout_state` event whenever it advances
-  // (set complete / exercise done / skip / pain). We just move the card to the
-  // index it reports — so voice and card stay in lockstep no matter how the user
-  // phrases things. When the index passes the last exercise, the workout is done.
+  // Proxy events during voice mode (doc §13). The proxy is the SOLE DB writer
+  // while voice is active; the client just mirrors its authoritative state:
+  //  • session_started — Kin auto-created/attached a session → show the deck.
+  //  • workout_state    — proxy advanced → move the card to current_exercise_index.
+  // Spoken commands are detected server-side (from Kin's audio) and surface as
+  // workout_state, so the client never advances the card or writes REST itself.
   const handleWorkoutEvent = useCallback((event: any) => {
-    if (!event || event.type !== 'workout_state') return;
-    const idx = event.current_exercise_index;
-    if (typeof idx !== 'number') return;
-    const w = workoutRef.current;
-    if (!w) return;
-    if (idx >= w.exercises.length) {
-      voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
+    if (!event || typeof event.type !== 'string') return;
+
+    if (event.type === 'session_started') {
+      if (workoutRef.current) return; // deck already showing
+      // Prefer full bundle data (instructions, images) by matching bundle_id;
+      // fall back to the exercise summaries the event provides.
+      const bundle = bundlesRef.current.find((b) => b._id === event.bundle_id);
+      let exercises: BundleExercise[] = bundle?.exercises ?? [];
+      if (!exercises.length && Array.isArray(event.exercises)) {
+        exercises = event.exercises.map((e: any) => ({
+          exercise_id: e.exercise_id,
+          name: e.name,
+          sets: e.sets ?? 1,
+          rep_min: e.rep_min ?? 8,
+          rep_max: e.rep_max ?? 12,
+          rest_seconds: e.rest_seconds ?? 60,
+          instructions_text: '',
+          image_url: e.image_url ?? '',
+          image_url_end: '',
+          muscle_groups: [],
+        }));
+      }
+      if (exercises.length) {
+        activeSessionIdRef.current = event.session_id;
+        setWorkout({ exercises, index: 0, paused: false, title: bundle?.title ?? 'Workout', sessionId: event.session_id });
+      }
       return;
     }
-    // Forward-only: the proxy counts per-set and can report an index behind the
-    // card (which advances per-exercise on your spoken "done"). Never move back.
-    setWorkout((p) => (p && idx > p.index ? { ...p, index: idx, paused: false } : p));
+
+    if (event.type === 'workout_state') {
+      const idx = event.current_exercise_index;
+      if (typeof idx !== 'number') return;
+      const w = workoutRef.current;
+      if (!w) return;
+      if (idx >= w.exercises.length) {
+        voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
+        return;
+      }
+      // Forward-only guard against out-of-order events.
+      setWorkout((p) => (p && idx > p.index ? { ...p, index: idx, paused: false } : p));
+    }
   }, []);
 
   // Enter/exit continuous voice-to-voice mode (web). One tap starts a
@@ -438,9 +412,6 @@ export default function HomeScreen() {
           voiceTurnRef.current = null;
         }
         appendVoiceTranscript(role, text);
-        // Spoken "start workout" can bring up the card; per-exercise progress is
-        // driven authoritatively by the proxy's workout_state events (onEvent).
-        if (role === 'user') handleUserSpeech(text);
       },
       onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
@@ -466,7 +437,7 @@ export default function HomeScreen() {
         },
       ]);
     }
-  }, [appendVoiceTranscript, handleUserSpeech, handleWorkoutEvent, recommended, user]);
+  }, [appendVoiceTranscript, handleWorkoutEvent, recommended, user]);
 
   // Mic button entry point: continuous voice mode on web, press-to-talk on native.
   const onMicPress = useCallback(() => {
@@ -501,14 +472,20 @@ export default function HomeScreen() {
     voiceModeRef.current = voiceMode;
   }, [voiceMode]);
 
-  const startWorkout = useCallback(async () => {
-    const bundle = recommended;
+  // Let the voice event handler rebuild the deck from full bundle data on
+  // session_started (see handleWorkoutEvent).
+  useEffect(() => {
+    bundlesRef.current = [recommended, ...others].filter(Boolean) as ExerciseBundle[];
+  }, [recommended, others]);
+
+  const startWorkout = useCallback(async (bundleArg?: ExerciseBundle) => {
+    const bundle = bundleArg ?? recommended;
     const exercises = bundle?.exercises ?? [];
     if (!bundle || !exercises.length) {
       navigation.navigate('BundleSelection');
       return;
     }
-    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text: 'Start workout' }]);
+    setMessages((prev) => [...prev, { id: `${Date.now()}-u`, role: 'user', text: `Start ${bundle.title ?? 'workout'}` }]);
     setWorkout({ exercises, index: 0, paused: false, title: bundle.title ?? 'Workout', sessionId: null });
 
     // Tell the backend a session has started so the workout gets logged, then
@@ -566,9 +543,12 @@ export default function HomeScreen() {
   // Mark the current exercise complete with the reps the user logged, then advance.
   const handleDone = useCallback(
     async (reps: number) => {
-      // During voice mode the proxy is the sole writer and drives the card via
-      // workout_state events — don't double-write over REST.
-      if (voiceModeRef.current) return;
+      // Voice mode: the proxy is the sole DB writer. Send the action over the
+      // socket; the card advances when the proxy emits workout_state (doc §13).
+      if (voiceModeRef.current) {
+        voiceLoopRef.current?.sendAction('complete_set', { actual_reps: reps });
+        return;
+      }
       const w = workout;
       if (!w) return;
       const ex = w.exercises[w.index];
@@ -609,8 +589,11 @@ export default function HomeScreen() {
 
   // Skip the current exercise, then advance.
   const handleSkip = useCallback(async () => {
-    // In voice mode the proxy owns writes + drives the card (see handleDone).
-    if (voiceModeRef.current) return;
+    // Voice mode: send the action to the proxy (sole writer); card follows workout_state.
+    if (voiceModeRef.current) {
+      voiceLoopRef.current?.sendAction('skip_exercise');
+      return;
+    }
     const w = workout;
     if (!w) return;
     const ex = w.exercises[w.index];
@@ -673,6 +656,13 @@ export default function HomeScreen() {
     setResumeInfo(null);
   }, [resumeInfo, recommended, others]);
 
+  // "Start New" from the in-progress prompt: dismiss resume and open the bundle
+  // picker (which generates fresh bundles and shows the cards).
+  const startNew = useCallback(() => {
+    setResumeInfo(null);
+    navigation.navigate('BundleSelection');
+  }, [navigation]);
+
   const makeEasier = useCallback(() => {
     setMessages((m) => [
       ...m,
@@ -699,6 +689,26 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Regenerate the full bundle set via the Rules Engine. The backend deactivates
+  // the old active bundles and returns a fresh set, which we swap in.
+  const regenerateWorkouts = useCallback(async () => {
+    setRegenerating(true);
+    try {
+      const res = await apiPost<{ bundles: ExerciseBundle[] }>('/api/bundles/generate', {});
+      const bundles = res?.bundles ?? [];
+      if (bundles.length) {
+        const rec = bundles.find((b) => b.is_recommended) ?? bundles[0];
+        setRecommended(rec);
+        setOthers(bundles.filter((b) => b._id !== rec._id));
+        setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: 'Fresh workouts are ready — pick one to start.' }]);
+      }
+    } catch {
+      setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: "I couldn't regenerate your workouts just now. Please try again in a moment." }]);
+    } finally {
+      setRegenerating(false);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -709,11 +719,12 @@ export default function HomeScreen() {
       if (d) setDash(d);
 
       let bundles = active?.bundles ?? [];
-      // No active plan yet (e.g. right after onboarding) — generate the 3-4
-      // bundles from the backend Rules Engine, one of which is recommended.
-      if (bundles.length === 0) {
+      // Regenerate when there's no plan yet (e.g. right after onboarding) or the
+      // dashboard flags the current bundles as stale (>24h old).
+      const bundlesStale = d?.todays_workout?.bundles_stale === true;
+      if (bundles.length === 0 || bundlesStale) {
         const gen = await apiPost<{ bundles: ExerciseBundle[] }>('/api/bundles/generate', {}).catch(() => null);
-        bundles = gen?.bundles ?? [];
+        if (gen?.bundles?.length) bundles = gen.bundles;
       }
       if (bundles.length) {
         const rec = bundles.find((b) => b.is_recommended) ?? bundles[0];
@@ -839,15 +850,20 @@ export default function HomeScreen() {
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
           <View style={styles.body}>
-            {/* Resume in-progress workout (D2) */}
+            {/* In-progress workout: resume it or start a fresh one (D2) */}
             {!workout && resumeInfo && (
-              <Pressable style={styles.resumeCard} onPress={resumeWorkout}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.resumeTitle}>Workout in progress</Text>
-                  <Text style={styles.resumeSub}>Tap to pick up where you left off.</Text>
+              <View style={styles.resumeCard}>
+                <Text style={styles.resumeTitle}>Workout in progress</Text>
+                <Text style={styles.resumeSub}>Pick up where you left off, or start fresh.</Text>
+                <View style={styles.resumeActions}>
+                  <Pressable style={styles.resumeBtnPrimary} onPress={resumeWorkout}>
+                    <Text style={styles.resumeBtnPrimaryText}>Resume ▶</Text>
+                  </Pressable>
+                  <Pressable style={styles.resumeBtnSecondary} onPress={startNew}>
+                    <Text style={styles.resumeBtnSecondaryText}>Start New</Text>
+                  </Pressable>
                 </View>
-                <Text style={styles.resumeCta}>Resume ▶</Text>
-              </Pressable>
+              </View>
             )}
 
             {/* Daily check-in (D1) — hidden once done or during a workout */}
@@ -876,7 +892,7 @@ export default function HomeScreen() {
             </LinearGradient>
 
             <View style={styles.recActions}>
-              <Pressable style={styles.startWrap} onPress={openRecommended}>
+              <Pressable style={styles.startWrap} onPress={() => startWorkout(recommended ?? undefined)}>
                 <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startBtn}>
                   <Text style={styles.startText}>▶  Start Now</Text>
                 </LinearGradient>
@@ -909,9 +925,27 @@ export default function HomeScreen() {
                     key={bundle._id}
                     bundle={bundle}
                     onPress={() => navigation.navigate('BundleDetail', { bundle })}
+                    onStart={() => startWorkout(bundle)}
                   />
                 ))}
               </>
+            )}
+
+            {/* Regenerate the whole plan (small link below the last card) */}
+            {!workout && recommended && (
+              <Pressable
+                onPress={regenerateWorkouts}
+                disabled={regenerating}
+                style={styles.regenBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Regenerate workouts"
+              >
+                {regenerating ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Text style={styles.regenText}>↻  Regenerate workouts</Text>
+                )}
+              </Pressable>
             )}
 
             {/* Chat thread with Kin */}
@@ -978,7 +1012,7 @@ export default function HomeScreen() {
           style={styles.quickRowScroll}
           contentContainerStyle={styles.quickRow}
         >
-          <QuickChip icon="workout" label="Start Workout" onPress={startWorkout} />
+          <QuickChip icon="workout" label="Start Workout" onPress={() => startWorkout()} />
           <QuickChip icon="progress" label="Show Progress" onPress={() => navigation.navigate('Progress' as never)} />
           <QuickChip icon="plan" label="Weekly Plan" onPress={openBundles} />
           <QuickChip icon="history" label="Workout History" onPress={openHistory} />
@@ -1220,8 +1254,6 @@ const styles = StyleSheet.create({
   quickChipText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   resumeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFF6EE',
     borderRadius: 16,
     borderWidth: 1,
@@ -1231,8 +1263,38 @@ const styles = StyleSheet.create({
   },
   resumeTitle: { ...typography.bodyBold, color: '#B25C10' },
   resumeSub: { ...typography.small, color: '#B4772E', marginTop: 2 },
-  resumeCta: { ...typography.bodyBold, color: '#F5821F' },
+  resumeActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  resumeBtnPrimary: {
+    flex: 1,
+    backgroundColor: '#F5821F',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  resumeBtnPrimaryText: { ...typography.bodyBold, color: '#FFFFFF' },
+  resumeBtnSecondary: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F5C89B',
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  resumeBtnSecondaryText: { ...typography.bodyBold, color: '#B25C10' },
   recCard: { borderRadius: 18, padding: spacing.lg, overflow: 'hidden' },
+  regenBtn: {
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    minHeight: 32,
+  },
+  regenText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   recBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#F5821F',
