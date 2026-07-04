@@ -77,6 +77,21 @@ export class WebVoiceLive {
   }
 
   /**
+   * Send a workout control action to the proxy (the sole DB writer during voice
+   * mode), e.g. sendAction('complete_set', { actual_reps: 12 }),
+   * sendAction('skip_exercise'), sendAction('report_pain', { body_area: 'knee' }).
+   */
+  sendAction(action: string, extra?: Record<string, any>): void {
+    const ws = this.ws;
+    if (!ws || ws.readyState !== 1 /* OPEN */) return;
+    try {
+      ws.send(JSON.stringify({ action, ...(extra || {}) }));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
    * Acquire the mic, open the proxy WebSocket, and begin streaming. Throws if
    * mic access is denied so the caller can prompt the user. Resolves once the
    * connection is established (audio continues in the background until stop()).
