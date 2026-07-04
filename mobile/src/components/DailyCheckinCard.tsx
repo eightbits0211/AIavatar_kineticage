@@ -73,7 +73,7 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Daily check-in</Text>
+      <Text style={styles.title}>Daily Check-in</Text>
       <Text style={styles.sub}>How's your energy today?</Text>
 
       <View style={styles.energyRow}>
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  title: { ...typography.h3, color: NAVY, fontFamily: 'Inter_700Bold' },
+  title: { ...typography.h3, fontSize: 20, lineHeight: 26, color: NAVY, fontFamily: 'Inter_700Bold' },
   sub: { ...typography.caption, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.sm },
   energyRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   energyBtn: {

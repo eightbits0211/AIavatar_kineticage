@@ -22,7 +22,7 @@ export default function MainTabs() {
           paddingBottom: 18,
           paddingTop: 6,
         },
-        tabBarLabelStyle: { fontFamily: 'Inter_500Medium', fontSize: 11 },
+        tabBarLabelStyle: { fontFamily: 'Inter_500Medium', fontSize: 13 },
       }}
     >
       <Tab.Screen
@@ -30,7 +30,7 @@ export default function MainTabs() {
         component={HomeStack}
         options={{
           tabBarLabel: 'AI Coach',
-          tabBarIcon: ({ color }) => <TabBarIcon name="coach" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="coach" color={color} size={27} />,
         }}
       />
       <Tab.Screen
@@ -38,7 +38,7 @@ export default function MainTabs() {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Progress',
-          tabBarIcon: ({ color }) => <TabBarIcon name="progress" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="progress" color={color} size={27} />,
         }}
       />
       <Tab.Screen
@@ -46,7 +46,7 @@ export default function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarIcon name="profile" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="profile" color={color} size={27} />,
         }}
       />
     </Tab.Navigator>
