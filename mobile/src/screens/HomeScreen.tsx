@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Platform,
   Pressable,
   ScrollView,
@@ -9,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -92,6 +95,8 @@ export default function HomeScreen() {
   const setUser = useUserStore((s) => s.setUser);
 
   const [dash, setDash] = useState<DashboardData | null>(null);
+  // The user's chosen profile avatar (set on the Profile tab, stored on-device).
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [recommended, setRecommended] = useState<ExerciseBundle | null>(null);
   const [others, setOthers] = useState<ExerciseBundle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -785,6 +790,25 @@ export default function HomeScreen() {
     ]);
   }, []);
 
+  // End the workout early. Whatever's been logged so far is saved: the backend
+  // classifies it (≥50% → partial, else abandoned) and returns the report, which
+  // finishSession shows in the summary modal. Confirm first (web has no native
+  // Alert dialog, so fall back to window.confirm there).
+  const confirmEndWorkout = useCallback(() => {
+    const w = workoutRef.current;
+    if (!w) return;
+    const doEnd = () => finishSession(w.sessionId, w.title);
+    if (Platform.OS === 'web') {
+      const ok = (globalThis as any).confirm?.('End workout now? Your progress so far will be saved.');
+      if (ok) doEnd();
+    } else {
+      Alert.alert('End workout?', 'Your progress so far will be saved.', [
+        { text: 'Keep going', style: 'cancel' },
+        { text: 'End workout', style: 'destructive', onPress: doEnd },
+      ]);
+    }
+  }, [finishSession]);
+
   // Expose the latest workout handlers to the stable voice-command + workout
   // event handlers.
   useEffect(() => {
@@ -906,6 +930,22 @@ export default function HomeScreen() {
     }, [load])
   );
 
+  // Reload the chosen avatar whenever Home regains focus (e.g. after changing
+  // it on the Profile tab). Stored on-device, keyed by user.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(`@kin/avatar/${user?._id ?? 'me'}`)
+        .then((v) => {
+          if (active) setAvatarUrl(v);
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }, [user?._id])
+  );
+
   const name = user?.name && user.name !== 'Guest' ? user.name : 'there';
   const streak = dash?.streak.current ?? user?.gamification?.current_streak ?? 0;
   const level = dash?.xp.level ?? user?.gamification?.level ?? 1;
@@ -924,12 +964,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while the content scrolls) ── */}
+      <LinearGradient
+        colors={['#2D6CA8', '#1E4E7E']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <View style={styles.headerTop}>
             <Pressable
               accessibilityRole="button"
@@ -941,7 +980,11 @@ export default function HomeScreen() {
               <View style={styles.menuLine} />
               <View style={styles.menuLine} />
             </Pressable>
-            <KinAvatar size={52} />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.headerAvatar} resizeMode="cover" />
+            ) : (
+              <KinAvatar size={52} />
+            )}
             <View style={styles.greetingBlock}>
               <Text style={styles.greetingSmall}>{timeGreeting()}</Text>
               <Text style={styles.name}>{name}</Text>
@@ -984,6 +1027,7 @@ export default function HomeScreen() {
           )}
         </LinearGradient>
 
+      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {loading && !dash ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
@@ -1126,6 +1170,7 @@ export default function HomeScreen() {
                     onDone={handleDone}
                     onSkip={handleSkip}
                     onPause={togglePause}
+                    onEnd={confirmEndWorkout}
                   />
                 )}
                 {workout && workout.paused && (
@@ -1301,7 +1346,7 @@ function QuickChip({
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.quickChipWrap, pressed && { opacity: 0.65 }]}>
       <BlurView intensity={32} tint="light" style={styles.quickChip}>
-        <ChipIcon name={icon} size={16} color={colors.primary} />
+        <ChipIcon name={icon} size={16} color="#1E4E7E" />
         <Text style={styles.quickChipText} numberOfLines={1}>
           {label}
         </Text>
@@ -1325,8 +1370,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center' },
   menuBtn: {
@@ -1345,6 +1388,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: '#FFFFFF',
   },
+  headerAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)' },
   greetingBlock: { flex: 1, marginLeft: spacing.md },
   greetingSmall: { ...typography.caption, color: 'rgba(255,255,255,0.8)' },
   name: { ...typography.h2, color: '#FFFFFF' },
@@ -1437,10 +1481,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.65)',
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    borderColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: '#6E97CE',
   },
-  quickChipText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
+  quickChipText: { ...typography.caption, color: '#1E4E7E', fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   resumeCard: {
     backgroundColor: '#FFF6EE',
