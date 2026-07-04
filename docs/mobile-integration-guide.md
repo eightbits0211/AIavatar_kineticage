@@ -283,3 +283,128 @@ Import from `../../../shared/types`:
 | Log weight | POST /api/progress/weight { weight_kg } | Confirmation |
 | Daily check-in | POST /api/daily-checkin { energy, soreness } | 10 XP awarded |
 | Update profile | PUT /api/profile { ... } | Updated profile |
+
+
+---
+
+## 13. Workout Session — Complete Call Sequence
+
+### Mode A: Voice Mode (Primary — WebSocket handles everything)
+
+```
+USER OPENS APP
+│
+├─ 1. GET /api/dashboard
+│     → Check todays_workout.state
+│     → If 'no_plan' or bundles_stale: true → POST /api/bundles/generate
+│
+├─ 2. Connect WebSocket:
+│     ws://localhost:3000/ws/voice-live?token={TOKEN}&voice_style=friendly
+│
+├─ 3. Receive: { type: 'context_loaded', mode: 'workout'|'chat'|'onboarding' }
+│
+├─ 4. Kin speaks first (audio):
+│     - Unfinished session → "Want to resume or start fresh?"
+│     - Bundle ready → "I have X workout ready. Start?"
+│     - Nothing → General chat
+│
+├─ 5. User says "yes" / "start" / "resume"
+│     → Proxy auto-creates session
+│     → Receive: { type: 'session_started', session_id, exercises }
+│     → Initialize WorkoutDeck from this data
+│
+│  DURING WORKOUT (voice active):
+│
+├─ 6. Kin coaches automatically via audio
+│     (introduces exercises, motivates, counts sets)
+│
+├─ 7. Listen for: { type: 'workout_state' }
+│     → Update card to current_exercise_index
+│     → Do NOT call REST exercise update endpoints
+│
+├─ 8. User button taps during voice:
+│     - Done  → ws.send({ action: 'complete_set', actual_reps: 12 })
+│     - Skip  → ws.send({ action: 'skip_exercise' })
+│     - Pain  → ws.send({ action: 'report_pain', body_area: 'knee' })
+│
+└─ 9. End workout:
+      POST /api/session/{session_id}/end
+      → Returns XP, badges, streak, calories
+      → New bundles auto-generated for next time
+```
+
+### Mode B: Text Mode (Fallback — REST calls at each step)
+
+```
+USER OPENS APP
+│
+├─ 1. GET /api/dashboard
+│     → If 'no_plan' or bundles_stale → POST /api/bundles/generate
+│
+├─ 2. Show bundle cards. User taps one.
+│     → POST /api/session/start { bundle_id }
+│     → Returns { session_id, exercises, greeting }
+│
+├─ 3. Kin introduces workout:
+│     POST /api/companion/trigger
+│     { trigger: 'session_start', context: { bundle_title, exercises_total } }
+│     → Show the response message
+│
+│  FOR EACH EXERCISE:
+│
+├─ 4. Exercise intro:
+│     POST /api/companion/trigger
+│     { trigger: 'exercise_intro',
+│       context: { exercise_name, muscle_groups, total_sets, target_reps, exercise_instructions } }
+│
+├─ 5. User completes a set (taps Done):
+│     PUT /api/session/{id}/exercise
+│     { exercise_id, action: 'complete_set', data: { set_number: 1, actual_reps: 12 } }
+│
+├─ 6. Kin reacts to set:
+│     POST /api/companion/trigger
+│     { trigger: 'set_complete',
+│       context: { exercise_name, set_number, total_sets, feedback: 'felt_normal' } }
+│
+├─ 7. Rest period:
+│     POST /api/companion/trigger
+│     { trigger: 'rest_start', context: { rest_seconds: 60, set_number: 1, total_sets: 3 } }
+│
+├─ 8. All sets done for exercise:
+│     PUT /api/session/{id}/exercise
+│     { exercise_id, action: 'complete_exercise', data: { feedback: 'felt_hard' } }
+│
+│     POST /api/companion/trigger
+│     { trigger: 'exercise_complete', context: { exercise_name, next_exercise: 'Squats' } }
+│
+├─ 9. Skip:
+│     PUT /api/session/{id}/exercise
+│     { exercise_id, action: 'skip' }
+│
+├─ 10. Pain:
+│      PUT /api/session/{id}/exercise
+│      { exercise_id, action: 'pain', data: { body_area: 'knee' } }
+│
+├─ 11. End workout:
+│      POST /api/session/{id}/end
+│      → Returns XP, badges, streak, calories
+│
+│      POST /api/companion/trigger
+│      { trigger: 'session_end',
+│        context: { exercises_completed: 5, exercises_total: 6, bundle_title } }
+│      → Show celebration message
+│
+└─ 12. User asks Kin a question anytime:
+       POST /api/companion/message
+       { message: "is my form ok?", input_mode: 'text', session_id }
+       → Show reply
+```
+
+### Critical Rule
+
+| Mode | Write to DB via | Kin speaks via |
+|------|----------------|----------------|
+| Voice (WebSocket active) | WebSocket actions ONLY | Audio stream from Gemini |
+| Text (no WebSocket) | REST endpoints | Trigger responses (text/TTS) |
+
+**Never mix:** Don't call REST exercise endpoints while WebSocket is active — creates double-writes and desync.
