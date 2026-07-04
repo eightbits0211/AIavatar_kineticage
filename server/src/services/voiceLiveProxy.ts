@@ -139,10 +139,23 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
     systemPrompt = buildOnboardingPrompt(user, onboardingState);
     console.log('[VoiceLive] Mode: ONBOARDING');
   } else if (activeSession) {
-    // Only enter workout mode if there's an IN-PROGRESS session
+    // In-progress session exists — enter workout mode but prompt about resuming
     mode = 'workout';
     systemPrompt = buildVoiceSystemPrompt(user, activeSession, activeBundle);
-    console.log('[VoiceLive] Mode: WORKOUT (session in progress)');
+    // Add resume prompt to system instructions
+    const completedCount = activeSession.exercises.filter((e: any) => e.status === 'completed').length;
+    const totalCount = activeSession.exercises.length;
+    const currentExercise = activeSession.exercises.find((e: any) => e.status === 'in_progress' || e.status === 'pending');
+    systemPrompt += `
+
+## IMPORTANT — FIRST MESSAGE
+You have an unfinished workout from earlier (${completedCount}/${totalCount} exercises done). When the user greets you:
+- Mention they have an unfinished workout (briefly: "${completedCount} of ${totalCount} exercises done, left off at ${currentExercise?.exercise_name || 'the next exercise'}")
+- Ask: "Want to pick up where you left off, or start fresh with a new workout?"
+- If they say resume/continue/yes → start coaching from the current exercise
+- If they say new/fresh/different → tell them to generate a new workout from the app (you cannot generate bundles)
+- Do NOT start coaching until they answer`;
+    console.log('[VoiceLive] Mode: WORKOUT (session in progress — will ask about resume)');
   } else if (activeBundle) {
     // Bundle exists but no active session — ask user before jumping in
     mode = 'chat';
