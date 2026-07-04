@@ -45,6 +45,7 @@ interface VoiceSession {
   userObjectId: any;
   sessionId: string | null;
   bundleId: string | null;
+  allBundles: any[];
   clientWs: WebSocket;
   geminiWs: WebSocket | null;
   currentExerciseIndex: number;
@@ -100,6 +101,7 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
   // Load active session and bundle
   let activeSession: any = null;
   let activeBundle: any = null;
+  let allActiveBundles: any[] = [];
 
   if (sessionId) {
     activeSession = await Session.findById(sessionId).lean();
@@ -112,10 +114,9 @@ export async function handleVoiceLiveConnection(clientWs: WebSocket, req: Incomi
   } else if (activeSession) {
     activeBundle = await Bundle.findById(activeSession.bundle_id).lean();
   } else {
-    activeBundle = await Bundle.findOne({ user_id: user._id, active: true, is_recommended: true }).lean();
-    if (!activeBundle) {
-      activeBundle = await Bundle.findOne({ user_id: user._id, active: true }).lean();
-    }
+    // Load ALL active bundles for voice selection
+    allActiveBundles = await Bundle.find({ user_id: user._id, active: true }).lean();
+    activeBundle = allActiveBundles.find((b: any) => b.is_recommended) || allActiveBundles[0] || null;
   }
 
   // Determine mode: onboarding vs workout vs chat
@@ -157,9 +158,9 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
 - Do NOT start coaching until they answer`;
     console.log('[VoiceLive] Mode: WORKOUT (session in progress — will ask about resume)');
   } else if (activeBundle) {
-    // Bundle exists but no active session — ask user before jumping in
+    // Bundle exists but user hasn't started a session — ask user before jumping in
     mode = 'chat';
-    systemPrompt = buildVoiceSystemPrompt(user, null, activeBundle);
+    systemPrompt = buildVoiceSystemPrompt(user, null, activeBundle, allActiveBundles);
     console.log('[VoiceLive] Mode: CHAT (has bundle, will ask user)');
   } else {
     mode = 'chat';
@@ -173,6 +174,7 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
     userObjectId: user._id,
     sessionId: activeSession?._id?.toString() || null,
     bundleId: activeBundle?._id?.toString() || null,
+    allBundles: allActiveBundles,
     clientWs,
     geminiWs: null,
     currentExerciseIndex: activeSession
@@ -653,11 +655,23 @@ function detectAndExecuteActions(session: VoiceSession, text: string) {
   const lower = text.toLowerCase();
 
   // Auto-start session if Kin starts coaching but no session exists yet
-  if (!session.sessionId && session.bundleId) {
+  if (!session.sessionId && (session.bundleId || session.allBundles.length > 0)) {
     const coachingIndicators = ['first up', 'let\'s start with', 'sets of', 'reps', 'we\'re starting', 'let\'s go', 'here we go', 'starting with', 'begin with', 'your first exercise'];
     const isCoaching = coachingIndicators.some(ind => lower.includes(ind));
     if (isCoaching) {
-      startSessionFromVoice(session, session.bundleId);
+      // Try to detect which bundle Kin chose by matching title in the response
+      let chosenBundleId = session.bundleId;
+      if (session.allBundles.length > 1) {
+        for (const bundle of session.allBundles) {
+          if (lower.includes(bundle.title.toLowerCase())) {
+            chosenBundleId = bundle._id.toString();
+            break;
+          }
+        }
+      }
+      if (chosenBundleId) {
+        startSessionFromVoice(session, chosenBundleId);
+      }
     }
   }
 
@@ -996,7 +1010,7 @@ async function persistTurn(session: VoiceSession, role: 'user' | 'companion', co
 /**
  * Build the full system prompt for a voice live session.
  */
-function buildVoiceSystemPrompt(user: any, activeSession: any, activeBundle: any): string {
+function buildVoiceSystemPrompt(user: any, activeSession: any, activeBundle: any, allBundles: any[] = []): string {
   // Build base prompt using existing prompt builder
   let sessionContext: any = undefined;
   if (activeSession && activeBundle) {
@@ -1055,18 +1069,21 @@ ${i + 1}. ${ex.name} ${statusLabel}
    Form: ${(ex.instructions_text || '').substring(0, 150)}`;
     }
   } else if (activeBundle) {
-    // Bundle exists but user hasn't started a session — ask them what they want
+    // Bundle exists but user hasn't started a session — present ALL options
+    const bundlesList = allBundles.length > 1 ? allBundles : [activeBundle];
     systemPrompt += `
 
-## Available Workout: "${activeBundle.title}"
-Focus: ${activeBundle.focus} | Duration: ~${activeBundle.estimated_duration_min} min | Exercises: ${activeBundle.exercises.length}
+## Available Workouts (${bundlesList.length} options)
+${bundlesList.map((b: any, i: number) => `${i + 1}. "${b.title}" — ${b.focus}, ~${b.estimated_duration_min} min, ${b.exercises.length} exercises${b.is_recommended ? ' ⭐ RECOMMENDED' : ''}`).join('\n')}
 
-IMPORTANT: The user has a workout ready but has NOT started it yet. When they greet you:
+IMPORTANT: The user has ${bundlesList.length} workout options but has NOT started yet. When they greet you:
 - Say hi warmly
-- Mention you have their "${activeBundle.title}" workout ready (briefly — title and duration only)
-- Ask if they'd like to start that workout, or if they'd prefer to generate a new one
-- Do NOT start coaching exercises until they explicitly say yes or "start"
-- If they want a new workout, tell them to use the app to generate new bundles`;
+- Briefly list all ${bundlesList.length} options by number and title (keep it concise — just title and duration for each)
+- Mention which one is recommended
+- Ask which they'd like to do: "Which one sounds good? The ${bundlesList.find((b: any) => b.is_recommended)?.title || bundlesList[0]?.title} is my pick for you today."
+- Accept answers like: "the first one", "number 2", the title name, "the recommended one", "the ${bundlesList[0]?.focus} one"
+- Do NOT start coaching until they pick one
+- If they say "start" without picking, use the recommended one`;
   } else {
     systemPrompt += `
 
