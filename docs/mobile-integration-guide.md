@@ -408,3 +408,133 @@ USER OPENS APP
 | Text (no WebSocket) | REST endpoints | Trigger responses (text/TTS) |
 
 **Never mix:** Don't call REST exercise endpoints while WebSocket is active — creates double-writes and desync.
+
+
+---
+
+## 14. Post-Workout Summary (Session End Response)
+
+When the user finishes a workout, call:
+```
+POST /api/session/{session_id}/end
+```
+
+**Full response:**
+```json
+{
+  "status": "full",
+  "exercises_completed": 5,
+  "exercises_planned": 6,
+  "completion_ratio": 83,
+  "calories_burned": 187,
+  "xp_awarded": 45,
+  "xp_breakdown": { "completion": 30, "streak_bonus": 10, "full_completion": 5 },
+  "new_total_xp": 320,
+  "level": 4,
+  "streak": { "current": 5, "longest": 7, "milestone": null },
+  "progression_flags": [
+    { "exercise_id": "ex_001", "type": "progress", "message": "Ready to increase reps" }
+  ],
+  "badges_earned": [{ "badge_id": "consistency_3", "name": "Three-peat" }]
+}
+```
+
+**What to render on the summary screen:**
+- Completion: `exercises_completed / exercises_planned` (use completion_ratio for %)
+- Calories: `calories_burned` (calculated from actual reps × muscle group × user weight)
+- XP: `xp_awarded` with `xp_breakdown` for detail
+- Level: show if level changed (`new_total_xp`)
+- Streak: `streak.current` days, show milestone if not null
+- Badges: array of newly earned badges — show celebration animation
+- Progression: exercises ready for difficulty increase
+
+**After this response returns**, new bundles are auto-generated in the background for the user's next workout.
+
+---
+
+## 15. AI Personality (Coaching Style)
+
+**Save preference:**
+```
+PUT /api/profile
+{ "companion_preferences": { "coaching_style": "strict" } }
+```
+
+**Options:**
+| Value | Label | Behavior |
+|-------|-------|----------|
+| `motivational` | Motivational Coach | Pushes harder, celebrates loudly, "you got this!" |
+| `friendly` | Friendly Buddy | Casual, conversational, humor, no pressure (default) |
+| `strict` | Strict Trainer | No-nonsense, direct, expects full effort, corrects form |
+| `zen` | Zen Guide | Calm, mindful, emphasizes breath and body awareness |
+
+This affects both voice (WebSocket) and text (REST companion) responses. The preference is injected into Kin's system prompt automatically.
+
+---
+
+## 16. Daily Check-in → Workout Influence
+
+```
+POST /api/daily-checkin
+{
+  "energy_level": "low",
+  "soreness": [
+    { "body_area": "legs", "severity": "moderate" },
+    { "body_area": "shoulders", "severity": "mild" }
+  ]
+}
+```
+
+**What it does:**
+1. Awards +10 XP (once per day)
+2. Stores energy + soreness data
+3. **Soreness influences next bundle generation** — sore muscle groups are deprioritized
+   - If user reports "legs" sore → next bundles favor upper body
+   - If user reports "shoulders" sore → next bundles favor lower body/core
+
+**Check if already submitted:**
+```
+GET /api/daily-checkin/today
+→ { submitted: true } or { submitted: false }
+```
+
+---
+
+## 17. WebSocket Events Reference
+
+Events the frontend receives on the WebSocket:
+
+| type | When | Key Fields |
+|------|------|------------|
+| `context_loaded` | On connect | `mode`, `session`, `bundle`, `user` |
+| `session_started` | Proxy auto-creates session | `session_id`, `bundle_id`, `exercises` |
+| `workout_state` | After any state change | `action`, `current_exercise_index`, `current_set_index`, `exercise_id` |
+| `onboarding_progress` | Field extracted | `field`, `value`, `progress`, `fieldsRemaining` |
+| `onboarding_complete` | All fields collected | `persona_tags`, `calculated_metrics` |
+| `onboarding_type_fallback` | Voice extraction failed | `field`, `message` (show text input) |
+| `bundles_generated` | After onboarding | `bundles` array |
+
+### workout_state actions:
+| action | Meaning |
+|--------|---------|
+| `set_complete` | One set finished, same exercise |
+| `exercise_complete` | All sets done, moved to next exercise |
+| `skipped` | Exercise skipped |
+| `pain` | Pain reported, exercise stopped |
+
+---
+
+## 18. Stale Bundles & Auto-Regeneration
+
+**Dashboard returns `bundles_stale: true`** when bundles are older than 24 hours.
+
+**Frontend should:**
+```
+if (dashboard.todays_workout.bundles_stale) {
+  // Auto-regenerate
+  await apiPost('/api/bundles/generate');
+  // Refresh dashboard
+}
+```
+
+**After every completed workout**, new bundles are auto-generated (no frontend action needed). The next `GET /api/dashboard` will show fresh bundles.
