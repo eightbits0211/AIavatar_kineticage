@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import KinAvatar from '../components/KinAvatar';
+import BadgesModal, { type BadgeItem } from '../components/BadgesModal';
+import LevelsModal from '../components/LevelsModal';
+import AvatarPickerModal from '../components/AvatarPickerModal';
 import { apiGet, apiPut } from '../services/api';
 import { signOutCurrentUser } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
@@ -211,6 +216,12 @@ export default function ProfileScreen() {
 
   const [workouts, setWorkouts] = useState(0);
   const [plan, setPlan] = useState<{ completed: number; planned: number; title: string } | null>(null);
+  const [allBadges, setAllBadges] = useState<BadgeItem[]>([]);
+  const [badgesOpen, setBadgesOpen] = useState(false);
+  const [xpInfo, setXpInfo] = useState<{ total: number; level: number; xp_into_level: number; xp_needed: number } | null>(null);
+  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   const [personalityOpen, setPersonalityOpen] = useState(true);
   const [talkIndex, setTalkIndex] = useState(3);
   const [voice, setVoice] = useState('energetic');
@@ -234,6 +245,8 @@ export default function ProfileScreen() {
         if (!active) return;
         if (p) setUser(p);
         if (h) setWorkouts(h.history?.length ?? 0);
+        if (Array.isArray(d?.badges)) setAllBadges(d.badges);
+        if (d?.xp) setXpInfo(d.xp);
         if (d?.weekly_progress) {
           setPlan({
             completed: d.weekly_progress.completed ?? 0,
@@ -266,11 +279,40 @@ export default function ProfileScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
+  // Profile avatar — stored on-device (the backend has no avatar field yet).
+  const avatarKey = `@kin/avatar/${user?._id ?? 'me'}`;
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(avatarKey)
+      .then((v) => {
+        if (active) setAvatarUrl(v);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [avatarKey]);
+
+  const chooseAvatar = useCallback(
+    async (url: string | null) => {
+      setAvatarUrl(url);
+      try {
+        if (url) await AsyncStorage.setItem(avatarKey, url);
+        else await AsyncStorage.removeItem(avatarKey);
+      } catch {
+        /* ignore */
+      }
+    },
+    [avatarKey]
+  );
+
   const name = user?.name && user.name !== 'Guest' ? user.name : 'Athlete';
   const email = user?.email || 'guest@kineticage.app';
   const level = user?.gamification?.level ?? 1;
   const streak = user?.gamification?.current_streak ?? 0;
-  const badges = user?.gamification?.badges?.length ?? 0;
+  const badges = allBadges.length
+    ? allBadges.filter((b) => b.earned).length
+    : user?.gamification?.badges?.length ?? 0;
   const bmi = user?.calculated_metrics?.bmi;
   const bmiCat = user?.calculated_metrics?.bmi_category;
   const goalLabel = user?.fitness_goal ? GOAL_LABELS[user.fitness_goal] : '—';
@@ -324,19 +366,22 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while content scrolls) ── */}
+      <LinearGradient
+        colors={['#2D6CA8', '#1E4E7E']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <View style={styles.headerTop}>
-            <View>
-              <KinAvatar size={84} />
+            <Pressable onPress={() => setAvatarOpen(true)} accessibilityRole="button" accessibilityLabel="Change avatar">
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} resizeMode="cover" />
+              ) : (
+                <KinAvatar size={84} />
+              )}
               <View style={styles.editBadge}>
                 <Icon name="pencil" size={13} />
               </View>
-            </View>
+            </Pressable>
             <View style={styles.headerInfo}>
               <Text style={styles.name}>{name}</Text>
               <Text style={styles.email}>{email}</Text>
@@ -349,11 +394,12 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <Stat value={workouts} label="Workouts" />
             <Stat value={streak} label="Streak" />
-            <Stat value={level} label="Level" />
-            <Stat value={badges} label="Badges" />
+            <Stat value={level} label="Level" onPress={() => setLevelsOpen(true)} />
+            <Stat value={badges} label="Badges" onPress={() => setBadgesOpen(true)} />
           </View>
         </LinearGradient>
 
+      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
         <View style={styles.body}>
           {/* ── Kin AI Personality (collapsible) ── */}
           <Pressable style={styles.collapseHead} onPress={() => setPersonalityOpen((v) => !v)}>
@@ -540,17 +586,43 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <AvatarPickerModal
+        visible={avatarOpen}
+        current={avatarUrl}
+        onSelect={chooseAvatar}
+        onClose={() => setAvatarOpen(false)}
+      />
+
+      <BadgesModal visible={badgesOpen} badges={allBadges} onClose={() => setBadgesOpen(false)} />
+
+      <LevelsModal
+        visible={levelsOpen}
+        level={xpInfo?.level ?? level}
+        totalXp={xpInfo?.total ?? user?.gamification?.total_xp ?? 0}
+        xpIntoLevel={xpInfo?.xp_into_level ?? 0}
+        xpNeeded={xpInfo?.xp_needed ?? (xpInfo?.level ?? level) * 200}
+        onClose={() => setLevelsOpen(false)}
+      />
     </View>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.stat}>
+function Stat({ value, label, onPress }: { value: number; label: string; onPress?: () => void }) {
+  const inner = (
+    <>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable style={styles.stat} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}, tap to view`}>
+        {inner}
+      </Pressable>
+    );
+  }
+  return <View style={styles.stat}>{inner}</View>;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -588,10 +660,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  avatarImg: { width: 84, height: 84, borderRadius: 42, backgroundColor: '#EAF2FB' },
   editBadge: {
     position: 'absolute',
     right: -2,
