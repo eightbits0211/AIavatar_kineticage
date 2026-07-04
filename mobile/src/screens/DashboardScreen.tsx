@@ -421,12 +421,11 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while content scrolls) ── */}
+      <LinearGradient
+        colors={['#2D6CA8', '#1E4E7E']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <Text style={styles.title}>Progress</Text>
           <Text style={styles.subtitle}>Track your transformation</Text>
 
@@ -437,6 +436,7 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
+      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
         <View style={styles.body}>
           {/* Range toggle */}
           <View style={styles.toggle}>
@@ -650,8 +650,6 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   title: { ...typography.h1, color: '#FFFFFF' },
   subtitle: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
