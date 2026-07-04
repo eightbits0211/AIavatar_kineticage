@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -333,6 +333,18 @@ export default function DashboardScreen() {
       load(range);
     }, [load, range])
   );
+
+  // Cold-start safety net: if the screen mounted/loaded before auth + user
+  // were hydrated (empty charts), reload once the user becomes available.
+  const reloadedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = user?._id ?? null;
+    if (uid && reloadedForUser.current !== uid) {
+      reloadedForUser.current = uid;
+      load(range);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   const switchRange = (r: Range) => {
     if (r !== range) {
@@ -721,18 +733,18 @@ const styles = StyleSheet.create({
   weightLogRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
   weightInput: {
     flex: 1,
+    height: 46,
     backgroundColor: '#F4F7FB',
     borderRadius: 12,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
     ...typography.body,
     color: NAVY,
   },
   weightLogBtn: {
+    height: 46,
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 64,
