@@ -1,9 +1,6 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, spacing, typography } from '../theme';
 
-const NAVY = '#16365A';
-const ORANGE = '#F5821F';
-
 export interface BadgeItem {
   badge_id: string;
   name: string;
@@ -105,13 +102,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  title: { ...typography.h2, color: NAVY, fontFamily: 'Inter_700Bold' },
+  title: { ...typography.h2, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E5EAF1',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -125,28 +122,28 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: '47.5%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EAF2FB',
+    borderColor: '#2C2C2E',
   },
-  cellLocked: { backgroundColor: '#F4F7FB', borderColor: '#E2E8F0' },
+  cellLocked: { backgroundColor: '#2C2C2E', borderColor: '#2C2C2E' },
   emojiWrap: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FFF6EE',
+    backgroundColor: 'rgba(246,208,0,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
-  emojiWrapLocked: { backgroundColor: '#E8EDF3' },
+  emojiWrapLocked: { backgroundColor: '#2C2C2E' },
   emoji: { fontSize: 28 },
   emojiLocked: { fontSize: 24, opacity: 0.7 },
-  name: { ...typography.bodyBold, color: NAVY, textAlign: 'center' },
+  name: { ...typography.bodyBold, color: '#FFFFFF', textAlign: 'center' },
   desc: { ...typography.small, color: colors.textSecondary, textAlign: 'center', marginTop: 4, lineHeight: 16 },
   textMuted: { color: colors.textLight },
   statusPill: {
@@ -155,9 +152,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     marginTop: spacing.sm,
   },
-  statusEarned: { backgroundColor: '#FCEBDD' },
-  statusLocked: { backgroundColor: '#E8EDF3' },
-  statusText: { ...typography.small, fontSize: 11, fontFamily: 'Inter_700Bold', letterSpacing: 0.3 },
-  statusTextEarned: { color: ORANGE },
+  statusEarned: { backgroundColor: 'rgba(246,208,0,0.14)' },
+  statusLocked: { backgroundColor: '#2C2C2E' },
+  statusText: { ...typography.small, fontSize: 11, fontFamily: 'Inter_700Bold', letterSpacing: 0.3, textTransform: 'uppercase' },
+  statusTextEarned: { color: 'rgb(246, 208, 0)' },
   statusTextLocked: { color: colors.textSecondary },
 });

@@ -1,6 +1,23 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import type { ExerciseBundle } from '../../../shared/types';
 import { colors, spacing, typography } from '../theme';
+
+/** Filled play triangle with rounded corners. */
+function PlayIcon({ size = 24, color = '#000000' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8 5.5 L18.5 12 L8 18.5 Z"
+        fill={color}
+        stroke={color}
+        strokeWidth={3}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
 
 interface BundleCardProps {
   bundle: ExerciseBundle;
@@ -59,7 +76,7 @@ export default function BundleCard({ bundle, onPress, onStart }: BundleCardProps
             onPress={onStart}
             style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
           >
-            <Text style={styles.startText}>▶  Start</Text>
+            <PlayIcon size={24} color="#000000" />
           </Pressable>
         </View>
       )}
@@ -74,7 +91,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
+    borderColor: 'rgba(255,255,255,0.08)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -123,7 +140,7 @@ const styles = StyleSheet.create({
   },
   focusChip: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EAF2FB',
+    backgroundColor: 'rgba(74,144,194,0.18)',
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
@@ -146,13 +163,11 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   startBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-  },
-  startText: {
-    ...typography.bodyBold,
-    color: '#FFFFFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgb(166, 250, 4)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

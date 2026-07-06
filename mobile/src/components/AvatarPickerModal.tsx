@@ -2,7 +2,6 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'rea
 import KinAvatar from './KinAvatar';
 import { colors, spacing, typography } from '../theme';
 
-const NAVY = '#16365A';
 const ORANGE = '#F5821F';
 
 /**
@@ -139,13 +138,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  title: { ...typography.h2, color: NAVY, fontFamily: 'Inter_700Bold' },
+  title: { ...typography.h2, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   subtitle: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E5EAF1',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -163,11 +162,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  cellSel: { borderColor: ORANGE, backgroundColor: '#FFF6EE' },
+  cellSel: { borderColor: ORANGE, backgroundColor: 'rgba(245,130,31,0.15)' },
   avatarWrap: { alignItems: 'center', justifyContent: 'center' },
   avatarImg: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#EAF2FB' },
   cellLabel: { ...typography.small, color: colors.textSecondary, marginTop: 4 },
