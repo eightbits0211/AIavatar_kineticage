@@ -26,6 +26,7 @@ import { colors, spacing, typography } from '../theme';
 
 const NAVY = '#16365A';
 const ORANGE = '#F5821F';
+const PURPLE = 'rgb(167, 141, 222)'; // selected-option accent (Profile tab)
 
 /* ───────────────── Icons ───────────────── */
 type Glyph =
@@ -370,7 +371,7 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* ── Fixed header (stays put while content scrolls) ── */}
       <LinearGradient
-        colors={['#2D6CA8', '#1E4E7E']}
+        colors={['#000000', '#000000']}
         style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
       >
           <View style={styles.headerTop}>
@@ -394,10 +395,10 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <Stat value={workouts} label="Workouts" />
-            <Stat value={streak} label="Streak" />
-            <Stat value={level} label="Level" onPress={() => setLevelsOpen(true)} />
-            <Stat value={badges} label="Badges" onPress={() => setBadgesOpen(true)} />
+            <Stat value={workouts} label="Workouts" valueColor="rgb(255, 0, 73)" />
+            <Stat value={streak} label="Streak" valueColor={ORANGE} />
+            <Stat value={level} label="Level" onPress={() => setLevelsOpen(true)} valueColor="rgb(246, 208, 0)" />
+            <Stat value={badges} label="Badges" onPress={() => setBadgesOpen(true)} valueColor={colors.primary} />
           </View>
         </LinearGradient>
 
@@ -423,7 +424,7 @@ export default function ProfileScreen() {
                 <Text style={styles.cardSub}>How much Kin communicates during workouts</Text>
                 <View style={styles.talkBarWrap}>
                   <LinearGradient
-                    colors={['#5BB7E8', ORANGE]}
+                    colors={['#C9B8F0', PURPLE]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.talkBar, { width: `${(talkIndex / 4) * 100}%` }]}
@@ -455,7 +456,7 @@ export default function ProfileScreen() {
                     return (
                       <Pressable key={v.key} style={[styles.voiceCard, sel && styles.voiceCardSel]} onPress={() => setVoice(v.key)}>
                         <View style={[styles.voiceIcon, sel && styles.voiceIconSel]}>
-                          <Icon name={v.icon} size={18} color={sel ? ORANGE : colors.primary} />
+                          <Icon name={v.icon} size={18} color={sel ? PURPLE : colors.primary} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.voiceLabel}>{v.label}</Text>
@@ -499,7 +500,7 @@ export default function ProfileScreen() {
             return (
               <Pressable key={p.key} style={[styles.persona, sel && styles.personaSel]} onPress={() => setPersona(p.key)}>
                 <View style={[styles.personaIcon, sel && styles.personaIconSel]}>
-                  <Icon name={p.icon} size={18} color={sel ? '#FFFFFF' : ORANGE} />
+                  <Icon name={p.icon} size={18} color={sel ? PURPLE : ORANGE} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.personaLabel, sel && styles.personaLabelSel]}>{p.label}</Text>
@@ -525,9 +526,9 @@ export default function ProfileScreen() {
 
           {/* Save */}
           <Pressable onPress={handleSave} disabled={saving} style={styles.saveWrap}>
-            <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.saveBtn}>
-              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Save AI Settings</Text>}
-            </LinearGradient>
+            <View style={styles.saveBtn}>
+              {saving ? <ActivityIndicator color={ORANGE} /> : <Text style={styles.saveText}>Save AI Settings</Text>}
+            </View>
           </Pressable>
 
           {/* Fitness profile */}
@@ -609,10 +610,10 @@ export default function ProfileScreen() {
   );
 }
 
-function Stat({ value, label, onPress }: { value: number; label: string; onPress?: () => void }) {
+function Stat({ value, label, onPress, valueColor }: { value: number; label: string; onPress?: () => void; valueColor?: string }) {
   const inner = (
     <>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </>
   );
@@ -656,7 +657,7 @@ function Divider() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: spacing.xl },
+  scroll: { paddingBottom: 124 },
 
   header: {
     paddingHorizontal: spacing.lg,
@@ -693,15 +694,15 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xl },
   stat: { alignItems: 'center', flex: 1 },
   statValue: { ...typography.h2, color: '#FFFFFF' },
-  statLabel: { ...typography.small, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  statLabel: { ...typography.caption, fontSize: 13, color: '#FFFFFF', marginTop: 2 },
 
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 
   collapseHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
-  collapseTitle: { ...typography.bodyBold, color: NAVY, flex: 1, letterSpacing: 0.5, fontFamily: 'Inter_700Bold' },
+  collapseTitle: { ...typography.bodyBold, color: '#FFFFFF', flex: 1, letterSpacing: 0.5, fontFamily: 'Inter_700Bold' },
 
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -712,24 +713,22 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardTitle: { ...typography.h3, fontSize: 17, color: NAVY, fontFamily: 'Inter_700Bold' },
+  cardTitle: { ...typography.h3, fontSize: 17, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   cardSub: { ...typography.caption, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.md },
 
   talkBarWrap: { height: 8, justifyContent: 'center', marginTop: spacing.xs },
-  talkBarTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#E2E8F0', zIndex: -1 },
+  talkBarTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#2C2C2E', zIndex: -1 },
   talkBar: { height: 8, borderRadius: 4 },
   talkLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
   talkLabelBtn: { flex: 1, alignItems: 'center' },
   talkLabel: { ...typography.small, fontSize: 11, color: colors.textLight },
-  talkLabelActive: { color: ORANGE, fontFamily: 'Inter_700Bold' },
+  talkLabelActive: { color: PURPLE, fontFamily: 'Inter_700Bold' },
   talkDescPill: {
-    backgroundColor: '#FCEBDD',
-    borderRadius: 12,
     paddingVertical: spacing.sm,
     marginTop: spacing.md,
     alignItems: 'center',
   },
-  talkDescText: { ...typography.caption, color: ORANGE, fontFamily: 'Inter_600SemiBold' },
+  talkDescText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
 
   voiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   voiceCard: {
@@ -737,58 +736,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 14,
     padding: spacing.sm,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  voiceCardSel: { borderColor: ORANGE, backgroundColor: '#FFF6EE' },
+  voiceCardSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   voiceIcon: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: '#E8F0F8',
+    width: 34, height: 34, borderRadius: 17, backgroundColor: 'transparent',
     alignItems: 'center', justifyContent: 'center',
   },
-  voiceIconSel: { backgroundColor: '#FCEBDD' },
-  voiceLabel: { ...typography.bodyBold, fontSize: 14, color: NAVY },
+  voiceIconSel: { backgroundColor: 'rgba(167,141,222,0.25)' },
+  voiceLabel: { ...typography.bodyBold, fontSize: 14, color: '#FFFFFF' },
   voiceSub: { ...typography.small, fontSize: 11, color: colors.textSecondary },
   segmentRow: { flexDirection: 'row', gap: 8, marginTop: spacing.xs },
   segment: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F1F4F8',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  segmentSel: { backgroundColor: colors.primary },
+  segmentSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   segmentText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  segmentTextSel: { color: '#FFFFFF' },
+  segmentTextSel: { color: PURPLE },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.sm },
-  sectionTitle: { ...typography.h3, fontSize: 18, color: NAVY, fontFamily: 'Inter_700Bold' },
+  sectionTitle: { ...typography.h3, fontSize: 18, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   sectionSub: { ...typography.caption, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md },
 
   persona: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  personaSel: { backgroundColor: NAVY },
+  personaSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   personaIcon: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF6EE',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#2C2C2E',
     alignItems: 'center', justifyContent: 'center',
   },
-  personaIconSel: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  personaLabel: { ...typography.bodyBold, color: NAVY },
+  personaIconSel: { backgroundColor: 'rgba(167,141,222,0.25)' },
+  personaLabel: { ...typography.bodyBold, color: '#FFFFFF' },
   personaLabelSel: { color: '#FFFFFF' },
   personaSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  personaSubSel: { color: 'rgba(255,255,255,0.7)' },
+  personaSubSel: { color: colors.textSecondary },
   personaCheck: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -796,43 +799,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#EAF3FB',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
   previewLabel: { ...typography.small, color: colors.primary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
-  previewQuote: { ...typography.body, fontSize: 15, color: NAVY, marginTop: 4, fontStyle: 'italic' },
+  previewQuote: { ...typography.body, fontSize: 15, color: '#FFFFFF', marginTop: 4, fontStyle: 'italic' },
 
-  saveWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: spacing.lg },
-  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  saveText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 17 },
+  saveWrap: { borderRadius: 20, overflow: 'hidden', marginBottom: spacing.lg, alignSelf: 'center' },
+  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl, backgroundColor: '#2C2C2E' },
+  saveText: { ...typography.bodyBold, color: ORANGE, fontSize: 17 },
 
   overline: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_700Bold', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.xs },
 
   fitnessGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   field: { width: '50%', paddingVertical: spacing.sm },
   fieldLabel: { ...typography.small, color: colors.textSecondary },
-  fieldValue: { ...typography.bodyBold, color: NAVY, marginTop: 2 },
+  fieldValue: { ...typography.bodyBold, color: '#FFFFFF', marginTop: 2 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   rowIcon: {
     width: 38, height: 38, borderRadius: 12, backgroundColor: '#EAF2FB',
     alignItems: 'center', justifyContent: 'center',
   },
-  rowTitle: { ...typography.bodyBold, color: NAVY },
+  rowTitle: { ...typography.bodyBold, color: '#FFFFFF' },
   rowSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  rowDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E2E8F0', marginLeft: 50 },
+  rowDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#2C2C2E', marginLeft: 50 },
 
   planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
   planIcon: {
     width: 40, height: 40, borderRadius: 12, backgroundColor: '#EAF2FB',
     alignItems: 'center', justifyContent: 'center',
   },
-  planTitle: { ...typography.bodyBold, color: NAVY },
+  planTitle: { ...typography.bodyBold, color: '#FFFFFF' },
   planSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  planBarTrack: { height: 8, borderRadius: 4, backgroundColor: '#E2E8F0', overflow: 'hidden' },
+  planBarTrack: { height: 8, borderRadius: 4, backgroundColor: '#2C2C2E', overflow: 'hidden' },
   planBarFill: { height: '100%', borderRadius: 4 },
   planPct: { ...typography.small, color: colors.textSecondary, marginTop: spacing.sm },
 
@@ -841,7 +844,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: '#FCE9E9',
+    backgroundColor: 'rgba(239,68,68,0.15)',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.error,
