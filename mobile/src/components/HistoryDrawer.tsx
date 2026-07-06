@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Easing,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import KinAvatar from './KinAvatar';
+import TabBarIcon from './TabBarIcon';
 import GoalIcon from './GoalIcon';
 import ActivityIcon from './ActivityIcon';
 import { colors, spacing, typography } from '../theme';
@@ -42,12 +43,12 @@ const PANEL_WIDTH = Math.min(320, Dimensions.get('window').width * 0.82);
 function iconFor(title: string, focus: string) {
   const s = `${title} ${focus}`.toLowerCase();
   if (/(hiit|fat|cardio|burn|power)/.test(s)) {
-    return { node: <ActivityIcon name="bolt" size={18} color="#E8772E" />, tint: '#FDF0E6' };
+    return { node: <ActivityIcon name="bolt" size={18} color="#E8772E" />, tint: 'rgba(232,119,46,0.18)' };
   }
   if (/(mobility|flow|stretch|yoga)/.test(s)) {
-    return { node: <ActivityIcon name="leaf" size={18} color="#34A853" />, tint: '#E8F6EE' };
+    return { node: <ActivityIcon name="leaf" size={18} color="#34A853" />, tint: 'rgba(52,168,83,0.18)' };
   }
-  return { node: <GoalIcon goal="strength" size={18} color="#4A90C2" />, tint: '#EAF2FB' };
+  return { node: <GoalIcon goal="strength" size={18} color="#4A90C2" />, tint: 'rgba(74,144,194,0.18)' };
 }
 
 // Bucket sessions by recency for the section headers.
@@ -83,17 +84,46 @@ export default function HistoryDrawer({
   onNewSession,
 }: HistoryDrawerProps) {
   const insets = useSafeAreaInsets();
+  const [mounted, setMounted] = useState(visible);
   const slide = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
+  // Keep the drawer mounted through the close animation so both the open
+  // (slide-in) and close (slide-out) transitions actually play. Native driver
+  // keeps them off the JS thread so the list rendering can't cause jank.
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(slide, { toValue: visible ? 0 : -PANEL_WIDTH, duration: 220, useNativeDriver: true }),
-      Animated.timing(fade, { toValue: visible ? 1 : 0, duration: 220, useNativeDriver: true }),
-    ]).start();
+    let raf1 = 0;
+    let raf2 = 0;
+    if (visible) {
+      setMounted(true);
+      // Reset to the off-screen start, then begin the slide-in a couple of
+      // frames later — after React has committed the freshly-mounted subtree.
+      // Starting on the same frame as the mount is what made opening feel janky.
+      slide.setValue(-PANEL_WIDTH);
+      fade.setValue(0);
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          Animated.parallel([
+            Animated.timing(slide, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]).start();
+        });
+      });
+    } else {
+      Animated.parallel([
+        Animated.timing(slide, { toValue: -PANEL_WIDTH, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
+    }
+    return () => {
+      if (raf1) cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
   }, [visible, slide, fade]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   const groups = groupByRecency(history);
   const initial = (userName || 'You').charAt(0).toUpperCase();
@@ -104,10 +134,12 @@ export default function HistoryDrawer({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
 
-      <Animated.View style={[styles.panel, { width: PANEL_WIDTH, transform: [{ translateX: slide }], paddingTop: insets.top + spacing.md }]}>
+      <Animated.View style={[styles.panel, { width: PANEL_WIDTH, transform: [{ translateX: slide }], paddingTop: Math.max(insets.top, 24) + spacing.md }]}>
         {/* Header */}
         <View style={styles.header}>
-          <KinAvatar size={44} />
+          <View style={styles.kinLogo}>
+            <TabBarIcon name="coach" color="rgb(166, 250, 4)" size={26} />
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.brand}>Kinetic Age</Text>
             <Text style={styles.brandSub}>AI Coach</Text>
@@ -152,7 +184,7 @@ export default function HistoryDrawer({
         </ScrollView>
 
         {/* Footer */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) + 74 }]}>
           <View style={styles.footerAvatar}><Text style={styles.footerInitial}>{initial}</Text></View>
           <View>
             <Text style={styles.footerName}>{userName || 'You'}</Text>
@@ -171,10 +203,18 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: '#16304D',
+    backgroundColor: '#0E0E10',
+    borderRightWidth: 1,
+    borderRightColor: '#1F1F22',
     paddingHorizontal: spacing.lg,
   },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  kinLogo: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   headerText: { flex: 1, marginLeft: spacing.md },
   brand: { ...typography.h3, color: '#FFFFFF' },
   brandSub: { ...typography.caption, color: 'rgba(255,255,255,0.6)' },
@@ -185,17 +225,18 @@ const styles = StyleSheet.create({
   },
   closeText: { color: '#FFFFFF', fontSize: 14 },
   newSession: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(245,130,31,0.18)',
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(245,130,31,0.16)',
     borderWidth: 1, borderColor: 'rgba(245,130,31,0.5)',
-    borderRadius: 14, padding: spacing.md, marginBottom: spacing.lg,
+    borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: 8, marginBottom: spacing.lg,
   },
   newPlus: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: '#F5821F',
-    alignItems: 'center', justifyContent: 'center', marginRight: spacing.md,
+    width: 20, height: 20, borderRadius: 10, backgroundColor: '#F5821F',
+    alignItems: 'center', justifyContent: 'center',
   },
-  newPlusText: { color: '#FFFFFF', fontSize: 18, lineHeight: 20, fontFamily: 'Inter_700Bold' },
-  newSessionText: { ...typography.bodyBold, color: '#FFFFFF' },
+  newPlusText: { color: '#000000', fontSize: 14, lineHeight: 16, fontFamily: 'Inter_700Bold' },
+  newSessionText: { ...typography.caption, color: '#F5821F', fontFamily: 'Inter_600SemiBold' },
   list: { flex: 1 },
   sectionLabel: {
     ...typography.small, color: 'rgba(255,255,255,0.45)',
@@ -209,7 +250,7 @@ const styles = StyleSheet.create({
   },
   rowTitle: { ...typography.bodyBold, fontSize: 15, color: '#FFFFFF' },
   rowMeta: { ...typography.small, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
-  rowXp: { ...typography.small, color: '#FFD54A', fontFamily: 'Inter_700Bold' },
+  rowXp: { ...typography.small, color: 'rgb(246, 208, 0)', fontFamily: 'Inter_700Bold' },
   empty: { ...typography.body, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginTop: spacing.xl },
   footer: {
     flexDirection: 'row', alignItems: 'center',
