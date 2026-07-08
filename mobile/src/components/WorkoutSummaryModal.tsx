@@ -2,7 +2,6 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../theme';
 
-const NAVY = '#16365A';
 const ORANGE = '#F5821F';
 
 export interface WorkoutSummary {
@@ -46,7 +45,7 @@ export default function WorkoutSummaryModal({ visible, summary, onClose }: Props
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <LinearGradient colors={['#2D6CA8', '#1E4E7E']} style={styles.header}>
+          <LinearGradient colors={['#242426', '#161618']} style={styles.header}>
             <Text style={styles.headerEmoji}>🎉</Text>
             <Text style={styles.headerTitle}>Workout Complete</Text>
             <Text style={styles.headerSub}>
@@ -57,9 +56,9 @@ export default function WorkoutSummaryModal({ visible, summary, onClose }: Props
           <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
             {/* Headline stats */}
             <View style={styles.statRow}>
-              <Stat label="XP earned" value={`+${summary.xp_awarded ?? 0}`} accent={ORANGE} />
-              <Stat label="Calories" value={`${summary.calories_burned ?? 0}`} accent={colors.primary} />
-              <Stat label="Level" value={`${summary.level ?? 1}`} accent={NAVY} />
+              <Stat label="XP earned" value={`+${summary.xp_awarded ?? 0}`} accent="rgb(166, 250, 4)" />
+              <Stat label="Calories" value={`${summary.calories_burned ?? 0}`} accent="rgb(255, 0, 73)" />
+              <Stat label="Level" value={`${summary.level ?? 1}`} accent="rgb(246, 208, 0)" />
             </View>
 
             {/* Streak */}
@@ -112,9 +111,9 @@ export default function WorkoutSummaryModal({ visible, summary, onClose }: Props
           </ScrollView>
 
           <Pressable onPress={onClose} style={styles.doneWrap} accessibilityRole="button" accessibilityLabel="Close summary">
-            <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.doneBtn}>
+            <View style={styles.doneBtn}>
               <Text style={styles.doneText}>Done</Text>
-            </LinearGradient>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -142,7 +141,7 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xs },
   stat: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     paddingVertical: spacing.md,
     alignItems: 'center',
@@ -150,18 +149,18 @@ const styles = StyleSheet.create({
   statValue: { ...typography.h2 },
   statLabel: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: spacing.md,
     marginTop: spacing.md,
   },
   cardLabel: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5, marginBottom: spacing.sm },
-  cardValue: { ...typography.h3, color: NAVY, fontFamily: 'Inter_700Bold' },
+  cardValue: { ...typography.h3, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   lineRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  lineText: { ...typography.caption, color: NAVY, flex: 1 },
+  lineText: { ...typography.caption, color: '#FFFFFF', flex: 1 },
   lineAmount: { ...typography.bodyBold, color: ORANGE },
-  badgeText: { ...typography.caption, color: NAVY, paddingVertical: 3 },
+  badgeText: { ...typography.caption, color: '#FFFFFF', paddingVertical: 3 },
   doneWrap: { margin: spacing.lg, borderRadius: 16, overflow: 'hidden' },
-  doneBtn: { height: 52, alignItems: 'center', justifyContent: 'center' },
-  doneText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 16 },
+  doneBtn: { height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgb(166, 250, 4)' },
+  doneText: { ...typography.bodyBold, color: '#000000', fontSize: 16 },
 });

@@ -3,16 +3,16 @@ export const colors = {
   primaryLight: '#6BA3D0',
   primaryDark: '#3A7CA8',
   secondary: '#F5A623',      // Orange for avatar
-  background: '#E8F0F8',     // Light blue-gray background from design
-  surface: '#FFFFFF',        // White chat bubbles
-  text: '#2C3E50',          // Dark text
-  textSecondary: '#7F8C8D',  // Gray text
-  textLight: '#BDC3C7',     // Light gray placeholder
+  background: '#000000',     // Black background (dark trial — was #E8F0F8)
+  surface: '#1C1C1E',        // Dark grey cards/surfaces (dark trial — was #FFFFFF)
+  text: '#FFFFFF',          // White text (dark theme)
+  textSecondary: '#AEAEB2',  // Light gray secondary label
+  textLight: '#8E8E93',     // Mid gray placeholder
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
-  border: '#E5E7EB',
-  companionBubble: '#FFFFFF', // White for Kin messages
+  border: '#2C2C2E',        // Dark divider/border
+  companionBubble: '#242426', // Grey for Kin messages (slightly darker)
   userBubble: '#4A90C2',      // Blue for user messages
   shadow: 'rgba(0, 0, 0, 0.1)', // Subtle shadows
   progressBar: 'rgba(255, 255, 255, 0.3)', // Progress bar background

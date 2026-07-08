@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import KinAvatar from '../components/KinAvatar';
+import BadgesModal, { type BadgeItem } from '../components/BadgesModal';
+import LevelsModal from '../components/LevelsModal';
+import AvatarPickerModal from '../components/AvatarPickerModal';
+import EditProfileModal from '../components/EditProfileModal';
 import { apiGet, apiPut } from '../services/api';
 import { signOutCurrentUser } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
@@ -20,6 +26,7 @@ import { colors, spacing, typography } from '../theme';
 
 const NAVY = '#16365A';
 const ORANGE = '#F5821F';
+const PURPLE = 'rgb(167, 141, 222)'; // selected-option accent (Profile tab)
 
 /* ───────────────── Icons ───────────────── */
 type Glyph =
@@ -204,6 +211,10 @@ const ACTIVITY_TO_LEVEL: Record<string, string> = {
 
 const titleize = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
+// Current Plan section is intentionally hidden from the Profile tab.
+// Flip to true to show it again (the code + data wiring stay intact).
+const SHOW_CURRENT_PLAN = false;
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((st) => st.user);
@@ -211,6 +222,13 @@ export default function ProfileScreen() {
 
   const [workouts, setWorkouts] = useState(0);
   const [plan, setPlan] = useState<{ completed: number; planned: number; title: string } | null>(null);
+  const [allBadges, setAllBadges] = useState<BadgeItem[]>([]);
+  const [badgesOpen, setBadgesOpen] = useState(false);
+  const [xpInfo, setXpInfo] = useState<{ total: number; level: number; xp_into_level: number; xp_needed: number } | null>(null);
+  const [levelsOpen, setLevelsOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [personalityOpen, setPersonalityOpen] = useState(true);
   const [talkIndex, setTalkIndex] = useState(3);
   const [voice, setVoice] = useState('energetic');
@@ -234,6 +252,8 @@ export default function ProfileScreen() {
         if (!active) return;
         if (p) setUser(p);
         if (h) setWorkouts(h.history?.length ?? 0);
+        if (Array.isArray(d?.badges)) setAllBadges(d.badges);
+        if (d?.xp) setXpInfo(d.xp);
         if (d?.weekly_progress) {
           setPlan({
             completed: d.weekly_progress.completed ?? 0,
@@ -266,11 +286,40 @@ export default function ProfileScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?._id]);
 
+  // Profile avatar — stored on-device (the backend has no avatar field yet).
+  const avatarKey = `@kin/avatar/${user?._id ?? 'me'}`;
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(avatarKey)
+      .then((v) => {
+        if (active) setAvatarUrl(v);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [avatarKey]);
+
+  const chooseAvatar = useCallback(
+    async (url: string | null) => {
+      setAvatarUrl(url);
+      try {
+        if (url) await AsyncStorage.setItem(avatarKey, url);
+        else await AsyncStorage.removeItem(avatarKey);
+      } catch {
+        /* ignore */
+      }
+    },
+    [avatarKey]
+  );
+
   const name = user?.name && user.name !== 'Guest' ? user.name : 'Athlete';
   const email = user?.email || 'guest@kineticage.app';
   const level = user?.gamification?.level ?? 1;
   const streak = user?.gamification?.current_streak ?? 0;
-  const badges = user?.gamification?.badges?.length ?? 0;
+  const badges = allBadges.length
+    ? allBadges.filter((b) => b.earned).length
+    : user?.gamification?.badges?.length ?? 0;
   const bmi = user?.calculated_metrics?.bmi;
   const bmiCat = user?.calculated_metrics?.bmi_category;
   const goalLabel = user?.fitness_goal ? GOAL_LABELS[user.fitness_goal] : '—';
@@ -282,10 +331,6 @@ export default function ProfileScreen() {
       ? ACTIVITY_TO_LEVEL[user.activity_level]
       : '—';
   const planPct = plan && plan.planned > 0 ? Math.min(100, Math.round((plan.completed / plan.planned) * 100)) : 0;
-  const equipmentLabel =
-    user?.equipment?.length
-      ? user.equipment.map((e) => (e === 'none' ? 'No equipment' : titleize(e))).join(', ')
-      : 'No equipment';
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -324,19 +369,22 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while content scrolls) ── */}
+      <LinearGradient
+        colors={['#000000', '#000000']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <View style={styles.headerTop}>
-            <View>
-              <KinAvatar size={84} />
+            <Pressable onPress={() => setAvatarOpen(true)} accessibilityRole="button" accessibilityLabel="Change avatar">
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} resizeMode="cover" />
+              ) : (
+                <KinAvatar size={84} />
+              )}
               <View style={styles.editBadge}>
                 <Icon name="pencil" size={13} />
               </View>
-            </View>
+            </Pressable>
             <View style={styles.headerInfo}>
               <Text style={styles.name}>{name}</Text>
               <Text style={styles.email}>{email}</Text>
@@ -347,13 +395,14 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <Stat value={workouts} label="Workouts" />
-            <Stat value={streak} label="Streak" />
-            <Stat value={level} label="Level" />
-            <Stat value={badges} label="Badges" />
+            <Stat value={workouts} label="Workouts" valueColor="rgb(255, 0, 73)" />
+            <Stat value={streak} label="Streak" valueColor={ORANGE} />
+            <Stat value={level} label="Level" onPress={() => setLevelsOpen(true)} valueColor="rgb(246, 208, 0)" />
+            <Stat value={badges} label="Badges" onPress={() => setBadgesOpen(true)} valueColor={colors.primary} />
           </View>
         </LinearGradient>
 
+      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
         <View style={styles.body}>
           {/* ── Kin AI Personality (collapsible) ── */}
           <Pressable style={styles.collapseHead} onPress={() => setPersonalityOpen((v) => !v)}>
@@ -375,7 +424,7 @@ export default function ProfileScreen() {
                 <Text style={styles.cardSub}>How much Kin communicates during workouts</Text>
                 <View style={styles.talkBarWrap}>
                   <LinearGradient
-                    colors={['#5BB7E8', ORANGE]}
+                    colors={['#C9B8F0', PURPLE]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={[styles.talkBar, { width: `${(talkIndex / 4) * 100}%` }]}
@@ -407,7 +456,7 @@ export default function ProfileScreen() {
                     return (
                       <Pressable key={v.key} style={[styles.voiceCard, sel && styles.voiceCardSel]} onPress={() => setVoice(v.key)}>
                         <View style={[styles.voiceIcon, sel && styles.voiceIconSel]}>
-                          <Icon name={v.icon} size={18} color={sel ? ORANGE : colors.primary} />
+                          <Icon name={v.icon} size={18} color={sel ? PURPLE : colors.primary} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.voiceLabel}>{v.label}</Text>
@@ -451,7 +500,7 @@ export default function ProfileScreen() {
             return (
               <Pressable key={p.key} style={[styles.persona, sel && styles.personaSel]} onPress={() => setPersona(p.key)}>
                 <View style={[styles.personaIcon, sel && styles.personaIconSel]}>
-                  <Icon name={p.icon} size={18} color={sel ? '#FFFFFF' : ORANGE} />
+                  <Icon name={p.icon} size={18} color={sel ? PURPLE : ORANGE} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.personaLabel, sel && styles.personaLabelSel]}>{p.label}</Text>
@@ -477,9 +526,9 @@ export default function ProfileScreen() {
 
           {/* Save */}
           <Pressable onPress={handleSave} disabled={saving} style={styles.saveWrap}>
-            <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.saveBtn}>
-              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Save AI Settings</Text>}
-            </LinearGradient>
+            <View style={styles.saveBtn}>
+              {saving ? <ActivityIndicator color={ORANGE} /> : <Text style={styles.saveText}>Save AI Settings</Text>}
+            </View>
           </Pressable>
 
           {/* Fitness profile */}
@@ -498,15 +547,12 @@ export default function ProfileScreen() {
           {/* Personal */}
           <Text style={styles.overline}>PERSONAL</Text>
           <View style={styles.card}>
-            <Row icon="person" title="Edit Profile" sub="Name, age, height, weight" />
-            <Divider />
-            <Row icon="target" title="Fitness Goals" sub={`${goalLabel} · ${fitnessLevel}`} />
-            <Divider />
-            <Row icon="dumbbell" title="Equipment" sub={equipmentLabel} last />
+            <Row icon="person" title="Edit Profile" sub="Name, age, height, gender" last onPress={() => setEditOpen(true)} />
           </View>
 
-          {/* Current plan — real weekly progress from the dashboard */}
-          {plan && (
+          {/* Current plan — real weekly progress from the dashboard.
+              Hidden from the Profile tab (kept in code, not displayed). */}
+          {plan && SHOW_CURRENT_PLAN && (
             <>
               <Text style={styles.overline}>CURRENT PLAN</Text>
               <View style={styles.card}>
@@ -540,17 +586,45 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <AvatarPickerModal
+        visible={avatarOpen}
+        current={avatarUrl}
+        onSelect={chooseAvatar}
+        onClose={() => setAvatarOpen(false)}
+      />
+
+      <EditProfileModal visible={editOpen} onClose={() => setEditOpen(false)} />
+
+      <BadgesModal visible={badgesOpen} badges={allBadges} onClose={() => setBadgesOpen(false)} />
+
+      <LevelsModal
+        visible={levelsOpen}
+        level={xpInfo?.level ?? level}
+        totalXp={xpInfo?.total ?? user?.gamification?.total_xp ?? 0}
+        xpIntoLevel={xpInfo?.xp_into_level ?? 0}
+        xpNeeded={xpInfo?.xp_needed ?? (xpInfo?.level ?? level) * 200}
+        onClose={() => setLevelsOpen(false)}
+      />
     </View>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
+function Stat({ value, label, onPress, valueColor }: { value: number; label: string; onPress?: () => void; valueColor?: string }) {
+  const inner = (
+    <>
+      <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </>
   );
+  if (onPress) {
+    return (
+      <Pressable style={styles.stat} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}, tap to view`}>
+        {inner}
+      </Pressable>
+    );
+  }
+  return <View style={styles.stat}>{inner}</View>;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -562,9 +636,9 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Row({ icon, title, sub, last }: { icon: Glyph; title: string; sub: string; last?: boolean }) {
+function Row({ icon, title, sub, last, onPress }: { icon: Glyph; title: string; sub: string; last?: boolean; onPress?: () => void }) {
   return (
-    <Pressable style={styles.row}>
+    <Pressable style={styles.row} onPress={onPress}>
       <View style={styles.rowIcon}>
         <Icon name={icon} size={18} />
       </View>
@@ -583,15 +657,14 @@ function Divider() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: spacing.xl },
+  scroll: { paddingBottom: 124 },
 
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  avatarImg: { width: 84, height: 84, borderRadius: 42, backgroundColor: '#EAF2FB' },
   editBadge: {
     position: 'absolute',
     right: -2,
@@ -621,15 +694,15 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xl },
   stat: { alignItems: 'center', flex: 1 },
   statValue: { ...typography.h2, color: '#FFFFFF' },
-  statLabel: { ...typography.small, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  statLabel: { ...typography.caption, fontSize: 13, color: '#FFFFFF', marginTop: 2 },
 
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
 
   collapseHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
-  collapseTitle: { ...typography.bodyBold, color: NAVY, flex: 1, letterSpacing: 0.5, fontFamily: 'Inter_700Bold' },
+  collapseTitle: { ...typography.bodyBold, color: '#FFFFFF', flex: 1, letterSpacing: 0.5, fontFamily: 'Inter_700Bold' },
 
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -640,24 +713,22 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cardTitle: { ...typography.h3, fontSize: 17, color: NAVY, fontFamily: 'Inter_700Bold' },
+  cardTitle: { ...typography.h3, fontSize: 17, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   cardSub: { ...typography.caption, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.md },
 
   talkBarWrap: { height: 8, justifyContent: 'center', marginTop: spacing.xs },
-  talkBarTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#E2E8F0', zIndex: -1 },
+  talkBarTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#2C2C2E', zIndex: -1 },
   talkBar: { height: 8, borderRadius: 4 },
   talkLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
   talkLabelBtn: { flex: 1, alignItems: 'center' },
   talkLabel: { ...typography.small, fontSize: 11, color: colors.textLight },
-  talkLabelActive: { color: ORANGE, fontFamily: 'Inter_700Bold' },
+  talkLabelActive: { color: PURPLE, fontFamily: 'Inter_700Bold' },
   talkDescPill: {
-    backgroundColor: '#FCEBDD',
-    borderRadius: 12,
     paddingVertical: spacing.sm,
     marginTop: spacing.md,
     alignItems: 'center',
   },
-  talkDescText: { ...typography.caption, color: ORANGE, fontFamily: 'Inter_600SemiBold' },
+  talkDescText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
 
   voiceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   voiceCard: {
@@ -665,58 +736,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 14,
     padding: spacing.sm,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  voiceCardSel: { borderColor: ORANGE, backgroundColor: '#FFF6EE' },
+  voiceCardSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   voiceIcon: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: '#E8F0F8',
+    width: 34, height: 34, borderRadius: 17, backgroundColor: 'transparent',
     alignItems: 'center', justifyContent: 'center',
   },
-  voiceIconSel: { backgroundColor: '#FCEBDD' },
-  voiceLabel: { ...typography.bodyBold, fontSize: 14, color: NAVY },
+  voiceIconSel: { backgroundColor: 'rgba(167,141,222,0.25)' },
+  voiceLabel: { ...typography.bodyBold, fontSize: 14, color: '#FFFFFF' },
   voiceSub: { ...typography.small, fontSize: 11, color: colors.textSecondary },
   segmentRow: { flexDirection: 'row', gap: 8, marginTop: spacing.xs },
   segment: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F1F4F8',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  segmentSel: { backgroundColor: colors.primary },
+  segmentSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   segmentText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
-  segmentTextSel: { color: '#FFFFFF' },
+  segmentTextSel: { color: PURPLE },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.sm },
-  sectionTitle: { ...typography.h3, fontSize: 18, color: NAVY, fontFamily: 'Inter_700Bold' },
+  sectionTitle: { ...typography.h3, fontSize: 18, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   sectionSub: { ...typography.caption, color: colors.textSecondary, marginTop: 2, marginBottom: spacing.md },
 
   persona: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
-  personaSel: { backgroundColor: NAVY },
+  personaSel: { borderColor: PURPLE, backgroundColor: 'rgba(167,141,222,0.18)' },
   personaIcon: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF6EE',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#2C2C2E',
     alignItems: 'center', justifyContent: 'center',
   },
-  personaIconSel: { backgroundColor: 'rgba(255,255,255,0.15)' },
-  personaLabel: { ...typography.bodyBold, color: NAVY },
+  personaIconSel: { backgroundColor: 'rgba(167,141,222,0.25)' },
+  personaLabel: { ...typography.bodyBold, color: '#FFFFFF' },
   personaLabelSel: { color: '#FFFFFF' },
   personaSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  personaSubSel: { color: 'rgba(255,255,255,0.7)' },
+  personaSubSel: { color: colors.textSecondary },
   personaCheck: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -724,43 +799,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#EAF3FB',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
   previewLabel: { ...typography.small, color: colors.primary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
-  previewQuote: { ...typography.body, fontSize: 15, color: NAVY, marginTop: 4, fontStyle: 'italic' },
+  previewQuote: { ...typography.body, fontSize: 15, color: '#FFFFFF', marginTop: 4, fontStyle: 'italic' },
 
-  saveWrap: { borderRadius: 16, overflow: 'hidden', marginBottom: spacing.lg },
-  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  saveText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 17 },
+  saveWrap: { borderRadius: 20, overflow: 'hidden', marginBottom: spacing.lg, alignSelf: 'center' },
+  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl, backgroundColor: '#2C2C2E' },
+  saveText: { ...typography.bodyBold, color: ORANGE, fontSize: 17 },
 
   overline: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_700Bold', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.xs },
 
   fitnessGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   field: { width: '50%', paddingVertical: spacing.sm },
   fieldLabel: { ...typography.small, color: colors.textSecondary },
-  fieldValue: { ...typography.bodyBold, color: NAVY, marginTop: 2 },
+  fieldValue: { ...typography.bodyBold, color: '#FFFFFF', marginTop: 2 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
   rowIcon: {
     width: 38, height: 38, borderRadius: 12, backgroundColor: '#EAF2FB',
     alignItems: 'center', justifyContent: 'center',
   },
-  rowTitle: { ...typography.bodyBold, color: NAVY },
+  rowTitle: { ...typography.bodyBold, color: '#FFFFFF' },
   rowSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  rowDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#E2E8F0', marginLeft: 50 },
+  rowDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#2C2C2E', marginLeft: 50 },
 
   planRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
   planIcon: {
     width: 40, height: 40, borderRadius: 12, backgroundColor: '#EAF2FB',
     alignItems: 'center', justifyContent: 'center',
   },
-  planTitle: { ...typography.bodyBold, color: NAVY },
+  planTitle: { ...typography.bodyBold, color: '#FFFFFF' },
   planSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
-  planBarTrack: { height: 8, borderRadius: 4, backgroundColor: '#E2E8F0', overflow: 'hidden' },
+  planBarTrack: { height: 8, borderRadius: 4, backgroundColor: '#2C2C2E', overflow: 'hidden' },
   planBarFill: { height: '100%', borderRadius: 4 },
   planPct: { ...typography.small, color: colors.textSecondary, marginTop: spacing.sm },
 
@@ -769,8 +844,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: '#FCE9E9',
+    backgroundColor: 'rgba(239,68,68,0.15)',
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.error,
     height: 54,
     marginTop: spacing.sm,
   },

@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { colors, spacing, typography } from '../theme';
 import type { BundleExercise } from '../../../shared/types';
 
-const NAVY = '#16365A';
 const ORANGE = '#F5821F';
 
 /* phase / metric helpers ------------------------------------------------ */
@@ -36,6 +34,13 @@ function timedMinutes(ex: BundleExercise, idx: number, total: number): number {
   if (idx === 0) return 5;
   if (idx === total - 1) return 3;
   return 3;
+}
+
+/** Format seconds as M:SS. */
+function mmss(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 /* tiny icons ------------------------------------------------------------ */
@@ -91,6 +96,15 @@ function PlayIcon({ size = 16, color = colors.textSecondary }: { size?: number; 
     </Svg>
   );
 }
+/** Cross (X) with rounded corners — the End Workout stop glyph. */
+function CrossIcon({ size = 16, color = '#E5484D' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1={5} y1={5} x2={19} y2={19} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+      <Line x1={19} y1={5} x2={5} y2={19} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 interface WorkoutDeckProps {
   exercise: BundleExercise;
@@ -100,9 +114,11 @@ interface WorkoutDeckProps {
   onDone: (reps: number) => void;
   onSkip: () => void;
   onPause: () => void;
+  /** End the whole workout early (saves progress so far). */
+  onEnd: () => void;
 }
 
-export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause }: WorkoutDeckProps) {
+export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause, onEnd }: WorkoutDeckProps) {
   const timed = isTimed(exercise, index, total);
   const metric = timed
     ? `${timedMinutes(exercise, index, total)} min`
@@ -116,6 +132,22 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
   useEffect(() => {
     setReps(exercise.rep_max ?? exercise.rep_min ?? 10);
   }, [exercise]);
+
+  // Cosmetic countdown for timed exercises — runs down and then shows "Timer
+  // ended". Purely informational: it never skips/advances the exercise. Resets
+  // when the exercise changes.
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  useEffect(() => {
+    if (!timed) {
+      setSecondsLeft(0);
+      return;
+    }
+    setSecondsLeft(Math.max(1, timedMinutes(exercise, index, total) * 60));
+    const id = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [exercise, timed, index, total]);
 
   return (
     <View style={styles.wrap}>
@@ -176,12 +208,26 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
           </View>
         )}
 
-        {/* Done */}
+        {/* Countdown — timed exercises only. Cosmetic; ends with a message. */}
+        {timed && (
+          <View style={styles.timerRow}>
+            {secondsLeft > 0 ? (
+              <>
+                <Text style={styles.timerLabel}>Time remaining</Text>
+                <Text style={styles.timerValue}>{mmss(secondsLeft)}</Text>
+              </>
+            ) : (
+              <Text style={styles.timerDone}>⏱  Timer ended</Text>
+            )}
+          </View>
+        )}
+
+        {/* Done — no fill; blue icon + text matching the sets/reps numbers */}
         <Pressable onPress={() => onDone(reps)} style={styles.doneWrap}>
-          <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.doneBtn}>
-            <CheckIcon />
+          <View style={styles.doneBtn}>
+            <CheckIcon size={26} color={colors.primary} />
             <Text style={styles.doneText}>Done</Text>
-          </LinearGradient>
+          </View>
         </Pressable>
       </View>
 
@@ -193,14 +239,17 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
           ))}
         </View>
         <View style={styles.controlRight}>
+          <Pressable onPress={onEnd} style={styles.endBtn} accessibilityRole="button" accessibilityLabel="End workout">
+            <CrossIcon size={24} color="#E5484D" />
+          </Pressable>
           <Pressable onPress={onPause} style={styles.pauseBtn} accessibilityLabel={paused ? 'Resume' : 'Pause'}>
-            {paused ? <PlayIcon /> : <PauseIcon />}
+            {paused ? <PlayIcon size={24} color="#2E9E5B" /> : <PauseIcon size={24} color="#2E9E5B" />}
           </Pressable>
           <Pressable onPress={onSkip} style={styles.skipWrap} accessibilityLabel="Skip">
-            <LinearGradient colors={['#FFA24D', ORANGE]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.skipBtn}>
-              <SkipIcon />
+            <View style={styles.skipBtn}>
+              <SkipIcon color="rgb(221, 188, 1)" />
               <Text style={styles.skipText}>Skip</Text>
-            </LinearGradient>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -211,7 +260,7 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
 const styles = StyleSheet.create({
   wrap: { marginTop: spacing.md },
   deck: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 20,
     padding: spacing.md,
     paddingBottom: 0,
@@ -224,7 +273,7 @@ const styles = StyleSheet.create({
   },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   segs: { flex: 1, flexDirection: 'row', gap: 4 },
-  seg: { flex: 1, height: 5, borderRadius: 3, backgroundColor: '#E2E8F0' },
+  seg: { flex: 1, height: 5, borderRadius: 3, backgroundColor: '#2C2C2E' },
   segOn: { backgroundColor: colors.primary },
   count: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
 
@@ -233,17 +282,17 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 16,
-    backgroundColor: '#EEF3F8',
+    backgroundColor: '#2C2C2E',
   },
   info: { flex: 1 },
   phase: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
-  name: { ...typography.h3, color: NAVY, fontFamily: 'Inter_700Bold', marginTop: 2 },
+  name: { ...typography.h3, color: '#FFFFFF', fontFamily: 'Inter_700Bold', marginTop: 2 },
   metric: { ...typography.h2, color: colors.primary, marginTop: 2 },
   sub: { ...typography.small, color: colors.textSecondary },
   badge: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF2FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 14,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
@@ -255,36 +304,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 14,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.md,
   },
-  repLabel: { ...typography.bodyBold, color: NAVY },
+  repLabel: { ...typography.bodyBold, color: '#FFFFFF' },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#2C2C2E',
+    borderRadius: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+  },
+  timerLabel: { ...typography.bodyBold, color: 'rgb(221, 188, 1)' },
+  timerValue: { ...typography.h2, color: 'rgb(221, 188, 1)', fontFamily: 'Inter_700Bold' },
+  timerDone: { ...typography.bodyBold, color: 'rgb(221, 188, 1)', flex: 1, textAlign: 'center' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   stepBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#D8E2EC',
+    borderColor: '#2C2C2E',
   },
   stepSign: { fontSize: 22, lineHeight: 24, color: colors.primary, fontFamily: 'Inter_700Bold' },
-  repValue: { ...typography.h3, color: NAVY, minWidth: 30, textAlign: 'center', fontFamily: 'Inter_700Bold' },
+  repValue: { ...typography.h3, color: '#FFFFFF', minWidth: 30, textAlign: 'center', fontFamily: 'Inter_700Bold' },
 
-  doneWrap: { marginHorizontal: -spacing.md },
-  doneBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, height: 52 },
-  doneText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 16 },
+  doneWrap: { alignSelf: 'center', marginTop: spacing.sm },
+  doneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    height: 44,
+    borderRadius: 22,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: '#2C2C2E', // same grey as the reps-completed counters
+  },
+  doneText: { ...typography.bodyBold, color: colors.primary, fontSize: 20 },
 
   controlBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.sm,
     marginTop: -10,
@@ -296,18 +367,34 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   dots: { flexDirection: 'row', gap: 6, paddingLeft: spacing.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#E2E8F0' },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2C2C2E' },
   dotOn: { backgroundColor: ORANGE },
   controlRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   pauseBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F4F8',
+    backgroundColor: 'rgba(46,158,91,0.18)', // dark-mode green tint
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(229,72,77,0.18)', // dark-mode red tint
     alignItems: 'center',
     justifyContent: 'center',
   },
   skipWrap: { borderRadius: 22, overflow: 'hidden' },
-  skipBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.lg, height: 44, justifyContent: 'center' },
-  skipText: { ...typography.bodyBold, color: '#FFFFFF' },
+  skipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: spacing.lg,
+    height: 44,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(221,188,1,0.16)', // timer-color tint
+  },
+  skipText: { ...typography.bodyBold, color: 'rgb(221, 188, 1)' },
 });

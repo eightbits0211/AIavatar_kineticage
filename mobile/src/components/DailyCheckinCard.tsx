@@ -4,8 +4,6 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { apiGet, apiPost } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 
-const NAVY = '#16365A';
-
 type Energy = 'low' | 'medium' | 'high';
 
 const ENERGY: Array<{ key: Energy; label: string; emoji: string }> = [
@@ -73,7 +71,7 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Daily check-in</Text>
+      <Text style={styles.title}>Daily Check-in</Text>
       <Text style={styles.sub}>How's your energy today?</Text>
 
       <View style={styles.energyRow}>
@@ -120,7 +118,7 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
         {submitting ? (
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
-          <Text style={styles.submitText}>Check in  ·  +10 XP</Text>
+          <Text style={styles.submitText}>Check In  ·  +10 XP</Text>
         )}
       </Pressable>
     </View>
@@ -129,7 +127,7 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -139,7 +137,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  title: { ...typography.h3, color: NAVY, fontFamily: 'Inter_700Bold' },
+  title: { ...typography.h3, fontSize: 20, lineHeight: 26, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   sub: { ...typography.caption, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.sm },
   energyRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   energyBtn: {
@@ -147,33 +145,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderRadius: 14,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  energyBtnSel: { borderColor: colors.primary, backgroundColor: '#EAF2FB' },
+  energyBtnSel: { borderColor: 'rgb(166, 250, 4)', backgroundColor: 'rgba(166,250,4,0.15)' },
   energyEmoji: { fontSize: 22 },
   energyLabel: { ...typography.small, color: colors.textSecondary, marginTop: 4, fontFamily: 'Inter_600SemiBold' },
-  energyLabelSel: { color: colors.primary },
+  energyLabelSel: { color: 'rgb(166, 250, 4)' },
   soreWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
   soreChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#2C2C2E',
   },
-  soreChipSel: { backgroundColor: NAVY, borderColor: NAVY },
-  soreText: { ...typography.small, color: NAVY, fontFamily: 'Inter_600SemiBold' },
-  soreTextSel: { color: '#FFFFFF' },
+  soreChipSel: { backgroundColor: 'rgba(166,250,4,0.15)', borderColor: 'rgb(166, 250, 4)' },
+  soreText: { ...typography.small, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
+  soreTextSel: { color: 'rgb(166, 250, 4)' },
   submitBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: 'rgb(166, 250, 4)',
     borderRadius: 14,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnDisabled: { opacity: 0.4 },
-  submitText: { ...typography.bodyBold, color: '#FFFFFF' },
+  submitText: { ...typography.bodyBold, color: '#000000', fontSize: 18 },
 });

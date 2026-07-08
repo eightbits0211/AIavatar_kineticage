@@ -1,11 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +23,11 @@ import { colors, spacing, typography } from '../theme';
 const NAVY = '#16365A';
 const ORANGE = '#F5821F';
 const BLUE = '#5BB7E8';
+
+// Enable smooth expand/collapse LayoutAnimation on Android.
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // Baseline exercises so the Strength Progress interface shows from day one
@@ -229,13 +237,13 @@ function LineChart({ axisLabels, points }: { axisLabels: string[]; points: numbe
 }
 
 /* ───────────────── strength row (per-exercise progress bar) ───────────────── */
-function StrengthRow({ ex, scaleMax }: { ex: StrengthExercise; scaleMax: number }) {
+function StrengthRow({ ex, scaleMax, last }: { ex: StrengthExercise; scaleMax: number; last?: boolean }) {
   const max = Math.max(scaleMax, 1);
   const change = ex.current_reps - ex.start_reps;
   const fillPct = Math.min(100, (ex.current_reps / max) * 100);
   const startPct = Math.min(100, (ex.start_reps / max) * 100);
   return (
-    <View style={styles.strengthRow}>
+    <View style={[styles.strengthRow, last && styles.strengthRowLast]}>
       <View style={styles.strengthTop}>
         <Text style={styles.strengthName}>{ex.name}</Text>
         <Text style={styles.strengthChange}>{change >= 0 ? '+' : ''}{change} reps</Text>
@@ -261,12 +269,69 @@ function StrengthRow({ ex, scaleMax }: { ex: StrengthExercise; scaleMax: number 
   );
 }
 
+/* ───────────────── compact metric tile (Apple-Health style) ───────────────── */
+function MetricTile({
+  title,
+  value,
+  unit,
+  color,
+  data,
+  chart,
+  expanded,
+  onPress,
+}: {
+  title: string;
+  value: string;
+  unit: string;
+  color: string;
+  data?: Array<{ label: string; value: number }>;
+  chart?: React.ReactNode;
+  expanded: boolean;
+  onPress: () => void;
+}) {
+  const bars = data ?? [];
+  const max = Math.max(1, ...bars.map((d) => d.value));
+  return (
+    <Pressable style={styles.tile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${title}, tap to ${expanded ? 'collapse' : 'expand'}`}>
+      <View style={styles.tileHead}>
+        <Text style={styles.tileTitle}>{title}</Text>
+        <View style={styles.tileChevron}>
+          <Text style={styles.tileChevronText}>{expanded ? '▾' : '›'}</Text>
+        </View>
+      </View>
+      <Text style={[styles.tileValue, { color }]}>
+        {value}
+        <Text style={styles.tileUnit}>{` ${unit}`}</Text>
+      </Text>
+      {chart ? (
+        <View style={styles.miniChartWrap}>{chart}</View>
+      ) : (
+        <View style={styles.miniBars}>
+          {bars.map((d, i) => (
+            <View key={i} style={styles.miniBarCol}>
+              <View style={[styles.miniBar, { height: `${Math.max(4, (d.value / max) * 100)}%`, backgroundColor: color }]} />
+            </View>
+          ))}
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
 
   const [range, setRange] = useState<Range>('week');
+  // Which metric tile is expanded into its full chart (null = both collapsed).
+  const [expanded, setExpanded] = useState<'calories' | 'activity' | null>(null);
+  const [expandedB, setExpandedB] = useState<'weight' | 'bmi' | null>(null);
+  const [strengthExpanded, setStrengthExpanded] = useState(false);
+  const toggleStrength = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setStrengthExpanded((v) => !v);
+  };
   const [weekly, setWeekly] = useState<WeeklyResp | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [goal, setGoal] = useState<GoalResp | null>(null);
@@ -334,6 +399,18 @@ export default function DashboardScreen() {
     }, [load, range])
   );
 
+  // Cold-start safety net: if the screen mounted/loaded before auth + user
+  // were hydrated (empty charts), reload once the user becomes available.
+  const reloadedForUser = useRef<string | null>(null);
+  useEffect(() => {
+    const uid = user?._id ?? null;
+    if (uid && reloadedForUser.current !== uid) {
+      reloadedForUser.current = uid;
+      load(range);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
+
   const switchRange = (r: Range) => {
     if (r !== range) {
       setRange(r);
@@ -388,8 +465,9 @@ export default function DashboardScreen() {
     calorieData = cals.map((v, i) => ({ label: `W${i + 1}`, value: v }));
   }
 
-  // Total calories for the selected period (real, summed from sessions).
+  // Total calories / active minutes for the selected period (real, summed).
   const periodCalories = calorieData.reduce((a, b) => a + b.value, 0);
+  const periodMinutes = activityData.reduce((a, b) => a + b.value, 0);
 
   // ── summary metrics (all real) ──
   const daysActive = weekly?.current_period?.days_active ?? 0;
@@ -408,6 +486,9 @@ export default function DashboardScreen() {
   // Always-present interfaces (seeded baselines until backend data arrives).
   const strengthRows = strength && strength.length > 0 ? strength : DEFAULT_STRENGTH;
   const strengthScaleMax = Math.max(1, ...strengthRows.map((e) => e.current_reps));
+  // Highest-reps first; shrunk view shows the top 2.
+  const strengthSorted = [...strengthRows].sort((a, b) => b.current_reps - a.current_reps);
+  const strengthVisible = strengthExpanded ? strengthSorted : strengthSorted.slice(0, 2);
   const weightEntries = weightData?.entries ?? [];
   const weightPoints =
     weightEntries.length > 0
@@ -419,14 +500,22 @@ export default function DashboardScreen() {
         ? [{ label: 'W1', kg: weight }]
         : [];
 
+  // Mini bars for the weight tile — normalized to the min so the trend shows
+  // (raw kg values are all near-identical and would render as full-height bars).
+  const weightKgs = weightPoints.map((p) => p.kg);
+  const weightMin = weightKgs.length ? Math.min(...weightKgs) : 0;
+  const weightTileData = weightPoints.map((p, i) => ({ label: String(i), value: p.kg - weightMin + 1 }));
+  const latestWeight = weightPoints.length ? weightPoints[weightPoints.length - 1].kg : null;
+  // BMI marker position on the 15–35 mini scale.
+  const bmiPct = bmi ? Math.max(0, Math.min(1, (bmi - 15) / 20)) * 100 : 0;
+
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while content scrolls) ── */}
+      <LinearGradient
+        colors={['#000000', '#000000']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <Text style={styles.title}>Progress</Text>
           <Text style={styles.subtitle}>Track your transformation</Text>
 
@@ -437,20 +526,15 @@ export default function DashboardScreen() {
           </View>
         </LinearGradient>
 
+      <ScrollView showsVerticalScrollIndicator contentContainerStyle={styles.scroll}>
         <View style={styles.body}>
           {/* Range toggle */}
           <View style={styles.toggle}>
             {(['week', 'month'] as const).map((r) => {
               const active = range === r;
               return (
-                <Pressable key={r} style={styles.toggleBtn} onPress={() => switchRange(r)}>
-                  {active ? (
-                    <LinearGradient colors={[BLUE, '#3A93C9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.toggleActive}>
-                      <Text style={styles.toggleTextActive}>{r === 'week' ? 'This Week' : 'This Month'}</Text>
-                    </LinearGradient>
-                  ) : (
-                    <Text style={styles.toggleText}>{r === 'week' ? 'This Week' : 'This Month'}</Text>
-                  )}
+                <Pressable key={r} style={[styles.toggleBtn, active && styles.toggleBtnActive]} onPress={() => switchRange(r)}>
+                  <Text style={[styles.toggleText, active && styles.toggleTextActive]}>{r === 'week' ? 'This Week' : 'This Month'}</Text>
                 </Pressable>
               );
             })}
@@ -468,60 +552,121 @@ export default function DashboardScreen() {
                   </View>
                   {insights.map((ins, i) => (
                     <View key={`${ins.type}-${i}`} style={styles.insightRow}>
-                      <View style={styles.insightDot} />
                       <Text style={styles.insightText}>{ins.message}</Text>
                     </View>
                   ))}
                 </View>
               )}
 
-              {/* Calories Burned (real weekly total, distributed) */}
-              <View style={styles.card}>
-                <View style={styles.cardHead}>
-                  <Text style={styles.cardTitle}>Calories Burned</Text>
-                  <Text style={styles.cardAccentOrange}>{periodCalories.toLocaleString()} this {range === 'week' ? 'week' : 'month'}</Text>
-                </View>
-                <BarChart
-                  data={calorieData}
-                  maxValue={maxCal}
+              {/* Calories + Activity — compact tiles; tap to expand to the full chart */}
+              <View style={styles.tileRow}>
+                <MetricTile
+                  title="Calories"
+                  value={periodCalories.toLocaleString()}
+                  unit="kcal"
                   color={ORANGE}
-                  yTicks={[Math.round(maxCal), Math.round(maxCal / 2), Math.round(maxCal / 4), 0]}
+                  data={calorieData}
+                  expanded={expanded === 'calories'}
+                  onPress={() => setExpanded((e) => (e === 'calories' ? null : 'calories'))}
                 />
-                <Text style={styles.footnote}>Summed from each completed workout.</Text>
-              </View>
-
-              {/* Activity (real, minutes) */}
-              <View style={styles.card}>
-                <View style={styles.cardHead}>
-                  <Text style={styles.cardTitle}>{range === 'week' ? 'Weekly' : 'Monthly'} Activity</Text>
-                  <Text style={styles.cardAccent}>{daysActive}/{totalDays} days active</Text>
-                </View>
-                <BarChart
-                  data={activityData}
-                  maxValue={maxMin}
+                <MetricTile
+                  title="Activity"
+                  value={`${periodMinutes}`}
+                  unit="min"
                   color={BLUE}
-                  yTicks={[Math.round(maxMin), Math.round(maxMin * 0.75), Math.round(maxMin / 2), Math.round(maxMin / 4), 0]}
+                  data={activityData}
+                  expanded={expanded === 'activity'}
+                  onPress={() => setExpanded((e) => (e === 'activity' ? null : 'activity'))}
                 />
               </View>
 
-              {/* Strength Progress (interface seeded; fills as rep data arrives) */}
-              <View style={styles.card}>
-                <View style={styles.cardHead}>
-                  <Text style={styles.cardTitle}>Strength Progress</Text>
-                  {strengthChangePct !== 0 && (
-                    <Text style={styles.cardAccentOrange}>
-                      {strengthChangePct > 0 ? '+' : ''}{strengthChangePct}% strength
-                    </Text>
-                  )}
+              {/* Expanded Calories Burned */}
+              {expanded === 'calories' && (
+                <View style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle}>Calories Burned</Text>
+                    <Text style={styles.cardAccentOrange}>{periodCalories.toLocaleString()} this {range === 'week' ? 'week' : 'month'}</Text>
+                  </View>
+                  <BarChart
+                    data={calorieData}
+                    maxValue={maxCal}
+                    color={ORANGE}
+                    yTicks={[Math.round(maxCal), Math.round(maxCal / 2), Math.round(maxCal / 4), 0]}
+                  />
+                  <Text style={styles.footnote}>Summed from each completed workout.</Text>
                 </View>
-                <View style={{ marginTop: spacing.sm }}>
-                  {strengthRows.map((ex) => (
-                    <StrengthRow key={ex.name} ex={ex} scaleMax={strengthScaleMax} />
+              )}
+
+              {/* Expanded Activity */}
+              {expanded === 'activity' && (
+                <View style={styles.card}>
+                  <View style={styles.cardHead}>
+                    <Text style={styles.cardTitle}>{range === 'week' ? 'Weekly' : 'Monthly'} Activity</Text>
+                    <Text style={styles.cardAccent}>{daysActive}/{totalDays} days active</Text>
+                  </View>
+                  <BarChart
+                    data={activityData}
+                    maxValue={maxMin}
+                    color={BLUE}
+                    yTicks={[Math.round(maxMin), Math.round(maxMin * 0.75), Math.round(maxMin / 2), Math.round(maxMin / 4), 0]}
+                  />
+                </View>
+              )}
+
+              {/* Strength Progress — shrunk (top 2) with a chevron; expands in place */}
+              <View style={styles.card}>
+                <Pressable style={styles.strengthHead} onPress={toggleStrength} accessibilityRole="button" accessibilityLabel={strengthExpanded ? 'Collapse strength progress' : 'Expand strength progress'}>
+                  <Text style={styles.cardTitle}>Strength Progress</Text>
+                  <View style={styles.tileChevron}>
+                    <Text style={styles.tileChevronText}>{strengthExpanded ? '▾' : '›'}</Text>
+                  </View>
+                </Pressable>
+                {strengthChangePct !== 0 && (
+                  <Text style={[styles.cardAccentOrange, styles.strengthPct]}>
+                    {strengthChangePct > 0 ? '+' : ''}{strengthChangePct}% strength
+                  </Text>
+                )}
+                <View style={{ marginTop: spacing.md }}>
+                  {strengthVisible.map((ex, i) => (
+                    <StrengthRow key={ex.name} ex={ex} scaleMax={strengthScaleMax} last={i === strengthVisible.length - 1} />
                   ))}
                 </View>
               </View>
 
-              {/* Weight Trend (interface seeded with current weight as start) */}
+              {/* Weight + BMI — compact tiles; tap to expand */}
+              <View style={styles.tileRow}>
+                <MetricTile
+                  title="Weight"
+                  value={latestWeight != null ? `${latestWeight}` : '—'}
+                  unit="kg"
+                  color={BLUE}
+                  data={weightTileData}
+                  expanded={expandedB === 'weight'}
+                  onPress={() => setExpandedB((e) => (e === 'weight' ? null : 'weight'))}
+                />
+                <MetricTile
+                  title="BMI"
+                  value={bmi ? bmi.toFixed(1) : '—'}
+                  unit={bmiCat ? bmiCat.charAt(0).toUpperCase() + bmiCat.slice(1) : ''}
+                  color={colors.primary}
+                  expanded={expandedB === 'bmi'}
+                  onPress={() => setExpandedB((e) => (e === 'bmi' ? null : 'bmi'))}
+                  chart={
+                    <View style={styles.miniBmiWrap}>
+                      <LinearGradient
+                        colors={['#5BB7E8', '#34C759', '#FFD54A', '#FF8A3D', '#EF4444']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.miniBmiBar}
+                      />
+                      {!!bmi && <View style={[styles.miniBmiMarker, { left: `${bmiPct}%` }]} />}
+                    </View>
+                  }
+                />
+              </View>
+
+              {/* Expanded Weight Trend */}
+              {expandedB === 'weight' && (
               <View style={styles.card}>
                 <View style={styles.cardHead}>
                   <Text style={styles.cardTitle}>Weight Trend</Text>
@@ -574,8 +719,10 @@ export default function DashboardScreen() {
                   </Pressable>
                 </View>
               </View>
+              )}
 
-              {/* BMI Tracker (real) */}
+              {/* Expanded BMI Tracker */}
+              {expandedB === 'bmi' && (
               <View style={styles.card}>
                 <Text style={styles.cardTitle}>BMI Tracker</Text>
                 {bmi ? (
@@ -593,6 +740,7 @@ export default function DashboardScreen() {
                   <Empty text="Complete onboarding to see your BMI." />
                 )}
               </View>
+              )}
             </>
           )}
         </View>
@@ -645,13 +793,11 @@ function BmiScale({ bmi }: { bmi: number }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: spacing.xl },
+  scroll: { paddingBottom: 124 },
 
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   title: { ...typography.h1, color: '#FFFFFF' },
   subtitle: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
@@ -671,7 +817,7 @@ const styles = StyleSheet.create({
 
   toggle: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 28,
     padding: 5,
     marginBottom: spacing.lg,
@@ -681,13 +827,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  toggleBtn: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  toggleActive: { width: '100%', alignItems: 'center', borderRadius: 24, paddingVertical: 12 },
-  toggleTextActive: { ...typography.bodyBold, color: '#FFFFFF' },
-  toggleText: { ...typography.bodyBold, color: colors.textSecondary, paddingVertical: 12 },
+  toggleBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 24, paddingVertical: 12 },
+  toggleBtnActive: { backgroundColor: '#2C2C2E' },
+  toggleText: { ...typography.bodyBold, fontSize: 18, color: colors.textSecondary },
+  toggleTextActive: { color: 'rgb(246, 208, 0)' },
 
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -697,8 +843,43 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  tileRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  tile: {
+    flex: 1,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 18,
+    padding: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  tileHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tileTitle: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 16 },
+  tileChevron: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  tileChevronText: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Inter_700Bold', lineHeight: 16 },
+  tileValue: { fontSize: 26, fontFamily: 'Inter_700Bold', marginTop: spacing.sm },
+  tileUnit: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  miniBars: { flexDirection: 'row', alignItems: 'flex-end', height: 46, gap: 3, marginTop: spacing.md },
+  miniBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
+  miniBar: { width: 4, borderRadius: 2, minHeight: 3 },
+  miniChartWrap: { height: 46, justifyContent: 'center', marginTop: spacing.md },
+  miniBmiWrap: { height: 14, justifyContent: 'center' },
+  miniBmiBar: { height: 8, borderRadius: 4, width: '100%' },
+  miniBmiMarker: {
+    position: 'absolute', width: 3, height: 14, borderRadius: 1.5,
+    backgroundColor: '#FFFFFF', marginLeft: -1.5,
+  },
+
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
-  cardTitle: { ...typography.h3, color: NAVY, fontFamily: 'Inter_700Bold' },
+  strengthHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  strengthPct: { textAlign: 'right', marginTop: spacing.xs },
+  cardTitle: { ...typography.h3, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   cardAccent: { ...typography.bodyBold, color: colors.primary },
   cardAccentOrange: { ...typography.bodyBold, color: ORANGE },
   footnote: { ...typography.small, color: colors.textLight, marginTop: spacing.sm },
@@ -716,25 +897,24 @@ const styles = StyleSheet.create({
   bmiLabel: { ...typography.caption, color: colors.textSecondary },
   weightSub: { ...typography.caption, color: colors.textSecondary, marginBottom: spacing.sm },
 
-  insightRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginBottom: spacing.sm },
-  insightDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: ORANGE, marginTop: 6 },
-  insightText: { ...typography.caption, color: NAVY, flex: 1, lineHeight: 20 },
+  insightRow: { marginBottom: spacing.sm },
+  insightText: { ...typography.caption, color: '#FFFFFF', lineHeight: 20 },
 
   weightLogRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
   weightInput: {
     flex: 1,
-    backgroundColor: '#F4F7FB',
+    height: 46,
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
     ...typography.body,
-    color: NAVY,
+    color: '#FFFFFF',
   },
   weightLogBtn: {
+    height: 46,
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 64,
@@ -742,12 +922,13 @@ const styles = StyleSheet.create({
   weightLogBtnDisabled: { opacity: 0.4 },
   weightLogBtnText: { ...typography.bodyBold, color: '#FFFFFF' },
   strengthRow: { marginBottom: spacing.lg },
+  strengthRowLast: { marginBottom: 2 },
   strengthTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  strengthName: { ...typography.bodyBold, color: NAVY },
+  strengthName: { ...typography.bodyBold, color: '#FFFFFF' },
   strengthChange: { ...typography.bodyBold, color: ORANGE },
   strengthBarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   strengthBarWrap: { flex: 1, height: 10, justifyContent: 'center' },
-  strengthTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#EAEFF5' },
+  strengthTrack: { position: 'absolute', left: 0, right: 0, height: 8, borderRadius: 4, backgroundColor: '#2C2C2E' },
   strengthFill: { height: 8, borderRadius: 4 },
   strengthStartMarker: { position: 'absolute', width: 2, height: 14, backgroundColor: '#9FB2C4', marginLeft: -1 },
   strengthCurrent: { ...typography.bodyBold, color: colors.primary, minWidth: 28, textAlign: 'right' },
@@ -755,7 +936,7 @@ const styles = StyleSheet.create({
   strengthMeta: { ...typography.small, color: colors.textSecondary },
   bmiCatPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EAF2FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 10,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
@@ -779,7 +960,7 @@ const styles = StyleSheet.create({
   bmiScaleTick: { ...typography.small, fontSize: 10, color: colors.textLight, textAlign: 'center' },
 
   empty: {
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: spacing.lg,
     marginTop: spacing.sm,

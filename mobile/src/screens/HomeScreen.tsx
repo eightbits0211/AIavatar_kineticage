@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Image,
+  InteractionManager,
   Platform,
   Pressable,
   ScrollView,
@@ -9,16 +12,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 
 import KinAvatar from '../components/KinAvatar';
+import TabBarIcon from '../components/TabBarIcon';
 import SendIcon from '../components/SendIcon';
 import MicIcon from '../components/MicIcon';
 import ChipIcon, { type ChipIconName } from '../components/ChipIcon';
-import BundleCard from '../components/BundleCard';
 import { FlameIcon, SlidersIcon } from '../components/HeaderIcons';
 import HistoryDrawer, { type HistoryItem } from '../components/HistoryDrawer';
 import SettingsSheet from '../components/SettingsSheet';
@@ -92,6 +95,8 @@ export default function HomeScreen() {
   const setUser = useUserStore((s) => s.setUser);
 
   const [dash, setDash] = useState<DashboardData | null>(null);
+  // The user's chosen profile avatar (set on the Profile tab, stored on-device).
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [recommended, setRecommended] = useState<ExerciseBundle | null>(null);
   const [others, setOthers] = useState<ExerciseBundle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -785,23 +790,47 @@ export default function HomeScreen() {
     ]);
   }, []);
 
+  // End the workout early. Whatever's been logged so far is saved: the backend
+  // classifies it (≥50% → partial, else abandoned) and returns the report, which
+  // finishSession shows in the summary modal. Confirm first (web has no native
+  // Alert dialog, so fall back to window.confirm there).
+  const confirmEndWorkout = useCallback(() => {
+    const w = workoutRef.current;
+    if (!w) return;
+    const doEnd = () => finishSession(w.sessionId, w.title);
+    if (Platform.OS === 'web') {
+      const ok = (globalThis as any).confirm?.('End workout now? Your progress so far will be saved.');
+      if (ok) doEnd();
+    } else {
+      Alert.alert('End workout?', 'Your progress so far will be saved.', [
+        { text: 'Keep going', style: 'cancel' },
+        { text: 'End workout', style: 'destructive', onPress: doEnd },
+      ]);
+    }
+  }, [finishSession]);
+
   // Expose the latest workout handlers to the stable voice-command + workout
   // event handlers.
   useEffect(() => {
     voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause, finishSession };
   }, [startWorkout, handleDone, handleSkip, togglePause, finishSession]);
 
-  const openHistory = useCallback(async () => {
+  const openHistory = useCallback(() => {
+    // Open immediately so the slide-in starts right away, then run the fetch
+    // after the open animation completes — otherwise the network response
+    // re-renders the list mid-animation and makes opening feel laggy.
     setHistoryOpen(true);
     setHistoryLoading(true);
-    try {
-      const res = await apiGet<{ history: HistoryItem[] }>('/api/progress/history?limit=30');
-      setHistory(res.history ?? []);
-    } catch {
-      setHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
+    InteractionManager.runAfterInteractions(async () => {
+      try {
+        const res = await apiGet<{ history: HistoryItem[] }>('/api/progress/history?limit=30');
+        setHistory(res.history ?? []);
+      } catch {
+        setHistory([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    });
   }, []);
 
   // Regenerate the full bundle set via the Rules Engine. The backend deactivates
@@ -906,6 +935,22 @@ export default function HomeScreen() {
     }, [load])
   );
 
+  // Reload the chosen avatar whenever Home regains focus (e.g. after changing
+  // it on the Profile tab). Stored on-device, keyed by user.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      AsyncStorage.getItem(`@kin/avatar/${user?._id ?? 'me'}`)
+        .then((v) => {
+          if (active) setAvatarUrl(v);
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }, [user?._id])
+  );
+
   const name = user?.name && user.name !== 'Guest' ? user.name : 'there';
   const streak = dash?.streak.current ?? user?.gamification?.current_streak ?? 0;
   const level = dash?.xp.level ?? user?.gamification?.level ?? 1;
@@ -924,12 +969,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ── Header ── */}
-        <LinearGradient
-          colors={['#2D6CA8', '#1E4E7E']}
-          style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
-        >
+      {/* ── Fixed header (stays put while the content scrolls) ── */}
+      <LinearGradient
+        colors={['#000000', '#000000']}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 24) + spacing.md }]}
+      >
           <View style={styles.headerTop}>
             <Pressable
               accessibilityRole="button"
@@ -937,11 +981,13 @@ export default function HomeScreen() {
               onPress={openHistory}
               style={styles.menuBtn}
             >
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
+              <ChipIcon name="history" size={20} color="#FFFFFF" />
             </Pressable>
-            <KinAvatar size={52} />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.headerAvatar} resizeMode="cover" />
+            ) : (
+              <KinAvatar size={52} />
+            )}
             <View style={styles.greetingBlock}>
               <Text style={styles.greetingSmall}>{timeGreeting()}</Text>
               <Text style={styles.name}>{name}</Text>
@@ -951,11 +997,11 @@ export default function HomeScreen() {
             </View>
             <View style={styles.headerActions}>
               <View style={styles.streakPill}>
-                <FlameIcon size={15} />
+                <FlameIcon size={16} />
                 <Text style={styles.streakText}>{streak}</Text>
               </View>
               <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings" onPress={() => setSettingsOpen(true)}>
-                <SlidersIcon size={19} />
+                <SlidersIcon size={20} />
               </Pressable>
             </View>
           </View>
@@ -984,6 +1030,7 @@ export default function HomeScreen() {
           )}
         </LinearGradient>
 
+      <ScrollView ref={scrollRef} style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {loading && !dash ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
@@ -1008,7 +1055,7 @@ export default function HomeScreen() {
             {!workout && <DailyCheckinCard onComplete={load} />}
 
             {/* Today's recommendation */}
-            <LinearGradient colors={['#3A7CA8', '#2D6CA8']} style={styles.recCard}>
+            <LinearGradient colors={['#101800', '#101800']} style={styles.recCard}>
               <View style={styles.recBadge}>
                 <Text style={styles.recBadgeText}>TODAY'S RECOMMENDATION</Text>
               </View>
@@ -1027,18 +1074,18 @@ export default function HomeScreen() {
                   <Text style={styles.recMetaText}>🏋 {recommended?.exercises?.length ?? dash?.todays_workout?.exercise_count ?? 0} exercises</Text>
                 </View>
               </View>
-            </LinearGradient>
 
-            <View style={styles.recActions}>
-              <Pressable style={styles.startWrap} onPress={() => startWorkout(recommended ?? undefined)}>
-                <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.startBtn}>
-                  <Text style={styles.startText}>▶  Start Now</Text>
-                </LinearGradient>
-              </Pressable>
-              <Pressable style={styles.detailsBtn} onPress={openRecommended}>
-                <Text style={styles.detailsText}>Details</Text>
-              </Pressable>
-            </View>
+              <View style={styles.recActions}>
+                <Pressable style={styles.startWrap} onPress={() => startWorkout(recommended ?? undefined)}>
+                  <View style={styles.startBtn}>
+                    <Text style={styles.startText}>▶  Start Now</Text>
+                  </View>
+                </Pressable>
+                <Pressable style={styles.detailsBtn} onPress={openRecommended}>
+                  <Text style={styles.detailsText}>Details</Text>
+                </Pressable>
+              </View>
+            </LinearGradient>
 
             {/* Achievement */}
             {latestBadge && (
@@ -1058,14 +1105,16 @@ export default function HomeScreen() {
             {others.length > 0 && (
               <>
                 <Text style={styles.moreTitle}>More plans for today</Text>
-                {others.map((bundle) => (
-                  <BundleCard
-                    key={bundle._id}
-                    bundle={bundle}
-                    onPress={() => navigation.navigate('BundleDetail', { bundle })}
-                    onStart={() => startWorkout(bundle)}
-                  />
-                ))}
+                <View style={styles.wTileGrid}>
+                  {others.map((bundle) => (
+                    <WorkoutTile
+                      key={bundle._id}
+                      bundle={bundle}
+                      onPress={() => navigation.navigate('BundleDetail', { bundle })}
+                      onStart={() => startWorkout(bundle)}
+                    />
+                  ))}
+                </View>
               </>
             )}
 
@@ -1098,7 +1147,7 @@ export default function HomeScreen() {
                     </View>
                   ) : (
                     <View key={m.id} style={styles.kinMsgRow}>
-                      <KinAvatar size={36} />
+                      <KinLogo size={36} />
                       <View style={styles.kinBubble}>
                         <Text style={styles.kinBubbleText}>{m.text}</Text>
                       </View>
@@ -1107,7 +1156,7 @@ export default function HomeScreen() {
                 )}
                 {kinTyping && (
                   <View style={styles.kinMsgRow}>
-                    <KinAvatar size={36} />
+                    <KinLogo size={36} />
                     <View style={styles.kinBubble}>
                       <View style={styles.typingRow}>
                         <ActivityIndicator size="small" color={colors.primary} />
@@ -1126,6 +1175,7 @@ export default function HomeScreen() {
                     onDone={handleDone}
                     onSkip={handleSkip}
                     onPause={togglePause}
+                    onEnd={confirmEndWorkout}
                   />
                 )}
                 {workout && workout.paused && (
@@ -1184,6 +1234,8 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
+      {/* Floating bottom dock — transparent; the chat flows behind it */}
+      <View style={styles.bottomDock} pointerEvents="box-none">
       {/* Quick actions — chat trigger chips, just above the Ask Kin bar */}
       {!workout && (
         <ScrollView
@@ -1203,7 +1255,7 @@ export default function HomeScreen() {
       )}
 
       {/* Ask Kin bar */}
-      <View style={styles.askBar}>
+      <View style={[styles.askBar, { paddingBottom: Math.max(insets.bottom, 10) + 90 }]}>
         {voiceMode ? (
           <View style={styles.voiceHintRow}>
             <Text style={styles.voiceHintText}>
@@ -1226,16 +1278,18 @@ export default function HomeScreen() {
         ) : null}
         <View style={styles.askRow}>
           <TextInput
-            style={styles.askInput}
+            style={[styles.askInput, { outlineWidth: 0, outlineColor: 'transparent' } as any]}
             placeholder="Ask Kin anything…"
             placeholderTextColor={colors.textLight}
             value={askText}
             onChangeText={setAskText}
             onSubmitEditing={() => sendMessage()}
             returnKeyType="send"
+            underlineColorAndroid="transparent"
+            selectionColor={colors.primary}
           />
           <Pressable
-            style={[styles.micBtn, (recording || voiceMode) && styles.micBtnActive]}
+            style={styles.micBtn}
             accessibilityRole="button"
             accessibilityLabel={
               voiceMode ? 'Turn off voice chat' : recording ? 'Stop recording' : 'Voice input'
@@ -1244,9 +1298,13 @@ export default function HomeScreen() {
             disabled={transcribing}
           >
             {transcribing || voicePhase === 'connecting' ? (
-              <ActivityIndicator size="small" color={voiceMode ? '#FFFFFF' : colors.primary} />
+              <ActivityIndicator size="small" color={recording || voiceMode ? '#E5484D' : colors.primary} />
+            ) : recording || voiceMode ? (
+              <View style={styles.micActiveCircle}>
+                <View style={styles.micStopSquare} />
+              </View>
             ) : (
-              <MicIcon size={20} color={recording || voiceMode ? '#FFFFFF' : colors.primary} />
+              <MicIcon size={24} color="#8A94A6" />
             )}
           </Pressable>
           <Pressable
@@ -1259,6 +1317,7 @@ export default function HomeScreen() {
             <SendIcon size={32} />
           </Pressable>
         </View>
+      </View>
       </View>
 
       <HistoryDrawer
@@ -1300,12 +1359,12 @@ function QuickChip({
 }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.quickChipWrap, pressed && { opacity: 0.65 }]}>
-      <BlurView intensity={32} tint="light" style={styles.quickChip}>
-        <ChipIcon name={icon} size={16} color={colors.primary} />
+      <View style={styles.quickChip}>
+        <ChipIcon name={icon} size={16} color="#FFFFFF" />
         <Text style={styles.quickChipText} numberOfLines={1}>
           {label}
         </Text>
-      </BlurView>
+      </View>
     </Pressable>
   );
 }
@@ -1318,15 +1377,45 @@ function WorkoutChip({ label, onPress }: { label: string; onPress: () => void })
   );
 }
 
+/** Kin logo avatar — the AI Coach tab-bar icon, used in the chat thread. */
+function KinLogo({ size = 36 }: { size?: number }) {
+  return (
+    <View style={[styles.kinLogo, { width: size, height: size, borderRadius: size / 2 }]}>
+      <TabBarIcon name="coach" color="rgb(166, 250, 4)" size={size * 0.6} />
+    </View>
+  );
+}
+
+/** Square workout tile for the "More plans" grid — tap opens detail, lime button starts. */
+function WorkoutTile({ bundle, onPress, onStart }: { bundle: any; onPress: () => void; onStart: () => void }) {
+  const cal = bundle.estimated_calorie_burn;
+  const focus = String(bundle.focus || 'general').replace(/_/g, ' ').toUpperCase();
+  return (
+    <Pressable style={styles.wTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={bundle.title}>
+      <Text style={styles.wTileTitle} numberOfLines={2}>{bundle.title}</Text>
+      <View style={styles.wTag}>
+        <Text style={styles.wTagText}>{focus}</Text>
+      </View>
+      <View style={styles.wTileMetaWrap}>
+        <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.estimated_duration_min} min</Text>
+        <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.exercises.length} exercises</Text>
+        {!!cal && <Text style={styles.wTileMeta} numberOfLines={1}>{cal.low}-{cal.high} cal</Text>}
+      </View>
+      <Pressable style={styles.wStartBtn} onPress={onStart} accessibilityRole="button" accessibilityLabel={`Start ${bundle.title}`}>
+        <Text style={styles.wStartIcon}>▶</Text>
+      </Pressable>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   scrollView: { flex: 1 },
-  scroll: { paddingBottom: spacing.xl },
+  scroll: { paddingBottom: 236 },
+  bottomDock: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' },
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
   },
   headerTop: { flexDirection: 'row', alignItems: 'center' },
   menuBtn: {
@@ -1336,7 +1425,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
     gap: 3,
   },
   menuLine: {
@@ -1345,6 +1434,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: '#FFFFFF',
   },
+  headerAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.2)' },
   greetingBlock: { flex: 1, marginLeft: spacing.md },
   greetingSmall: { ...typography.caption, color: 'rgba(255,255,255,0.8)' },
   name: { ...typography.h2, color: '#FFFFFF' },
@@ -1385,7 +1475,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginRight: spacing.sm,
   },
-  levelText: { ...typography.small, color: '#FFD54A', fontFamily: 'Inter_700Bold' },
+  levelText: { ...typography.small, color: 'rgb(166, 250, 4)', fontFamily: 'Inter_700Bold' },
   xpText: { ...typography.caption, color: '#FFFFFF', flex: 1 },
   xpToNext: { ...typography.small, color: 'rgba(255,255,255,0.75)' },
   xpBar: {
@@ -1395,7 +1485,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     overflow: 'hidden',
   },
-  xpFill: { height: '100%', backgroundColor: '#FFD54A', borderRadius: 3 },
+  xpFill: { height: '100%', backgroundColor: 'rgb(166, 250, 4)', borderRadius: 3 },
   workoutControls: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
   workoutChip: {
     flexDirection: 'row',
@@ -1413,18 +1503,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: spacing.lg,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingTop: 18,
+    paddingBottom: 6,
     alignItems: 'center',
   },
   quickChipWrap: {
     height: 40,
     borderRadius: 20,
-    shadowColor: '#1E4E7E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
   },
   quickChip: {
     flex: 1,
@@ -1436,11 +1526,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.65)',
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(24,24,26,0.92)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  quickChipText: { ...typography.caption, color: colors.primary, fontFamily: 'Inter_600SemiBold' },
+  quickChipText: { ...typography.caption, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
   body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
   resumeCard: {
     backgroundColor: '#FFF6EE',
@@ -1511,16 +1601,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     minHeight: 32,
   },
-  regenText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  regenText: { ...typography.body, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   recBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#F5821F',
+    backgroundColor: '#2E2E30',
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     marginBottom: spacing.sm,
   },
-  recBadgeText: { ...typography.small, color: '#FFFFFF', fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  recBadgeText: { ...typography.small, color: 'rgb(166, 250, 4)', fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
   recTitle: { ...typography.h2, color: '#FFFFFF' },
   recSub: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
   recMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
@@ -1534,21 +1624,12 @@ const styles = StyleSheet.create({
   recActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: spacing.md,
-    marginTop: -spacing.md,
-    marginHorizontal: spacing.xs,
+    marginTop: spacing.lg,
     gap: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   startWrap: { flex: 1, borderRadius: 14, overflow: 'hidden' },
-  startBtn: { height: 48, alignItems: 'center', justifyContent: 'center' },
-  startText: { ...typography.bodyBold, color: '#FFFFFF' },
+  startBtn: { height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgb(166, 250, 4)' },
+  startText: { ...typography.bodyBold, color: '#000000' },
   detailsBtn: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
@@ -1564,6 +1645,40 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     marginBottom: spacing.md,
   },
+  wTileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  wTile: {
+    width: '47.5%',
+    minHeight: 160,
+    backgroundColor: '#101800',
+    borderRadius: 18,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  wTileTitle: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 15 },
+  wTag: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(74,144,194,0.18)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    marginTop: spacing.sm,
+  },
+  wTagText: { ...typography.small, fontSize: 10, color: colors.primary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
+  wTileMetaWrap: { marginTop: spacing.sm, paddingRight: 44 },
+  wTileMeta: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
+  wStartBtn: {
+    position: 'absolute',
+    right: spacing.md,
+    bottom: spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgb(166, 250, 4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wStartIcon: { color: '#000000', fontSize: 15, marginLeft: 2 },
   chatThread: { marginTop: spacing.xl, gap: spacing.md },
   userMsgRow: { alignItems: 'flex-end' },
   userBubble: {
@@ -1575,6 +1690,13 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   userBubbleText: { ...typography.body, color: '#FFFFFF' },
+  kinLogo: {
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   kinMsgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, maxWidth: '92%' },
   kinBubble: {
     flexShrink: 1,
@@ -1591,7 +1713,7 @@ const styles = StyleSheet.create({
   },
   kinBubbleText: { ...typography.body, color: colors.text },
   pausedCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderRadius: 18,
     padding: spacing.lg,
     marginTop: spacing.md,
@@ -1616,7 +1738,7 @@ const styles = StyleSheet.create({
   achCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FCF3E3',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
     padding: spacing.md,
     marginTop: spacing.lg,
@@ -1635,20 +1757,25 @@ const styles = StyleSheet.create({
   achSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
   askBar: {
     paddingHorizontal: spacing.lg,
-    paddingTop: 12,
+    paddingTop: 0,
     paddingBottom: 14,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   askRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(24,24,26,0.92)',
     borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.12)',
     paddingLeft: spacing.md,
     paddingRight: spacing.sm,
     paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 12,
   },
   askInput: {
     flex: 1,
@@ -1664,8 +1791,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.xs,
   },
-  micBtnActive: {
-    backgroundColor: '#FF5A4D',
+  micActiveCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(229,72,77,0.18)', // dark-mode red tint (matches End Workout button)
+  },
+  micStopSquare: {
+    width: 14,
+    height: 14,
+    borderRadius: 3,
+    backgroundColor: '#E5484D', // brighter red stop square
   },
   voiceHintRow: {
     paddingHorizontal: spacing.xs,

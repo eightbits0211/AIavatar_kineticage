@@ -14,7 +14,7 @@ import {
 } from 'firebase/auth';
 
 import { auth } from '../config/firebase';
-import { apiGet, apiPost, setAuthToken } from './api';
+import { apiGet, apiPost, setAuthToken, registerTokenRefresher } from './api';
 import { useUserStore } from '../stores/userStore';
 import type { UserProfile } from '../../../shared/types';
 
@@ -90,6 +90,9 @@ export async function hydrateUserProfile(): Promise<void> {
  */
 export function initAuthListener(): () => void {
   const store = useUserStore.getState();
+
+  // Let api.ts force-refresh the token and retry when a request hits 401.
+  registerTokenRefresher(getFreshToken);
 
   try {
     return onIdTokenChanged(auth, async (firebaseUser: FirebaseUser | null) => {

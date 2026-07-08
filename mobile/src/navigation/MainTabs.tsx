@@ -1,4 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Dimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeStack from './HomeStack';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -8,21 +10,42 @@ import { colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
 
+// Keep the floating pill just wide enough for 3 tabs, centered on screen.
+const TAB_WIDTH = 300;
+const TAB_SIDE = Math.max(16, (Dimensions.get('window').width - TAB_WIDTH) / 2);
+
 export default function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        // Subtle slide + fade between tabs so switching feels smooth, not instant.
+        animation: 'shift',
+        tabBarActiveTintColor: 'rgb(166, 250, 4)',
         tabBarInactiveTintColor: colors.textLight,
+        // Floating pill tab bar — content flows behind it (position: absolute).
         tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
+          position: 'absolute',
+          left: TAB_SIDE,
+          right: TAB_SIDE,
+          bottom: Math.max(insets.bottom, 10),
           height: 78,
-          paddingBottom: 18,
-          paddingTop: 6,
+          borderRadius: 39,
+          paddingTop: 12,
+          paddingBottom: 14,
+          backgroundColor: 'rgba(24,24,26,0.92)',
+          borderTopWidth: 0,
+          borderWidth: 1.5,
+          borderColor: 'rgba(255,255,255,0.12)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 16,
+          elevation: 12,
         },
-        tabBarLabelStyle: { fontFamily: 'Inter_500Medium', fontSize: 11 },
+        tabBarItemStyle: { paddingVertical: 0 },
+        tabBarLabelStyle: { fontFamily: 'Inter_500Medium', fontSize: 12 },
       }}
     >
       <Tab.Screen
@@ -30,7 +53,7 @@ export default function MainTabs() {
         component={HomeStack}
         options={{
           tabBarLabel: 'AI Coach',
-          tabBarIcon: ({ color }) => <TabBarIcon name="coach" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="coach" color={color} size={27} />,
         }}
       />
       <Tab.Screen
@@ -38,7 +61,7 @@ export default function MainTabs() {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Progress',
-          tabBarIcon: ({ color }) => <TabBarIcon name="progress" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="progress" color={color} size={27} />,
         }}
       />
       <Tab.Screen
@@ -46,7 +69,7 @@ export default function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => <TabBarIcon name="profile" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="profile" color={color} size={27} />,
         }}
       />
     </Tab.Navigator>

@@ -49,9 +49,9 @@ export default function ChipIcon({ name, size = 16, color = '#FFFFFF' }: ChipIco
     case 'history': // clock with rewind arrow
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path d="M3.5 8A9 9 0 1 1 3 12" {...s} />
-          <Path d="M3 4v4h4" {...s} />
-          <Path d="M12 8v4l3 2" {...s} />
+          <Path d="M4.5 9A8 8 0 1 1 4 12" {...s} />
+          <Path d="M4 5v4h4" {...s} />
+          <Path d="M12 8.5v3.5l2.6 1.6" {...s} />
         </Svg>
       );
     case 'badges': // trophy

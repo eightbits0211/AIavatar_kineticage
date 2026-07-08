@@ -20,26 +20,46 @@ export const setAuthToken = (token: string | null) => {
   authToken = token;
 };
 
+/**
+ * Optional token refresher, registered by the auth service. When a request
+ * comes back 401 (expired/missing token), api() calls this to force-refresh
+ * the Firebase ID token and retries the request once. Registered via a
+ * callback to avoid a circular import between api.ts and auth.ts.
+ */
+type TokenRefresher = (forceRefresh: boolean) => Promise<string | null>;
+let tokenRefresher: TokenRefresher | null = null;
+
+export const registerTokenRefresher = (fn: TokenRefresher | null) => {
+  tokenRefresher = fn;
+};
+
 export const api = async <T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> => {
   const { method = 'GET', body, headers = {} } = options;
 
-  const config: RequestInit = {
+  // Rebuilt per attempt so a refreshed authToken is picked up on retry.
+  const buildConfig = (): RequestInit => ({
     method,
     headers: {
       'Content-Type': 'application/json',
       ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...headers,
     },
-  };
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
 
-  if (body) {
-    config.body = JSON.stringify(body);
+  let response = await fetch(`${API_BASE_URL}${endpoint}`, buildConfig());
+
+  // Token expired or missing — force-refresh once and retry before giving up.
+  if (response.status === 401 && tokenRefresher) {
+    const fresh = await tokenRefresher(true).catch(() => null);
+    if (fresh) {
+      authToken = fresh;
+      response = await fetch(`${API_BASE_URL}${endpoint}`, buildConfig());
+    }
   }
-
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));

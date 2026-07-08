@@ -25,11 +25,18 @@ const NAVY = '#16365A';
 const TEAL = '#4FC3E8';
 
 /* ───────────────────────── Section icons ───────────────────────── */
-type IconName = 'robot' | 'target' | 'alert' | 'dumbbell' | 'bell';
+type IconName = 'robot' | 'target' | 'alert' | 'dumbbell' | 'bell' | 'person';
 
 function SectionIcon({ name, size = 18, color = colors.primary }: { name: IconName; size?: number; color?: string }) {
   const s = { stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };
   switch (name) {
+    case 'person':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Circle cx={12} cy={8} r={4} {...s} />
+          <Path d="M4 20c0-4 4-6 8-6s8 2 8 6" {...s} />
+        </Svg>
+      );
     case 'robot':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -174,6 +181,18 @@ const LOCATIONS: Array<{ label: string; value: 'home' | 'gym' }> = [
   { label: 'Home', value: 'home' },
   { label: 'Gym', value: 'gym' },
 ];
+// Equipment tokens must match the exercise library's equipment_required values
+// so the Rules Engine filter stage includes the right exercises. Empty → ['none'].
+const EQUIPMENT: Array<{ label: string; value: string }> = [
+  { label: 'Dumbbells', value: 'dumbbells' },
+  { label: 'Barbell', value: 'barbell' },
+  { label: 'Resistance Bands', value: 'resistance_bands' },
+  { label: 'Kettlebell', value: 'kettlebell' },
+  { label: 'Pull-up Bar', value: 'pull_up_bar' },
+  { label: 'Bench', value: 'bench' },
+  { label: 'Machines', value: 'machines' },
+  { label: 'Cardio Equipment', value: 'cardio_equipment' },
+];
 // Snap the free-form duration slider to the backend's allowed values.
 const snapDuration = (d: number): number =>
   [15, 30, 45, 60].reduce((prev, cur) => (Math.abs(cur - d) < Math.abs(prev - d) ? cur : prev));
@@ -186,7 +205,6 @@ interface SettingsSheetProps {
 
 export default function SettingsSheet({ visible, onClose, onSave }: SettingsSheetProps) {
   const [mounted, setMounted] = useState(visible);
-  const slide = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
   const user = useUserStore((s) => s.user);
@@ -197,6 +215,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState('beginner'); // → fitness_level
   const [location, setLocation] = useState<'home' | 'gym'>('home');
+  const [equipment, setEquipment] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Seed the controls from the saved profile each time the sheet opens.
@@ -208,20 +227,17 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     if (u.workout_duration) setDuration(u.workout_duration);
     if (u.fitness_level) setIntensity(u.fitness_level);
     if (u.workout_location === 'home' || u.workout_location === 'gym') setLocation(u.workout_location);
+    setEquipment((u.equipment || []).filter((e: string) => e && e !== 'none'));
   }, [visible, user]);
 
   useEffect(() => {
     if (visible) {
       setMounted(true);
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.spring(slide, { toValue: 0, useNativeDriver: true, bounciness: 3, speed: 14 }),
-      ]).start();
+      Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     } else if (mounted) {
-      Animated.parallel([
-        Animated.timing(fade, { toValue: 0, duration: 200, useNativeDriver: true }),
-        Animated.timing(slide, { toValue: SHEET_HEIGHT, duration: 220, useNativeDriver: true }),
-      ]).start(({ finished }) => finished && setMounted(false));
+      Animated.timing(fade, { toValue: 0, duration: 180, useNativeDriver: true }).start(
+        ({ finished }) => finished && setMounted(false)
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
@@ -230,6 +246,9 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 
   const toggleConstraint = (c: string) =>
     setConstraints((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
+
+  const toggleEquipment = (e: string) =>
+    setEquipment((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]));
 
   const handleSave = async () => {
     setSaving(true);
@@ -242,6 +261,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
         workout_duration: snapDuration(duration),
         fitness_level: intensity,
         workout_location: location,
+        equipment: equipment.length ? equipment : ['none'],
       });
       if (updated) setUser(updated);
     } catch {
@@ -249,13 +269,13 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     } finally {
       setSaving(false);
       // AI personality is managed only in the Profile tab.
-      onSave?.({ goal, constraints, duration, intensity, location });
+      onSave?.({ goal, constraints, duration, intensity, location, equipment });
       onClose();
     }
   };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={styles.overlay} pointerEvents="box-none">
       {/* Blurred backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
         <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill}>
@@ -263,15 +283,19 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
         </BlurView>
       </Animated.View>
 
-      {/* Sheet */}
-      <Animated.View style={[styles.sheet, { height: SHEET_HEIGHT, transform: [{ translateY: slide }] }]}>
-        <View style={styles.handleWrap}>
-          <View style={styles.handle} />
-        </View>
-
+      {/* Floating centered window */}
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            opacity: fade,
+            transform: [{ scale: fade.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }],
+          },
+        ]}
+      >
         <View style={styles.header}>
-          <SectionIcon name="robot" size={22} color={colors.primary} />
-          <Text style={styles.title}>Kin AI Settings</Text>
+          <SectionIcon name="person" size={22} color={colors.primary} />
+          <Text style={styles.title}>User Preferences</Text>
           <Pressable onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
             <CloseX />
           </Pressable>
@@ -311,6 +335,23 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
                 <Pressable key={c.value} onPress={() => toggleConstraint(c.value)} style={[styles.chip, sel && styles.chipSel]}>
                   {sel && <CheckMark size={13} />}
                   <Text style={[styles.chipText, sel && styles.chipTextSel]}>{c.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Equipment — multi-select; feeds the Rules Engine filter stage */}
+          <View style={styles.sectionHead}>
+            <SectionIcon name="dumbbell" />
+            <Text style={styles.sectionTitle}>Equipment</Text>
+          </View>
+          <View style={styles.chipWrap}>
+            {EQUIPMENT.map((e) => {
+              const sel = equipment.includes(e.value);
+              return (
+                <Pressable key={e.value} onPress={() => toggleEquipment(e.value)} style={[styles.chip, sel && styles.chipSel]}>
+                  {sel && <CheckMark size={13} />}
+                  <Text style={[styles.chipText, sel && styles.chipTextSel]}>{e.label}</Text>
                 </Pressable>
               );
             })}
@@ -379,43 +420,45 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#F4F7FB',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    width: '100%',
+    maxHeight: SHEET_HEIGHT,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
     elevation: 16,
   },
-  handleWrap: { alignItems: 'center', paddingTop: 10, paddingBottom: 6 },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#C7D0DA' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
   },
-  title: { ...typography.h3, color: NAVY, flex: 1, fontFamily: 'Inter_700Bold' },
+  title: { ...typography.h3, color: '#FFFFFF', flex: 1, fontFamily: 'Inter_700Bold' },
   closeBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#E5EAF1',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   scroll: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
 
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.lg, marginBottom: spacing.md },
-  sectionTitle: { ...typography.h3, fontSize: 17, color: NAVY, fontFamily: 'Inter_700Bold' },
+  sectionTitle: { ...typography.h3, fontSize: 17, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
   sectionNote: { ...typography.small, color: colors.textSecondary, marginTop: -spacing.sm, marginBottom: spacing.sm } as any,
 
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -426,16 +469,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#2C2C2E',
   },
   chipSel: { backgroundColor: NAVY, borderColor: NAVY },
-  chipText: { ...typography.caption, color: NAVY, fontFamily: 'Inter_600SemiBold' },
+  chipText: { ...typography.caption, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
   chipTextSel: { color: '#FFFFFF' },
 
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.md,
@@ -446,12 +489,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardRowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cardLabel: { ...typography.bodyBold, color: NAVY },
+  cardLabel: { ...typography.bodyBold, color: '#FFFFFF' },
   cardValue: { ...typography.bodyBold, color: colors.primary },
   rangeLabel: { ...typography.small, color: colors.textSecondary, marginTop: 8 },
 
   sliderHit: { height: 28, justifyContent: 'center', marginTop: spacing.sm },
-  sliderTrack: { height: 6, borderRadius: 3, backgroundColor: '#E2E8F0', overflow: 'hidden' },
+  sliderTrack: { height: 6, borderRadius: 3, backgroundColor: '#2C2C2E', overflow: 'hidden' },
   sliderFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
   sliderThumb: {
     position: 'absolute',
@@ -474,27 +517,27 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#F1F4F8',
+    backgroundColor: '#2C2C2E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   segmentSel: { backgroundColor: TEAL },
-  segmentText: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  segmentText: { ...typography.caption, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
   segmentTextSel: { color: '#FFFFFF' },
 
   locationRow: { flexDirection: 'row', gap: 12, marginBottom: spacing.sm },
   locBtn: { flex: 1, paddingVertical: 16, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   locBtnSel: { backgroundColor: NAVY },
-  locBtnUnsel: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0' },
+  locBtnUnsel: { backgroundColor: '#2C2C2E', borderWidth: 1, borderColor: '#2C2C2E' },
   locText: { ...typography.bodyBold },
   locTextSel: { color: '#FFFFFF' },
-  locTextUnsel: { color: NAVY },
+  locTextUnsel: { color: '#FFFFFF' },
 
   persona: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: 10,
@@ -511,23 +554,23 @@ const styles = StyleSheet.create({
   },
   radioSel: { borderColor: '#FFFFFF' },
   radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' },
-  personaTitle: { ...typography.bodyBold, color: NAVY },
+  personaTitle: { ...typography.bodyBold, color: '#FFFFFF' },
   personaTitleSel: { color: '#FFFFFF' },
   personaDesc: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
   personaDescSel: { color: 'rgba(255,255,255,0.7)' },
 
   reminderRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md },
-  reminderDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#E2E8F0' },
-  reminderTitle: { ...typography.bodyBold, color: NAVY, fontSize: 15 },
+  reminderDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#2C2C2E' },
+  reminderTitle: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 15 },
   reminderSub: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
 
   footer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
-    backgroundColor: '#F4F7FB',
+    backgroundColor: '#1C1C1E',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#2C2C2E',
   },
   saveWrap: { borderRadius: 16, overflow: 'hidden' },
   saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
