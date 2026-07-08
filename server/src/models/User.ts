@@ -4,6 +4,7 @@ export interface IUser extends Document {
   firebase_uid: string;
   name: string;
   email: string;
+  avatar_url: string;
   age: number;
   height_cm: number;
   weight_kg: number;
@@ -64,6 +65,7 @@ const UserSchema = new Schema<IUser>(
     firebase_uid: { type: String, required: true, unique: true, index: true },
     name: { type: String, required: true },
     email: { type: String, default: '' },
+    avatar_url: { type: String, default: '' },
     age: { type: Number, min: 16, max: 100 },
     height_cm: { type: Number },
     weight_kg: { type: Number },
