@@ -204,6 +204,24 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
   const geminiWs = new WebSocket(GEMINI_WS_URL);
   voiceSession.geminiWs = geminiWs;
 
+  // Load recent conversation history (from text chat) so voice continues seamlessly
+  let conversationContext = '';
+  if (activeSession?._id) {
+    try {
+      const recentTurns = await SessionTurn.find({ session_id: activeSession._id })
+        .sort({ timestamp: -1 })
+        .limit(6)
+        .lean();
+      if (recentTurns.length > 0) {
+        const turns = recentTurns.reverse().map((t: any) =>
+          `${t.role === 'companion' ? 'Kin' : 'User'}: ${t.content}`
+        ).join('\n');
+        conversationContext = `\n\n## Recent Conversation (from text chat — continue naturally)\n${turns}`;
+      }
+    } catch { /* non-critical */ }
+  }
+  const fullPrompt = systemPrompt + conversationContext;
+
   geminiWs.on('open', () => {
     console.log('[VoiceLive] Connected to Gemini, sending setup...');
 
@@ -219,7 +237,7 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
           }
         },
         systemInstruction: {
-          parts: [{ text: systemPrompt }]
+          parts: [{ text: fullPrompt }]
         }
       }
     };
