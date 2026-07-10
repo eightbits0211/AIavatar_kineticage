@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 const requestCounts: Map<string, { count: number; resetTime: number }> = new Map();
 
 const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 200; // 200 requests per minute per user (raised for dev; each screen fires bursts)
+const MAX_REQUESTS = 600; // 600/min — high for dev (shared IP bucket); per-user keying in production
 
 export const rateLimitMiddleware = (
   req: Request,
