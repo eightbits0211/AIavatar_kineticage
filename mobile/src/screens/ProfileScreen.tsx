@@ -808,9 +808,13 @@ const styles = StyleSheet.create({
   previewLabel: { ...typography.small, color: colors.primary, fontFamily: 'Inter_700Bold', letterSpacing: 0.5 },
   previewQuote: { ...typography.body, fontSize: 15, color: '#FFFFFF', marginTop: 4, fontStyle: 'italic' },
 
-  saveWrap: { borderRadius: 20, overflow: 'hidden', marginBottom: spacing.lg, alignSelf: 'center' },
-  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xxl, backgroundColor: '#2C2C2E' },
-  saveText: { ...typography.bodyBold, color: ORANGE, fontSize: 17 },
+  saveWrap: { marginBottom: spacing.lg, alignSelf: 'center' },
+  saveBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(245,130,31,0.16)',
+    borderRadius: 22, paddingHorizontal: spacing.lg, paddingVertical: 12,
+  },
+  saveText: { ...typography.caption, color: ORANGE, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
 
   overline: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_700Bold', letterSpacing: 1, marginBottom: spacing.sm, marginTop: spacing.xs },
 
@@ -840,16 +844,11 @@ const styles = StyleSheet.create({
   planPct: { ...typography.small, color: colors.textSecondary, marginTop: spacing.sm },
 
   signOut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(239,68,68,0.15)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.error,
-    height: 54,
+    borderRadius: 22, paddingHorizontal: spacing.lg, paddingVertical: 12,
     marginTop: spacing.sm,
   },
-  signOutText: { ...typography.bodyBold, color: colors.error, fontSize: 16 },
+  signOutText: { ...typography.caption, color: colors.error, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
 });

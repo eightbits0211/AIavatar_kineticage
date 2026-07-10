@@ -1,57 +1,41 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import KinAvatar from '../components/KinAvatar';
+import TabBarIcon from '../components/TabBarIcon';
 import FeatureIcon, { type FeatureIconName } from '../components/FeatureIcon';
 import { colors, spacing, typography } from '../theme';
 
-const FEATURES: Array<{
-  icon: FeatureIconName;
-  title: string;
-  subtitle: string;
-  tint: string;
-  iconColor: string;
-}> = [
-  { icon: 'coaching', title: 'AI Coaching', subtitle: 'Personalized every day', tint: '#EAF2FB', iconColor: '#4A90C2' },
-  { icon: 'progress', title: 'Progress', subtitle: 'Track every milestone', tint: '#E8F1FB', iconColor: '#4A90C2' },
-  { icon: 'goals', title: 'Smart Goals', subtitle: 'Adaptive to your life', tint: '#FDECEC', iconColor: '#E8772E' },
-  { icon: 'achievements', title: 'Achievements', subtitle: 'Celebrate your wins', tint: '#FBF3E0', iconColor: '#E0A21A' },
+const GREEN = 'rgb(166, 250, 4)';
+
+const FEATURES: Array<{ icon: FeatureIconName; title: string; subtitle: string }> = [
+  { icon: 'coaching', title: 'AI Coaching', subtitle: 'Personalized workouts and guidance, every single day.' },
+  { icon: 'progress', title: 'Track Progress', subtitle: 'See your streaks, calories, and strength climb over time.' },
+  { icon: 'goals', title: 'Smart Goals', subtitle: 'Plans that adapt to your body, equipment, and schedule.' },
+  { icon: 'achievements', title: 'Achievements', subtitle: 'Earn XP and badges as you celebrate every win.' },
 ];
 
 export default function WelcomeScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Clean gradient header with a smooth rounded bottom */}
-        <LinearGradient
-          colors={['#4A90C2', '#3A7CA8']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.header}
-        >
-          <Text style={styles.brand}>Kinetic Age</Text>
-          <Text style={styles.tagline}>Move. Progress. Repeat.</Text>
-        </LinearGradient>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top, 24) + spacing.xl }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Bare green Kin logo — no circle, ring, or glow */}
+        <TabBarIcon name="coach" color={GREEN} size={52} />
 
-        <View style={styles.avatarWrap}>
-          <KinAvatar size={96} />
-        </View>
+        <Text style={styles.title}>Welcome to{'\n'}Kinetic Age</Text>
+        <Text style={styles.subtitle}>Meet Kin — your AI fitness companion.</Text>
 
-        <View style={styles.introCard}>
-          <Text style={styles.introText}>
-            Hi, I'm <Text style={styles.introBold}>Kin</Text> — your AI fitness companion. I'll build
-            personalized workouts, guide every session, and help you reach your goals. Just for you.
-          </Text>
-        </View>
-
-        <View style={styles.grid}>
+        <View style={styles.features}>
           {FEATURES.map((f) => (
-            <View key={f.title} style={styles.featureCard}>
-              <View style={[styles.featureIcon, { backgroundColor: f.tint }]}>
-                <FeatureIcon name={f.icon} size={20} color={f.iconColor} />
+            <View key={f.title} style={styles.featureRow}>
+              <View style={styles.featureIcon}>
+                <FeatureIcon name={f.icon} size={26} color={GREEN} />
               </View>
               <View style={styles.featureText}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
@@ -60,32 +44,18 @@ export default function WelcomeScreen() {
             </View>
           ))}
         </View>
+      </ScrollView>
 
+      {/* Pinned bottom action */}
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xxl }]}>
         <Pressable
           accessibilityRole="button"
           onPress={() => navigation.navigate('Auth', { mode: 'signup' })}
-          style={({ pressed }) => [styles.ctaWrap, pressed && styles.ctaPressed]}
+          style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
         >
-          <LinearGradient
-            colors={['#FFA24D', '#F5821F']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.cta}
-          >
-            <Text style={styles.ctaText}>Get Started  ›</Text>
-          </LinearGradient>
+          <Text style={styles.ctaText}>Continue</Text>
         </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('Auth', { mode: 'login' })}
-          style={styles.signInRow}
-        >
-          <Text style={styles.signInText}>
-            Already have an account? <Text style={styles.signInLink}>Sign In</Text>
-          </Text>
-        </Pressable>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -96,134 +66,69 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scroll: {
-    paddingBottom: spacing.xl,
-  },
-  header: {
-    paddingTop: spacing.xxl + spacing.md,
-    paddingBottom: spacing.xl,
+    flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: spacing.xl,
   },
-  brand: {
+  title: {
     ...typography.h1,
-    fontSize: 30,
+    fontSize: 34,
+    lineHeight: 40,
     color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  tagline: {
-    ...typography.body,
-    color: 'rgba(255,255,255,0.85)',
-    marginTop: spacing.xs,
-  },
-  avatarWrap: {
-    alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  introCard: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  introText: {
-    ...typography.body,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  introBold: {
-    fontFamily: 'Inter_700Bold',
-    color: colors.primary,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
     marginTop: spacing.lg,
   },
-  featureCard: {
-    width: '48%',
+  subtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+  },
+  features: {
+    marginTop: spacing.xxl,
+  },
+  featureRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    minHeight: 64,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    alignItems: 'flex-start',
+    marginBottom: spacing.xl,
   },
   featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
+    marginTop: 1,
   },
   featureText: {
     flex: 1,
   },
   featureTitle: {
     ...typography.bodyBold,
-    fontSize: 14,
-    color: colors.text,
+    fontSize: 17,
+    color: '#FFFFFF',
   },
   featureSubtitle: {
-    ...typography.small,
+    ...typography.caption,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 3,
+    lineHeight: 19,
   },
-  ctaWrap: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#F5821F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  ctaPressed: {
-    opacity: 0.9,
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
   },
   cta: {
-    height: 54,
+    alignSelf: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2C2C2E',
+    borderRadius: 30,
+    paddingHorizontal: 72,
+    paddingVertical: 18,
   },
   ctaText: {
     ...typography.bodyBold,
-    fontSize: 17,
     color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  signInRow: {
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  signInText: {
-    ...typography.body,
-    color: colors.textSecondary,
-  },
-  signInLink: {
-    color: colors.primary,
     fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
   },
 });

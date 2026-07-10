@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, withAlpha } from '../theme';
 import EquipmentIcon, { type EquipmentIconName } from './EquipmentIcon';
+
+const GREEN = 'rgb(166, 250, 4)';
 
 interface EquipmentCardProps {
   value: EquipmentIconName;
@@ -18,7 +20,6 @@ interface EquipmentCardProps {
 export default function EquipmentCard({
   value,
   label,
-  tint,
   iconColor,
   selected,
   onPress,
@@ -34,8 +35,8 @@ export default function EquipmentCard({
         pressed && styles.pressed,
       ]}
     >
-      <View style={[styles.iconCircle, { backgroundColor: selected ? colors.primary : tint }]}>
-        <EquipmentIcon name={value} size={18} color={selected ? colors.surface : iconColor} />
+      <View style={[styles.iconCircle, { backgroundColor: selected ? GREEN : withAlpha(iconColor, 0.18) }]}>
+        <EquipmentIcon name={value} size={18} color={selected ? '#000000' : iconColor} />
       </View>
       <Text style={styles.label} numberOfLines={2}>
         {label}
@@ -57,16 +58,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     // Constant border width so selecting never shifts layout — only color/fill change.
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.06)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   cardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: '#EAF2FB',
+    borderColor: GREEN,
+    backgroundColor: 'rgba(166,250,4,0.12)',
   },
   pressed: {
     opacity: 0.7,

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography } from '../theme';
-import KinAvatar from './KinAvatar';
+import KinLogo from './KinLogo';
 
 interface ChatMessageProps {
   role: 'kin' | 'user';
@@ -15,7 +15,7 @@ export default function ChatMessage({ role, content }: ChatMessageProps) {
     <View style={[styles.container, isKin ? styles.kinMessage : styles.userMessage]}>
       {isKin && (
         <View style={styles.avatarContainer}>
-          <KinAvatar size={32} />
+          <KinLogo size={32} />
         </View>
       )}
       {isKin ? (

@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Line } from 'react-native-svg';
 
 import { colors, spacing, typography } from '../theme';
@@ -110,7 +109,7 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
-        <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill}>
+        <BlurView intensity={26} tint="dark" style={[StyleSheet.absoluteFill, styles.scrim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close edit profile" />
         </BlurView>
       </Animated.View>
@@ -178,10 +177,8 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
         </ScrollView>
 
         <View style={styles.footer}>
-          <Pressable onPress={handleSave} disabled={saving} style={styles.saveWrap} accessibilityLabel="Save profile">
-            <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.saveBtn}>
-              {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveText}>Save Changes</Text>}
-            </LinearGradient>
+          <Pressable onPress={handleSave} disabled={saving} style={styles.saveBtn} accessibilityLabel="Save profile">
+            {saving ? <ActivityIndicator color="#F5821F" /> : <Text style={styles.saveText}>Save Changes</Text>}
           </Pressable>
         </View>
       </Animated.View>
@@ -191,11 +188,12 @@ export default function EditProfileModal({ visible, onClose }: EditProfileModalP
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  scrim: { backgroundColor: 'rgba(24,24,26,0.5)' },
   sheet: {
     width: '100%',
     maxHeight: SHEET_HEIGHT,
@@ -254,13 +252,17 @@ const styles = StyleSheet.create({
 
   footer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
     backgroundColor: '#1C1C1E',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#2C2C2E',
   },
-  saveWrap: { borderRadius: 16, overflow: 'hidden' },
-  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  saveText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 17 },
+  saveBtn: {
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(245,130,31,0.16)',
+    borderRadius: 22, paddingHorizontal: spacing.lg, paddingVertical: 12,
+  },
+  saveText: { ...typography.caption, color: '#F5821F', fontFamily: 'Inter_600SemiBold', fontSize: 15 },
 });

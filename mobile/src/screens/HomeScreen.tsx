@@ -41,6 +41,7 @@ import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
 import { WebPushToTalk } from '../services/webPushToTalk';
 import { getFreshToken } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
+import { useUIStore } from '../stores/uiStore';
 import { colors, spacing, typography } from '../theme';
 import type { ExerciseBundle, BundleExercise } from '../../../shared/types';
 
@@ -629,32 +630,42 @@ export default function HomeScreen() {
   // badges, and makes the workout show up in history / the Progress tab.
   const finishSession = useCallback(
     async (sessionId: string | null, title: string) => {
+      // Capture the plan size before clearing the workout so we can still show
+      // a meaningful summary if the /end call fails.
+      const planned = workoutRef.current?.exercises.length ?? 0;
       setWorkout(null);
+
+      // Fetch the authoritative post-workout report. On any failure (network,
+      // rate-limit, or a session that was never created) we fall back to a
+      // minimal local summary so the summary modal ALWAYS appears.
+      let endRes: WorkoutSummary | null = null;
       if (sessionId) {
         try {
-          // One call returns the full post-workout report — show it in the summary modal.
-          const endRes = await apiPost<WorkoutSummary>(`/api/session/${sessionId}/end`, {});
-          setSummary(endRes);
-          await coach('session_end', sessionId, { bundle_title: title });
-          // Celebrate any freshly earned badges as a milestone moment.
-          const badges = endRes?.badges_earned ?? [];
-          if (badges.length) {
-            await coach('milestone', sessionId, {
-              milestone_type: 'badge',
-              milestone_detail: badges.map((b: any) => b.name).filter(Boolean).join(', '),
-            });
-          }
+          endRes = await apiPost<WorkoutSummary>(`/api/session/${sessionId}/end`, {});
         } catch {
-          setMessages((m) => [
-            ...m,
-            { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
-          ]);
+          endRes = null;
         }
-      } else {
-        setMessages((m) => [
-          ...m,
-          { id: `${Date.now()}-k`, role: 'kin', text: `🎉 Workout complete! Great job finishing ${title}.` },
-        ]);
+      }
+
+      setSummary(
+        endRes ?? {
+          status: 'complete',
+          exercises_completed: planned,
+          exercises_planned: planned,
+          completion_ratio: planned > 0 ? 100 : 0,
+        }
+      );
+
+      if (sessionId) {
+        await coach('session_end', sessionId, { bundle_title: title });
+        // Celebrate any freshly earned badges as a milestone moment.
+        const badges = endRes?.badges_earned ?? [];
+        if (badges.length) {
+          await coach('milestone', sessionId, {
+            milestone_type: 'badge',
+            milestone_detail: badges.map((b: any) => b.name).filter(Boolean).join(', '),
+          });
+        }
       }
     },
     [coach]
@@ -967,6 +978,204 @@ export default function HomeScreen() {
   const openRecommended = () =>
     recommended ? navigation.navigate('BundleDetail', { bundle: recommended }) : openBundles();
 
+  // Focus mode: an active (non-paused) workout takes over the whole screen —
+  // header + tab bar hide, a large exercise GIF sits up top, the deck drops to
+  // just above the Ask Kin bar. Pausing or ending exits back to the normal UI.
+  const focusMode = !!workout && !workout.paused;
+  const setHideTabBar = useUIStore((s) => s.setHideTabBar);
+  useEffect(() => {
+    setHideTabBar(focusMode);
+    return () => setHideTabBar(false);
+  }, [focusMode, setHideTabBar]);
+
+  // Chat bubbles (user + Kin + typing) — reused in the normal thread and the
+  // focus-mode chat area.
+  const chatBubbles = (
+    <>
+      {messages.map((m) =>
+        m.role === 'user' ? (
+          <View key={m.id} style={styles.userMsgRow}>
+            <View style={styles.userBubble}>
+              <Text style={styles.userBubbleText}>{m.text}</Text>
+            </View>
+          </View>
+        ) : (
+          <View key={m.id} style={styles.kinMsgRow}>
+            <KinLogo size={36} />
+            <View style={styles.kinBubble}>
+              <Text style={styles.kinBubbleText}>{m.text}</Text>
+            </View>
+          </View>
+        )
+      )}
+      {kinTyping && (
+        <View style={styles.kinMsgRow}>
+          <KinLogo size={36} />
+          <View style={styles.kinBubble}>
+            <View style={styles.typingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.typingText}>Kin is thinking…</Text>
+            </View>
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  // Ask Kin bar — reused in both the normal dock and the focus-mode layout.
+  const askBar = (
+    <View
+      style={[
+        styles.askBar,
+        { paddingBottom: focusMode ? Math.max(insets.bottom, 10) + 10 : Math.max(insets.bottom, 10) + 90 },
+      ]}
+    >
+      {voiceMode ? (
+        <View style={styles.voiceHintRow}>
+          <Text style={styles.voiceHintText}>
+            {voicePhase === 'listening'
+              ? '● Listening… just speak'
+              : voicePhase === 'connecting'
+              ? 'Connecting…'
+              : voicePhase === 'speaking'
+              ? '🔊 Kin is speaking…'
+              : 'Voice mode on'}
+            {'  ·  tap the mic to end'}
+          </Text>
+        </View>
+      ) : (recording || transcribing) ? (
+        <View style={styles.voiceHintRow}>
+          <Text style={styles.voiceHintText}>
+            {recording ? '● Listening… tap the mic again to send' : 'Transcribing…'}
+          </Text>
+        </View>
+      ) : null}
+      <View style={styles.askRow}>
+        <TextInput
+          style={[styles.askInput, { outlineWidth: 0, outlineColor: 'transparent' } as any]}
+          placeholder="Ask Kin anything…"
+          placeholderTextColor={colors.textLight}
+          value={askText}
+          onChangeText={setAskText}
+          onSubmitEditing={() => sendMessage()}
+          returnKeyType="send"
+          underlineColorAndroid="transparent"
+          selectionColor={colors.primary}
+        />
+        <Pressable
+          style={styles.micBtn}
+          accessibilityRole="button"
+          accessibilityLabel={
+            voiceMode ? 'Turn off voice chat' : recording ? 'Stop recording' : 'Voice input'
+          }
+          onPress={onMicPress}
+          disabled={transcribing}
+        >
+          {transcribing || voicePhase === 'connecting' ? (
+            <ActivityIndicator size="small" color={recording || voiceMode ? '#E5484D' : colors.primary} />
+          ) : recording || voiceMode ? (
+            <View style={styles.micActiveCircle}>
+              <View style={styles.micStopSquare} />
+            </View>
+          ) : (
+            <MicIcon size={24} color="#8A94A6" />
+          )}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Send"
+          disabled={!askText.trim()}
+          style={[styles.askSend, !askText.trim() && styles.askSendDisabled]}
+          onPress={() => sendMessage()}
+        >
+          <SendIcon size={32} />
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  // Modals — rendered in both layouts.
+  const overlays = (
+    <>
+      <HistoryDrawer
+        visible={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        history={history}
+        loading={historyLoading}
+        userName={user?.name && user.name !== 'Guest' ? user.name : 'You'}
+        level={level}
+        streak={streak}
+        onNewSession={() => {
+          setHistoryOpen(false);
+          openBundles();
+        }}
+      />
+
+      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      <WorkoutSummaryModal
+        visible={!!summary}
+        summary={summary}
+        onClose={() => {
+          setSummary(null);
+          load();
+        }}
+      />
+    </>
+  );
+
+  // ── Focus-mode layout ──
+  // Smaller GIF on top; the translucent deck floats just below it; the whole
+  // area beneath the GIF is a chat surface — messages start above the search
+  // bar and scroll up behind the deck, right to the card under the GIF.
+  if (focusMode && workout) {
+    const currentEx = workout.exercises[workout.index];
+    return (
+      <View style={styles.focusContainer}>
+        <View style={[styles.focusGifWrap, { marginTop: Math.max(insets.top, 24) + spacing.md }]}>
+          {currentEx?.image_url ? (
+            <Image source={{ uri: currentEx.image_url }} style={styles.focusGif} resizeMode="cover" />
+          ) : (
+            <View style={styles.focusGif} />
+          )}
+        </View>
+
+        {/* Chat surface fills the rest; the deck floats over the top of it.
+            Chat scrolls up behind the deck, stopping at its topmost edge. */}
+        <View style={styles.focusChatArea}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.focusChatScroll}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.focusChatContent}
+          >
+            {chatBubbles}
+          </ScrollView>
+
+          <View style={styles.focusDeckFloat} pointerEvents="box-none">
+            <WorkoutDeck
+              key={workout.index}
+              exercise={currentEx}
+              index={workout.index}
+              total={workout.exercises.length}
+              paused={workout.paused}
+              onDone={handleDone}
+              onSkip={handleSkip}
+              onPause={togglePause}
+              onEnd={confirmEndWorkout}
+              hideImage
+              transparent
+            />
+          </View>
+        </View>
+
+        {askBar}
+
+        {overlays}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* ── Fixed header (stays put while the content scrolls) ── */}
@@ -1138,33 +1347,7 @@ export default function HomeScreen() {
             {/* Chat thread with Kin */}
             {(messages.length > 0 || kinTyping || workout) && (
               <View style={styles.chatThread}>
-                {messages.map((m) =>
-                  m.role === 'user' ? (
-                    <View key={m.id} style={styles.userMsgRow}>
-                      <View style={styles.userBubble}>
-                        <Text style={styles.userBubbleText}>{m.text}</Text>
-                      </View>
-                    </View>
-                  ) : (
-                    <View key={m.id} style={styles.kinMsgRow}>
-                      <KinLogo size={36} />
-                      <View style={styles.kinBubble}>
-                        <Text style={styles.kinBubbleText}>{m.text}</Text>
-                      </View>
-                    </View>
-                  )
-                )}
-                {kinTyping && (
-                  <View style={styles.kinMsgRow}>
-                    <KinLogo size={36} />
-                    <View style={styles.kinBubble}>
-                      <View style={styles.typingRow}>
-                        <ActivityIndicator size="small" color={colors.primary} />
-                        <Text style={styles.typingText}>Kin is thinking…</Text>
-                      </View>
-                    </View>
-                  </View>
-                )}
+                {chatBubbles}
                 {workout && !workout.paused && (
                   <WorkoutDeck
                     key={workout.index}
@@ -1255,95 +1438,10 @@ export default function HomeScreen() {
       )}
 
       {/* Ask Kin bar */}
-      <View style={[styles.askBar, { paddingBottom: Math.max(insets.bottom, 10) + 90 }]}>
-        {voiceMode ? (
-          <View style={styles.voiceHintRow}>
-            <Text style={styles.voiceHintText}>
-              {voicePhase === 'listening'
-                ? '● Listening… just speak'
-                : voicePhase === 'connecting'
-                ? 'Connecting…'
-                : voicePhase === 'speaking'
-                ? '🔊 Kin is speaking…'
-                : 'Voice mode on'}
-              {'  ·  tap the mic to end'}
-            </Text>
-          </View>
-        ) : (recording || transcribing) ? (
-          <View style={styles.voiceHintRow}>
-            <Text style={styles.voiceHintText}>
-              {recording ? '● Listening… tap the mic again to send' : 'Transcribing…'}
-            </Text>
-          </View>
-        ) : null}
-        <View style={styles.askRow}>
-          <TextInput
-            style={[styles.askInput, { outlineWidth: 0, outlineColor: 'transparent' } as any]}
-            placeholder="Ask Kin anything…"
-            placeholderTextColor={colors.textLight}
-            value={askText}
-            onChangeText={setAskText}
-            onSubmitEditing={() => sendMessage()}
-            returnKeyType="send"
-            underlineColorAndroid="transparent"
-            selectionColor={colors.primary}
-          />
-          <Pressable
-            style={styles.micBtn}
-            accessibilityRole="button"
-            accessibilityLabel={
-              voiceMode ? 'Turn off voice chat' : recording ? 'Stop recording' : 'Voice input'
-            }
-            onPress={onMicPress}
-            disabled={transcribing}
-          >
-            {transcribing || voicePhase === 'connecting' ? (
-              <ActivityIndicator size="small" color={recording || voiceMode ? '#E5484D' : colors.primary} />
-            ) : recording || voiceMode ? (
-              <View style={styles.micActiveCircle}>
-                <View style={styles.micStopSquare} />
-              </View>
-            ) : (
-              <MicIcon size={24} color="#8A94A6" />
-            )}
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Send"
-            disabled={!askText.trim()}
-            style={[styles.askSend, !askText.trim() && styles.askSendDisabled]}
-            onPress={() => sendMessage()}
-          >
-            <SendIcon size={32} />
-          </Pressable>
-        </View>
-      </View>
+      {askBar}
       </View>
 
-      <HistoryDrawer
-        visible={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        history={history}
-        loading={historyLoading}
-        userName={user?.name && user.name !== 'Guest' ? user.name : 'You'}
-        level={level}
-        streak={streak}
-        onNewSession={() => {
-          setHistoryOpen(false);
-          openBundles();
-        }}
-      />
-
-      <SettingsSheet visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
-      <WorkoutSummaryModal
-        visible={!!summary}
-        summary={summary}
-        onClose={() => {
-          setSummary(null);
-          load();
-        }}
-      />
+      {overlays}
     </View>
   );
 }
@@ -1410,6 +1508,31 @@ function WorkoutTile({ bundle, onPress, onStart }: { bundle: any; onPress: () =>
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  // Focus mode: full black takeover during an active workout.
+  focusContainer: { flex: 1, backgroundColor: '#000000' },
+  // Exercise GIF up top — same width as the card, a little less wide.
+  focusGifWrap: { paddingHorizontal: spacing.lg + spacing.md },
+  focusGif: {
+    width: '100%',
+    height: 200,
+    borderRadius: 24,
+    backgroundColor: '#1C1C1E',
+  },
+  // Chat surface below the GIF; the translucent deck floats over its top edge.
+  focusChatArea: { flex: 1, position: 'relative' },
+  // Reduce the chat container's height so its top edge aligns with the deck's
+  // top edge — the deck's card starts spacing.md below the float's top.
+  focusChatScroll: { flex: 1, marginTop: spacing.md },
+  // Newest messages sit at the bottom (just above the Ask Kin bar) and grow up.
+  focusChatContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+    gap: spacing.md,
+  },
+  // Deck pinned to the top of the chat area, right under the GIF.
+  focusDeckFloat: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: spacing.lg },
   scrollView: { flex: 1 },
   scroll: { paddingBottom: 236 },
   bottomDock: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' },
@@ -1531,7 +1654,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   quickChipText: { ...typography.caption, color: '#FFFFFF', fontFamily: 'Inter_600SemiBold' },
-  body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  body: { paddingHorizontal: spacing.lg, marginTop: spacing.xs },
   resumeCard: {
     backgroundColor: '#FFF6EE',
     borderRadius: 16,

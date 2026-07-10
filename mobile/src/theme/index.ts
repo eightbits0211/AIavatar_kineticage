@@ -37,6 +37,17 @@ export const typography = {
   small: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 16 },
 };
 
+/**
+ * Returns a color with the given alpha. Accepts a 6-digit hex (#RRGGBB) and
+ * converts to rgba(); any other format (already rgb/rgba) is returned as-is.
+ * Handy for deriving subtle translucent tints from an accent color on dark UI.
+ */
+export const withAlpha = (color: string, alpha: number): string => {
+  if (!color.startsWith('#') || color.length < 7) return color;
+  const n = parseInt(color.slice(1, 7), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+};
+
 export const borderRadius = {
   sm: 8,
   md: 12,

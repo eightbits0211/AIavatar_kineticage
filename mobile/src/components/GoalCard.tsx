@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { FitnessGoal } from '../../../shared/types';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, withAlpha } from '../theme';
 import GoalIcon from './GoalIcon';
 
 interface GoalCardProps {
@@ -12,14 +12,14 @@ interface GoalCardProps {
   onPress: () => void;
 }
 
-export default function GoalCard({ goal, title, subtitle, tint, iconColor, onPress }: GoalCardProps) {
+export default function GoalCard({ goal, title, subtitle, iconColor, onPress }: GoalCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <View style={[styles.iconCircle, { backgroundColor: tint }]}>
+      <View style={[styles.iconCircle, { backgroundColor: withAlpha(iconColor, 0.18) }]}>
         <GoalIcon goal={goal} size={20} color={iconColor} />
       </View>
       <View style={styles.textBlock}>
@@ -40,12 +40,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   pressed: {
     opacity: 0.7,

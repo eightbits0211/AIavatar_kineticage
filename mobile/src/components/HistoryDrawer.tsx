@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 
 import TabBarIcon from './TabBarIcon';
 import GoalIcon from './GoalIcon';
@@ -130,8 +131,10 @@ export default function HistoryDrawer({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: fade }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
+        <BlurView intensity={26} tint="dark" style={[StyleSheet.absoluteFill, styles.scrim]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        </BlurView>
       </Animated.View>
 
       <Animated.View style={[styles.panel, { width: PANEL_WIDTH, transform: [{ translateX: slide }], paddingTop: Math.max(insets.top, 24) + spacing.md }]}>
@@ -197,7 +200,7 @@ export default function HistoryDrawer({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { backgroundColor: 'rgba(0,0,0,0.35)' },
+  scrim: { backgroundColor: 'rgba(24,24,26,0.5)' },
   panel: {
     position: 'absolute',
     top: 0,
@@ -228,7 +231,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: 'rgba(245,130,31,0.16)',
-    borderWidth: 1, borderColor: 'rgba(245,130,31,0.5)',
     borderRadius: 20, paddingHorizontal: spacing.md, paddingVertical: 8, marginBottom: spacing.lg,
   },
   newPlus: {
