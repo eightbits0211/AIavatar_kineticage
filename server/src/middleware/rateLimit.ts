@@ -4,13 +4,14 @@ import { Request, Response, NextFunction } from 'express';
 const requestCounts: Map<string, { count: number; resetTime: number }> = new Map();
 
 const WINDOW_MS = 60 * 1000; // 1 minute
-const MAX_REQUESTS = 60; // 60 requests per minute per user
+const MAX_REQUESTS = 200; // 200 requests per minute per user (raised for dev; each screen fires bursts)
 
 export const rateLimitMiddleware = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
+  // Key on authenticated user ID (set by authMiddleware), falling back to IP
   const key = (req as any).uid || req.ip || 'anonymous';
   const now = Date.now();
   const record = requestCounts.get(key);
