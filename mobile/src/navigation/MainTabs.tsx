@@ -7,6 +7,7 @@ import DashboardScreen from '../screens/DashboardScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import TabBarIcon from '../components/TabBarIcon';
 import { colors } from '../theme';
+import { useUIStore } from '../stores/uiStore';
 
 const Tab = createBottomTabNavigator();
 
@@ -16,6 +17,8 @@ const TAB_SIDE = Math.max(16, (Dimensions.get('window').width - TAB_WIDTH) / 2);
 
 export default function MainTabs() {
   const insets = useSafeAreaInsets();
+  // During an active workout (focus mode) the tab bar is hidden entirely.
+  const hideTabBar = useUIStore((s) => s.hideTabBar);
   return (
     <Tab.Navigator
       screenOptions={{
@@ -25,7 +28,9 @@ export default function MainTabs() {
         tabBarActiveTintColor: 'rgb(166, 250, 4)',
         tabBarInactiveTintColor: colors.textLight,
         // Floating pill tab bar — content flows behind it (position: absolute).
-        tabBarStyle: {
+        tabBarStyle: hideTabBar
+          ? { display: 'none' }
+          : {
           position: 'absolute',
           left: TAB_SIDE,
           right: TAB_SIDE,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { apiGet, apiPost } from '../services/api';
 import { colors, spacing, typography } from '../theme';
@@ -93,7 +93,12 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
       </View>
 
       <Text style={styles.sub}>Anything sore? (optional)</Text>
-      <View style={styles.soreWrap}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.soreScroll}
+        contentContainerStyle={styles.soreRow}
+      >
         {SORENESS_AREAS.map((area) => {
           const sel = soreness.includes(area);
           return (
@@ -108,7 +113,7 @@ export default function DailyCheckinCard({ onComplete }: DailyCheckinCardProps) 
             </Pressable>
           );
         })}
-      </View>
+      </ScrollView>
 
       <Pressable
         onPress={submit}
@@ -129,7 +134,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#1C1C1E',
     borderRadius: 18,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
     shadowColor: '#1E4E7E',
     shadowOffset: { width: 0, height: 2 },
@@ -137,23 +142,24 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  title: { ...typography.h3, fontSize: 20, lineHeight: 26, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
-  sub: { ...typography.caption, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.sm },
+  title: { ...typography.h3, fontSize: 18, lineHeight: 22, color: '#FFFFFF', fontFamily: 'Inter_700Bold' },
+  sub: { ...typography.caption, color: colors.textSecondary, marginTop: 2, marginBottom: 6 },
   energyRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   energyBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: 14,
     backgroundColor: '#2C2C2E',
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
   energyBtnSel: { borderColor: 'rgb(166, 250, 4)', backgroundColor: 'rgba(166,250,4,0.15)' },
-  energyEmoji: { fontSize: 22 },
-  energyLabel: { ...typography.small, color: colors.textSecondary, marginTop: 4, fontFamily: 'Inter_600SemiBold' },
+  energyEmoji: { fontSize: 20 },
+  energyLabel: { ...typography.small, color: colors.textSecondary, marginTop: 2, fontFamily: 'Inter_600SemiBold' },
   energyLabelSel: { color: 'rgb(166, 250, 4)' },
-  soreWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
+  soreScroll: { flexGrow: 0, marginBottom: spacing.md },
+  soreRow: { flexDirection: 'row', gap: 8, paddingRight: spacing.sm },
   soreChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -168,10 +174,10 @@ const styles = StyleSheet.create({
   submitBtn: {
     backgroundColor: 'rgb(166, 250, 4)',
     borderRadius: 14,
-    height: 48,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitBtnDisabled: { opacity: 0.4 },
-  submitText: { ...typography.bodyBold, color: '#000000', fontSize: 18 },
+  submitText: { ...typography.bodyBold, color: '#000000', fontSize: 16 },
 });

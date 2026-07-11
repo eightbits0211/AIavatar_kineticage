@@ -116,9 +116,13 @@ interface WorkoutDeckProps {
   onPause: () => void;
   /** End the whole workout early (saves progress so far). */
   onEnd: () => void;
+  /** Hide the small inline demo GIF (used in focus mode where a large GIF shows above). */
+  hideImage?: boolean;
+  /** Use the translucent surface (matches the tab/search bars) so chat flows behind. */
+  transparent?: boolean;
 }
 
-export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause, onEnd }: WorkoutDeckProps) {
+export default function WorkoutDeck({ exercise, index, total, paused, onDone, onSkip, onPause, onEnd, hideImage, transparent }: WorkoutDeckProps) {
   const timed = isTimed(exercise, index, total);
   const metric = timed
     ? `${timedMinutes(exercise, index, total)} min`
@@ -149,10 +153,12 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
     return () => clearInterval(id);
   }, [exercise, timed, index, total]);
 
+  const surface = transparent ? 'rgba(24,24,26,0.96)' : undefined;
+
   return (
     <View style={styles.wrap}>
       {/* ── Exercise deck ── */}
-      <View style={styles.deck}>
+      <View style={[styles.deck, surface ? { backgroundColor: surface } : null]}>
         {/* segmented progress + count */}
         <View style={styles.progressRow}>
           <View style={styles.segs}>
@@ -164,12 +170,14 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
         </View>
 
         <View style={styles.mainRow}>
-          {/* Exercise demo GIF (image_url), placeholder while none/loading */}
-          {exercise.image_url ? (
-            <Image source={{ uri: exercise.image_url }} style={styles.animBox} resizeMode="cover" />
-          ) : (
-            <View style={styles.animBox} />
-          )}
+          {/* Exercise demo GIF (image_url), placeholder while none/loading.
+              Hidden in focus mode, where a large GIF is shown above the card. */}
+          {!hideImage &&
+            (exercise.image_url ? (
+              <Image source={{ uri: exercise.image_url }} style={styles.animBox} resizeMode="cover" />
+            ) : (
+              <View style={styles.animBox} />
+            ))}
 
           <View style={styles.info}>
             <Text style={styles.phase}>{phaseLabel(exercise, index, total)}</Text>
@@ -229,28 +237,28 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
             <Text style={styles.doneText}>Done</Text>
           </View>
         </Pressable>
-      </View>
 
-      {/* ── Control bar (dots · pause · skip) ── */}
-      <View style={styles.controlBar}>
-        <View style={styles.dots}>
-          {Array.from({ length: total }).map((_, i) => (
-            <View key={i} style={[styles.dot, i <= index && styles.dotOn]} />
-          ))}
-        </View>
-        <View style={styles.controlRight}>
-          <Pressable onPress={onEnd} style={styles.endBtn} accessibilityRole="button" accessibilityLabel="End workout">
-            <CrossIcon size={24} color="#E5484D" />
-          </Pressable>
-          <Pressable onPress={onPause} style={styles.pauseBtn} accessibilityLabel={paused ? 'Resume' : 'Pause'}>
-            {paused ? <PlayIcon size={24} color="#2E9E5B" /> : <PauseIcon size={24} color="#2E9E5B" />}
-          </Pressable>
-          <Pressable onPress={onSkip} style={styles.skipWrap} accessibilityLabel="Skip">
-            <View style={styles.skipBtn}>
-              <SkipIcon color="rgb(221, 188, 1)" />
-              <Text style={styles.skipText}>Skip</Text>
-            </View>
-          </Pressable>
+        {/* ── Control bar (dots · pause · skip) — same card as the details ── */}
+        <View style={styles.controlBar}>
+          <View style={styles.dots}>
+            {Array.from({ length: total }).map((_, i) => (
+              <View key={i} style={[styles.dot, i <= index && styles.dotOn]} />
+            ))}
+          </View>
+          <View style={styles.controlRight}>
+            <Pressable onPress={onEnd} style={styles.endBtn} accessibilityRole="button" accessibilityLabel="End workout">
+              <CrossIcon size={24} color="#E5484D" />
+            </Pressable>
+            <Pressable onPress={onPause} style={styles.pauseBtn} accessibilityLabel={paused ? 'Resume' : 'Pause'}>
+              {paused ? <PlayIcon size={24} color="#2E9E5B" /> : <PauseIcon size={24} color="#2E9E5B" />}
+            </Pressable>
+            <Pressable onPress={onSkip} style={styles.skipWrap} accessibilityLabel="Skip">
+              <View style={styles.skipBtn}>
+                <SkipIcon color="rgb(221, 188, 1)" />
+                <Text style={styles.skipText}>Skip</Text>
+              </View>
+            </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -263,7 +271,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1C1C1E',
     borderRadius: 20,
     padding: spacing.md,
-    paddingBottom: 0,
     overflow: 'hidden',
     shadowColor: '#1E4E7E',
     shadowOffset: { width: 0, height: 2 },
@@ -355,16 +362,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1C1C1E',
-    borderRadius: 18,
-    padding: spacing.sm,
-    marginTop: -10,
-    marginHorizontal: spacing.sm,
-    shadowColor: '#1E4E7E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: spacing.md,
   },
   dots: { flexDirection: 'row', gap: 6, paddingLeft: spacing.sm },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2C2C2E' },

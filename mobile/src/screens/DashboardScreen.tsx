@@ -354,13 +354,20 @@ export default function DashboardScreen() {
         apiGet<WeightResp>(`/api/progress/weight?range=${r}`).catch(() => null),
         apiGet<{ insights: Insight[] }>('/api/progress/insights').catch(() => null),
       ]);
+      // Only apply values from calls that actually succeeded. A failed call
+      // (e.g. 429) resolves to null via .catch(() => null); overwriting state
+      // with those nulls is what previously zeroed the charts. A successful
+      // but empty response is still a truthy object, so genuine "no data yet"
+      // states are preserved.
       if (w) setWeekly(w);
       if (h) setHistory(h.history ?? []);
       if (g) setGoal(g);
-      setStrength(st?.exercises ?? null);
-      setStrengthChangePct(st?.summary?.overall_strength_change_pct ?? 0);
-      setWeightData(wt ?? null);
-      setInsights(ins?.insights ?? []);
+      if (st) {
+        setStrength(st.exercises ?? null);
+        setStrengthChangePct(st.summary?.overall_strength_change_pct ?? 0);
+      }
+      if (wt) setWeightData(wt);
+      if (ins) setInsights(ins.insights ?? []);
     } finally {
       setLoading(false);
     }
@@ -393,28 +400,47 @@ export default function DashboardScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weightInput, range, load, setUser]);
 
+  // Keep the latest range in a ref so the focus effect can reload the current
+  // range WITHOUT depending on `range`. Depending on `range` here made the
+  // focus effect re-fire on every toggle in addition to switchRange's own
+  // load() — doubling requests and tripping the server's per-minute rate
+  // limit (429), which then wiped the charts.
+  const rangeRef = useRef<Range>(range);
+  useEffect(() => {
+    rangeRef.current = range;
+  }, [range]);
+
   useFocusEffect(
     useCallback(() => {
-      load(range);
-    }, [load, range])
+      load(rangeRef.current);
+    }, [load])
   );
 
-  // Cold-start safety net: if the screen mounted/loaded before auth + user
-  // were hydrated (empty charts), reload once the user becomes available.
-  const reloadedForUser = useRef<string | null>(null);
-  useEffect(() => {
-    const uid = user?._id ?? null;
-    if (uid && reloadedForUser.current !== uid) {
-      reloadedForUser.current = uid;
-      load(range);
+  // Toggling Week/Month only needs the two range-dependent datasets: the
+  // weekly/monthly aggregation and the weight trend. Goal, history, insights
+  // and strength are range-independent (the app doesn't pass a range to them),
+  // so we deliberately DON'T refetch them here. This keeps each toggle at 2
+  // requests instead of 6 — important because the dev rate limiter is shared
+  // across the whole app (see notes) and bursts of 6 trip it easily.
+  const reloadRange = useCallback(async (r: Range) => {
+    setLoading(true);
+    try {
+      const [w, wt] = await Promise.all([
+        apiGet<WeeklyResp>(`/api/progress/weekly?range=${r}`).catch(() => null),
+        apiGet<WeightResp>(`/api/progress/weight?range=${r}`).catch(() => null),
+      ]);
+      // Only apply successful responses so a rate-limited call can't wipe data.
+      if (w) setWeekly(w);
+      if (wt) setWeightData(wt);
+    } finally {
+      setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?._id]);
+  }, []);
 
   const switchRange = (r: Range) => {
     if (r !== range) {
       setRange(r);
-      load(r);
+      reloadRange(r);
     }
   };
 
@@ -432,11 +458,18 @@ export default function DashboardScreen() {
     return d;
   })();
 
+  // Drive all displayed figures off the range the LOADED data actually
+  // represents (weekly.range), not the pending toggle state. Otherwise the
+  // instant `range` toggle and the async weekly fetch briefly disagree — which
+  // is exactly what made Consistency flash a wrong number before settling (and
+  // get stuck on it if the refetch was rate-limited).
+  const displayRange: Range = weekly?.range === 'month' ? 'month' : 'week';
+
   // Build the activity (minutes) and calorie buckets for the selected range,
   // both summed from real per-session data.
   let activityData: Array<{ label: string; value: number }>;
   let calorieData: Array<{ label: string; value: number }>;
-  if (range === 'week') {
+  if (displayRange === 'week') {
     const mins = [0, 0, 0, 0, 0, 0, 0]; // Mon..Sun
     const cals = [0, 0, 0, 0, 0, 0, 0];
     for (const s of history) {
@@ -471,7 +504,7 @@ export default function DashboardScreen() {
 
   // ── summary metrics (all real) ──
   const daysActive = weekly?.current_period?.days_active ?? 0;
-  const totalDays = range === 'week' ? 7 : daysInMonth;
+  const totalDays = displayRange === 'week' ? 7 : daysInMonth;
   const consistency = totalDays > 0 ? Math.min(100, Math.round((daysActive / totalDays) * 100)) : 0;
   const totalWorkouts = goal?.total_workouts ?? 0;
   const streak = goal?.current_streak ?? user?.gamification?.current_streak ?? 0;
@@ -520,9 +553,9 @@ export default function DashboardScreen() {
           <Text style={styles.subtitle}>Track your transformation</Text>
 
           <View style={styles.summaryRow}>
-            <SummaryCard icon={<TrendIcon dir="pulse" color={BLUE} />} value={`${consistency}%`} label="Consistency" />
-            <SummaryCard icon={<TrendIcon dir="up" color={ORANGE} />} value={`${totalWorkouts}`} label="Workouts" />
-            <SummaryCard icon={<TrendIcon dir="up" color="#FFD54A" />} value={`${streak}`} label="Day Streak" />
+            <SummaryCard value={`${consistency}%`} label="Consistency" valueColor={BLUE} />
+            <SummaryCard value={`${totalWorkouts}`} label="Workouts" valueColor={ORANGE} />
+            <SummaryCard value={`${streak}`} label="Day Streak" valueColor="#FFD54A" />
           </View>
         </LinearGradient>
 
@@ -749,11 +782,10 @@ export default function DashboardScreen() {
   );
 }
 
-function SummaryCard({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+function SummaryCard({ value, label, valueColor }: { value: string; label: string; valueColor?: string }) {
   return (
     <View style={styles.summaryCard}>
-      <View style={styles.summaryIcon}>{icon}</View>
-      <Text style={styles.summaryValue}>{value}</Text>
+      <Text style={[styles.summaryValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
@@ -802,18 +834,12 @@ const styles = StyleSheet.create({
   title: { ...typography.h1, color: '#FFFFFF' },
   subtitle: { ...typography.caption, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
 
-  summaryRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
-  summaryCard: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 16,
-    padding: spacing.md,
-  },
-  summaryIcon: { marginBottom: spacing.sm },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.lg },
+  summaryCard: { flex: 1, alignItems: 'center' },
   summaryValue: { ...typography.h2, color: '#FFFFFF' },
-  summaryLabel: { ...typography.small, color: 'rgba(255,255,255,0.75)', marginTop: 2 },
+  summaryLabel: { ...typography.caption, fontSize: 13, color: '#FFFFFF', marginTop: 2 },
 
-  body: { paddingHorizontal: spacing.lg, marginTop: spacing.lg },
+  body: { paddingHorizontal: spacing.lg, marginTop: spacing.xs },
 
   toggle: {
     flexDirection: 'row',

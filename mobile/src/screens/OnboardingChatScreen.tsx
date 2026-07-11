@@ -19,7 +19,7 @@ import { useUserStore } from '../stores/userStore';
 import { apiPost, apiPut, WS_BASE_URL } from '../services/api';
 import { signOutCurrentUser, getFreshToken } from '../services/auth';
 import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
-import KinAvatar from '../components/KinAvatar';
+import KinLogo from '../components/KinLogo';
 import ChatMessage from '../components/ChatMessage';
 import HorizontalButtons from '../components/HorizontalButtons';
 import GoalCard from '../components/GoalCard';
@@ -550,7 +550,7 @@ export default function OnboardingChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <KinAvatar size={48} />
+          <KinLogo size={48} />
           <View style={styles.headerText}>
             <Text style={styles.headerName}>Kin</Text>
             <Text style={styles.headerTitle}>AI Fitness Coach</Text>
@@ -672,6 +672,7 @@ export default function OnboardingChatScreen() {
               title={card.title}
               subtitle={card.subtitle}
               tint={card.tint}
+              iconColor={card.iconColor}
               onPress={() => handleButtonPress(card.value)}
             />
           ))}
@@ -740,8 +741,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#000000',
     paddingTop: spacing.xxl,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   headerContent: {
     flexDirection: 'row',
@@ -755,12 +758,11 @@ const styles = StyleSheet.create({
   },
   headerName: {
     ...typography.h2,
-    color: colors.surface,
+    color: '#FFFFFF',
   },
   headerTitle: {
     ...typography.caption,
-    color: colors.surface,
-    opacity: 0.9,
+    color: colors.textSecondary,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -771,20 +773,19 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 11,
-    color: colors.surface,
-    opacity: 0.8,
+    color: colors.textSecondary,
     marginBottom: 6,
     letterSpacing: 0.2,
   },
   progressBar: {
     width: 64,
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 1.5,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgb(166, 250, 4)',
     borderRadius: 1.5,
   },
   logoutButton: {
@@ -796,7 +797,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 12,
-    color: colors.surface,
+    color: '#FFFFFF',
     fontWeight: '500',
     letterSpacing: 0.3,
   },
@@ -807,23 +808,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   voiceButton: {
-    backgroundColor: '#EAF2FB',
+    backgroundColor: colors.surface,
     borderRadius: 24,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: '#CFE0F2',
+    borderColor: colors.border,
   },
   voiceButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: 'rgba(166,250,4,0.16)',
+    borderColor: 'rgb(166, 250, 4)',
   },
   voiceButtonText: {
     ...typography.bodyBold,
-    color: colors.primary,
+    color: '#FFFFFF',
   },
   voiceButtonTextActive: {
-    color: colors.surface,
+    color: 'rgb(166, 250, 4)',
   },
   voiceStatus: {
     ...typography.caption,
@@ -858,7 +859,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   continueButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#2C2C2E',
     paddingVertical: spacing.md,
     borderRadius: 25,
     alignItems: 'center',
@@ -866,7 +867,7 @@ const styles = StyleSheet.create({
   },
   continueText: {
     ...typography.bodyBold,
-    color: colors.surface,
+    color: '#FFFFFF',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -890,6 +891,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     fontSize: 16,
+    color: colors.text,
   },
   inputSuffix: {
     ...typography.body,

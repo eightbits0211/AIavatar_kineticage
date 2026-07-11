@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { colors, spacing, typography } from '../theme';
@@ -278,7 +277,7 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
     <View style={styles.overlay} pointerEvents="box-none">
       {/* Blurred backdrop */}
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: fade }]}>
-        <BlurView intensity={26} tint="dark" style={StyleSheet.absoluteFill}>
+        <BlurView intensity={26} tint="dark" style={[StyleSheet.absoluteFill, styles.scrim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close settings" />
         </BlurView>
       </Animated.View>
@@ -404,14 +403,12 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 
         {/* Sticky Save */}
         <View style={styles.footer}>
-          <Pressable onPress={handleSave} disabled={saving} style={styles.saveWrap} accessibilityLabel="Save preferences">
-            <LinearGradient colors={['#FFA24D', '#F5821F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.saveBtn}>
-              {saving ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveText}>Save Preferences</Text>
-              )}
-            </LinearGradient>
+          <Pressable onPress={handleSave} disabled={saving} style={styles.saveBtn} accessibilityLabel="Save preferences">
+            {saving ? (
+              <ActivityIndicator color="#F5821F" />
+            ) : (
+              <Text style={styles.saveText}>Save Preferences</Text>
+            )}
           </Pressable>
         </View>
       </Animated.View>
@@ -421,11 +418,12 @@ export default function SettingsSheet({ visible, onClose, onSave }: SettingsShee
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  scrim: { backgroundColor: 'rgba(24,24,26,0.5)' },
   sheet: {
     width: '100%',
     maxHeight: SHEET_HEIGHT,
@@ -566,13 +564,17 @@ const styles = StyleSheet.create({
 
   footer: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
     backgroundColor: '#1C1C1E',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#2C2C2E',
   },
-  saveWrap: { borderRadius: 16, overflow: 'hidden' },
-  saveBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  saveText: { ...typography.bodyBold, color: '#FFFFFF', fontSize: 17 },
+  saveBtn: {
+    alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(245,130,31,0.16)',
+    borderRadius: 22, paddingHorizontal: spacing.lg, paddingVertical: 12,
+  },
+  saveText: { ...typography.caption, color: '#F5821F', fontFamily: 'Inter_600SemiBold', fontSize: 15 },
 });

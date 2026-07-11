@@ -1,12 +1,13 @@
 import { type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, withAlpha } from '../theme';
 
 interface OptionCardProps {
   icon: ReactNode;
   title: string;
   subtitle: string;
   tint: string;
+  iconColor?: string;
   onPress: () => void;
 }
 
@@ -14,14 +15,14 @@ interface OptionCardProps {
  * Full-width selectable card (icon + title + subtitle) used for single-column
  * option lists like the activity-level step.
  */
-export default function OptionCard({ icon, title, subtitle, tint, onPress }: OptionCardProps) {
+export default function OptionCard({ icon, title, subtitle, iconColor, onPress }: OptionCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
-      <View style={[styles.iconCircle, { backgroundColor: tint }]}>{icon}</View>
+      <View style={[styles.iconCircle, { backgroundColor: withAlpha(iconColor ?? '#8E8E93', 0.18) }]}>{icon}</View>
       <View style={styles.textBlock}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
@@ -40,12 +41,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
   pressed: {
     opacity: 0.7,
