@@ -410,6 +410,9 @@ export default function HomeScreen() {
   // in small chunks, so we merge consecutive chunks from the same speaker into
   // one bubble instead of spawning a new bubble per fragment.
   const voiceTurnRef = useRef<{ role: 'user' | 'kin'; id: string } | null>(null);
+  // Set once we've asked the proxy to start a workout from a spoken "start"
+  // intent, so we don't fire it repeatedly across transcript chunks.
+  const voiceStartRequestedRef = useRef(false);
   const appendVoiceTranscript = useCallback((role: 'user' | 'kin', text: string) => {
     const chunk = text?.trim();
     if (!chunk) return;
@@ -514,6 +517,24 @@ export default function HomeScreen() {
           voiceTurnRef.current = null;
         }
         appendVoiceTranscript(role, text);
+
+        // The proxy only auto-starts a session when Kin's spoken reply happens
+        // to contain coaching phrases — unreliable. When the user clearly asks
+        // to start and no workout is running yet, tell the proxy explicitly
+        // (deterministic: it creates the session + emits session_started, which
+        // opens the focus view). Guarded so it fires once per voice session.
+        if (
+          role === 'user' &&
+          !workoutRef.current &&
+          !voiceStartRequestedRef.current &&
+          /\b(start|begin|let'?s go|let'?s do it|resume)\b/i.test(text)
+        ) {
+          const bundleId = bundlesRef.current[0]?._id;
+          if (bundleId) {
+            voiceStartRequestedRef.current = true;
+            voiceLoopRef.current?.sendAction('start_workout', { bundle_id: String(bundleId) });
+          }
+        }
       },
       onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
@@ -538,6 +559,7 @@ export default function HomeScreen() {
     try {
       voiceLoopRef.current = live;
       voiceTurnRef.current = null;
+      voiceStartRequestedRef.current = false;
       setVoiceMode(true);
       setVoicePhase('connecting');
       await live.start();
