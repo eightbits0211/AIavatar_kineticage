@@ -626,10 +626,21 @@ export default function HomeScreen() {
     }
   }, [recommended, navigation, coach, exerciseIntroContext]);
 
+  // Guards against finishing the same session more than once — a button tap,
+  // a WebSocket workout_state event, and the voice-sync poll can all fire the
+  // end near-simultaneously.
+  const finishedSessionRef = useRef<string | null>(null);
+
   // End the session on the backend — this triggers progression, XP, streak,
   // badges, and makes the workout show up in history / the Progress tab.
   const finishSession = useCallback(
     async (sessionId: string | null, title: string) => {
+      // Idempotency: never end/report the same session twice (button tap +
+      // WebSocket workout_state + voice-sync poll can all fire near-together).
+      if (sessionId) {
+        if (finishedSessionRef.current === sessionId) return;
+        finishedSessionRef.current = sessionId;
+      }
       // Capture the plan size before clearing the workout so we can still show
       // a meaningful summary if the /end call fails.
       const planned = workoutRef.current?.exercises.length ?? 0;
@@ -825,6 +836,94 @@ export default function HomeScreen() {
   useEffect(() => {
     voiceActionsRef.current = { startWorkout, handleDone, handleSkip, togglePause, finishSession };
   }, [startWorkout, handleDone, handleSkip, togglePause, finishSession]);
+
+  // ── Voice ⇄ backend workout-card sync ──
+  // In voice mode the proxy is the source of truth: it starts the session and
+  // marks exercises done/skipped server-side. The card used to only respond to
+  // the Start button and the Done/Skip taps, so a voice-driven workout never
+  // appeared or advanced. Here we poll the authoritative session state and:
+  //   • build/show the deck when a session exists but no card is up yet, and
+  //   • advance the card to the backend's current exercise (forward-only), and
+  //   • finish + show the summary once every exercise is resolved.
+  // This runs only while voice mode is active; text mode drives the card locally.
+  const voiceSyncDoneRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!voiceMode) return;
+    let cancelled = false;
+
+    const sync = async () => {
+      try {
+        const res = await apiGet<{ has_active_session: boolean; session?: any }>('/api/session/active');
+        if (cancelled || !res?.has_active_session || !res.session) return;
+
+        const s = res.session;
+        const exs: any[] = Array.isArray(s.exercises) ? s.exercises : [];
+        if (!exs.length) return;
+
+        const sid = String(s._id);
+        const resolved = exs.filter(
+          (e) => e.status === 'completed' || e.status === 'skipped' || e.status === 'pain_stopped',
+        ).length;
+
+        // Every exercise resolved → wrap up and show the summary (once).
+        if (resolved >= exs.length) {
+          if (voiceSyncDoneRef.current !== sid) {
+            voiceSyncDoneRef.current = sid;
+            const w = workoutRef.current;
+            voiceActionsRef.current?.finishSession?.(sid, w?.title ?? 'Workout');
+          }
+          return;
+        }
+
+        const idx = Math.min(resolved, exs.length - 1);
+        const w = workoutRef.current;
+
+        if (!w) {
+          // No card yet (voice started the workout). Prefer full bundle data
+          // (images, rep ranges) by matching the session's bundle; fall back to
+          // the session's own exercise list.
+          const bundle = bundlesRef.current.find((b) => String(b._id) === String(s.bundle_id));
+          let exercises: BundleExercise[] = bundle?.exercises ?? [];
+          if (!exercises.length) {
+            exercises = exs.map((e) => ({
+              exercise_id: e.exercise_id,
+              name: e.exercise_name,
+              sets: Array.isArray(e.sets) ? e.sets.length : 1,
+              rep_min: e.sets?.[0]?.target_rep_min ?? 8,
+              rep_max: e.sets?.[0]?.target_rep_max ?? 12,
+              rest_seconds: 60,
+              instructions_text: '',
+              image_url: '',
+              image_url_end: '',
+              muscle_groups: [],
+            })) as BundleExercise[];
+          }
+          activeSessionIdRef.current = sid;
+          setWorkout({
+            exercises,
+            index: Math.min(idx, exercises.length - 1),
+            paused: false,
+            title: bundle?.title ?? 'Workout',
+            sessionId: sid,
+          });
+        } else if (idx > w.index) {
+          // Advance forward-only to the backend's current exercise.
+          setWorkout((p) =>
+            p && idx > p.index ? { ...p, index: Math.min(idx, p.exercises.length - 1), paused: false } : p,
+          );
+        }
+      } catch {
+        // Ignore transient polling failures (e.g. rate limit) — try again next tick.
+      }
+    };
+
+    sync();
+    const timer = setInterval(sync, 2500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [voiceMode]);
 
   const openHistory = useCallback(() => {
     // Open immediately so the slide-in starts right away, then run the fetch
