@@ -121,6 +121,11 @@ function getWorkoutTools() {
         parameters: { type: 'OBJECT', properties: {}, required: [] },
       },
       {
+        name: 'end_workout',
+        description: 'Call this when the user wants to end/finish the workout early or is done for the day — e.g. "end the workout", "I\'m done for today", "wrap it up", "let\'s stop here", "that\'s enough", "finish the session". This ends the session and shows their summary.',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
         name: 'report_pain',
         description: 'Call this immediately when the user mentions pain, discomfort, or injury during an exercise — e.g. "my knee hurts", "this is hurting my back", "ow", "that doesn\'t feel right". Always call this before responding with concern.',
         parameters: {
@@ -657,6 +662,29 @@ async function handleToolCall(session: VoiceSession, functionCalls: any[]) {
             result = { status: 'ok', message: 'Workout resumed' };
           } else {
             result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
+        case 'end_workout': {
+          if (session.sessionId) {
+            // Emit event so the frontend runs its existing end flow
+            // (POST /api/session/:id/end → XP, badges, summary). Single source of
+            // truth for end logic — we don't duplicate it here.
+            if (session.clientWs.readyState === WebSocket.OPEN) {
+              session.clientWs.send(JSON.stringify({
+                type: 'session_end',
+                session_id: session.sessionId,
+              }));
+              session.clientWs.send(JSON.stringify({
+                type: 'workout_state',
+                action: 'ended',
+                session_id: session.sessionId,
+              }));
+            }
+            result = { status: 'ok', message: 'Ending workout and showing summary' };
+          } else {
+            result = { status: 'error', message: 'No active session to end' };
           }
           break;
         }
@@ -1426,6 +1454,7 @@ Interpret loose, natural, indirect phrasing — examples of real speech and the 
 - "hmm I'll pass on this one" / "can we skip this" / "not feeling this exercise" → skip_exercise
 - "hold on gimme a sec" / "need a water break" → pause_workout
 - "okay I'm back, let's go" / "ready again" → resume_workout
+- "I'm done for today" / "wrap it up" / "let's stop here" / "that's enough for now" → end_workout
 - "let's do it" / "yeah start" / "the first one sounds good" → start_workout
 
 Rules:
