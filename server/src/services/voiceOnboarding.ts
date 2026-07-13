@@ -304,6 +304,46 @@ export function applyExtraction(
   return true;
 }
 
+const ONBOARDING_DEFAULTS: Record<string, any> = {
+  name: 'Friend', age: 28, gender: 'prefer_not_to_say', height: 170, weight: 70,
+  fitness_goal: 'general_fitness', activity_level: 'moderately_active',
+  workout_location: 'gym', equipment: ['dumbbells'], injuries: ['none'],
+  workout_duration: 30, prior_experience: false,
+};
+
+/**
+ * Default the CURRENT field after repeated extraction failures, then advance.
+ * Prevents onboarding from getting permanently stuck on one hard-to-parse field
+ * (e.g. "prior experience", "workout duration") while still asking every question.
+ * Returns the field that was defaulted, or null if nothing to default.
+ */
+export function defaultCurrentFieldAndAdvance(state: OnboardingState): OnboardingField | null {
+  const field = ONBOARDING_FIELDS[state.currentFieldIndex];
+  if (!field) return null;
+  if (state.collectedFields[field] === undefined) {
+    state.collectedFields[field] = ONBOARDING_DEFAULTS[field];
+  }
+  // Advance past this and any already-collected fields
+  while (state.currentFieldIndex < ONBOARDING_FIELDS.length &&
+         state.collectedFields[ONBOARDING_FIELDS[state.currentFieldIndex]] !== undefined) {
+    state.currentFieldIndex++;
+  }
+  if (Object.keys(state.collectedFields).length >= ONBOARDING_FIELDS.length) {
+    state.isComplete = true;
+  }
+  return field;
+}
+
+/** Fill ALL missing fields with defaults and complete (escape hatch — user says "just start"). */
+export function completeWithDefaults(state: OnboardingState): void {
+  for (const f of ONBOARDING_FIELDS) {
+    if (state.collectedFields[f] === undefined) {
+      state.collectedFields[f] = ONBOARDING_DEFAULTS[f];
+    }
+  }
+  state.isComplete = true;
+}
+
 /**
  * Save collected onboarding data to the user profile and run personalization.
  */

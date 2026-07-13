@@ -35,6 +35,8 @@ import {
   ONBOARDING_FIELDS,
   extractFieldFromUserSpeech,
   extractAnyFieldFromSpeech,
+  defaultCurrentFieldAndAdvance,
+  completeWithDefaults,
 } from './voiceOnboarding';
 
 const GEMINI_WS_URL = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${env.geminiApiKey}`;
@@ -517,15 +519,42 @@ function handleGeminiJson(session: VoiceSession, data: any) {
         }));
       }
 
+      // Escape hatch: user explicitly wants to wrap up onboarding
+      const wrapUpPhrases = ['just start', "that's all", 'that is all', "i'm done", 'im done', 'skip the rest', 'just begin', 'lets just start', "let's just start"];
+      const wantsToWrapUp = wrapUpPhrases.some(p => userText.toLowerCase().includes(p));
+      if (wantsToWrapUp && Object.keys(session.onboardingState.collectedFields).length >= 5) {
+        completeWithDefaults(session.onboardingState);
+      }
+
       if (!extractedAny) {
         session.onboardingState.failedAttempts++;
-        if (session.onboardingState.failedAttempts >= 5) {
-          const missing = ONBOARDING_FIELDS.filter(f => session.onboardingState!.collectedFields[f] === undefined);
-          session.clientWs.send(JSON.stringify({
-            type: 'onboarding_type_fallback',
-            field: missing[0] || 'unknown',
-            message: `Having trouble catching some details. You can type your ${missing[0]?.replace(/_/g, ' ') || 'info'} below.`,
-          }));
+        if (session.onboardingState.failedAttempts >= 3) {
+          // After 3 failed attempts on the current field, default it and advance so
+          // onboarding never gets permanently stuck on one hard-to-parse field.
+          const defaulted = defaultCurrentFieldAndAdvance(session.onboardingState);
+          if (defaulted) {
+            console.log(`[VoiceLive/Onboarding] Defaulted stuck field "${defaulted}" and advanced`);
+            session.onboardingState.failedAttempts = 0;
+            const collected = Object.keys(session.onboardingState.collectedFields).length;
+            session.clientWs.send(JSON.stringify({
+              type: 'onboarding_progress',
+              field: defaulted,
+              value: session.onboardingState.collectedFields[defaulted],
+              fieldsRemaining: ONBOARDING_FIELDS.length - collected,
+              progress: Math.round((collected / ONBOARDING_FIELDS.length) * 100),
+              defaulted: true,
+            }));
+            // Tell Gemini to move to the next question
+            const remaining = ONBOARDING_FIELDS.filter(f => session.onboardingState!.collectedFields[f] === undefined);
+            if (remaining.length > 0 && session.geminiWs?.readyState === WebSocket.OPEN) {
+              session.geminiWs.send(JSON.stringify({
+                clientContent: {
+                  turns: [{ role: 'user', parts: [{ text: `[SYSTEM: Move on and ask about ${remaining[0].replace(/_/g, ' ')} next.]` }] }],
+                  turnComplete: true,
+                }
+              }));
+            }
+          }
         }
       } else {
         session.onboardingState.failedAttempts = 0;
