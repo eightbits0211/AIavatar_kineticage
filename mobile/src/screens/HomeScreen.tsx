@@ -467,11 +467,28 @@ export default function HomeScreen() {
     }
 
     if (event.type === 'workout_state') {
-      const idx = event.current_exercise_index;
-      if (typeof idx !== 'number') return;
       const w = workoutRef.current;
       if (!w) return;
+
+      // Pause / resume / end carry NO exercise index — handle them before the
+      // index check, otherwise the card never reflects a voice pause or end.
+      if (event.action === 'paused') {
+        setWorkout((p) => (p ? { ...p, paused: true } : p));
+        return;
+      }
+      if (event.action === 'resumed') {
+        setWorkout((p) => (p ? { ...p, paused: false } : p));
+        return;
+      }
+      if (event.action === 'ended' || event.action === 'session_end') {
+        voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
+        return;
+      }
+
+      const idx = event.current_exercise_index;
+      if (typeof idx !== 'number') return;
       if (idx >= w.exercises.length) {
+        // Past the last exercise → workout is done; end it and show the summary.
         voiceActionsRef.current?.finishSession?.(w.sessionId, w.title);
         return;
       }
