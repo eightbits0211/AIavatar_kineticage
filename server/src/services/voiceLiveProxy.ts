@@ -95,8 +95,13 @@ function getWorkoutTools() {
         },
       },
       {
+        name: 'next_exercise',
+        description: 'Call this when the user wants to FINISH the current exercise (having done it) and move on to the next one. This marks the current exercise COMPLETED (not skipped) and advances. Interpret loose phrasing: "what\'s next", "move on", "bring on the next one", "I\'m done with this exercise", "that was tough, what else", "next please". Use this (NOT skip) when the user has done the exercise and just wants to progress.',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
         name: 'skip_exercise',
-        description: 'Call this when the user wants to skip the current exercise entirely — e.g. "skip this", "let\'s move on", "I don\'t want to do this one".',
+        description: 'Call this ONLY when the user wants to SKIP the current exercise WITHOUT doing it — e.g. "skip this", "I can\'t do this one", "let\'s not do this". If the user has done the exercise and just wants to move on, use next_exercise instead.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -106,8 +111,18 @@ function getWorkoutTools() {
         },
       },
       {
+        name: 'pause_workout',
+        description: 'Call this when the user wants to pause or take a break — e.g. "pause", "hold on", "give me a minute", "let\'s take a break", "stop for a sec".',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
+        name: 'resume_workout',
+        description: 'Call this when the user wants to resume after a pause — e.g. "resume", "let\'s continue", "I\'m back", "okay keep going", "ready".',
+        parameters: { type: 'OBJECT', properties: {}, required: [] },
+      },
+      {
         name: 'report_pain',
-        description: 'Call this immediately when the user mentions pain, discomfort, or injury during an exercise — e.g. "my knee hurts", "this is hurting my back". Always call this before responding with concern.',
+        description: 'Call this immediately when the user mentions pain, discomfort, or injury during an exercise — e.g. "my knee hurts", "this is hurting my back", "ow", "that doesn\'t feel right". Always call this before responding with concern.',
         parameters: {
           type: 'OBJECT',
           properties: {
@@ -600,10 +615,46 @@ async function handleToolCall(session: VoiceSession, functionCalls: any[]) {
           break;
         }
 
+        case 'next_exercise': {
+          if (session.sessionId) {
+            await markExerciseComplete(session);
+            result = { status: 'ok', message: 'Exercise completed, moved to next' };
+          } else {
+            result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
         case 'skip_exercise': {
           if (session.sessionId) {
             await markExerciseSkipped(session, args?.reason);
             result = { status: 'ok', message: 'Exercise skipped' };
+          } else {
+            result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
+        case 'pause_workout': {
+          if (session.sessionId) {
+            await Session.findByIdAndUpdate(session.sessionId, { status: 'paused' });
+            if (session.clientWs.readyState === WebSocket.OPEN) {
+              session.clientWs.send(JSON.stringify({ type: 'workout_state', action: 'paused' }));
+            }
+            result = { status: 'ok', message: 'Workout paused' };
+          } else {
+            result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
+        case 'resume_workout': {
+          if (session.sessionId) {
+            await Session.findByIdAndUpdate(session.sessionId, { status: 'in_progress' });
+            if (session.clientWs.readyState === WebSocket.OPEN) {
+              session.clientWs.send(JSON.stringify({ type: 'workout_state', action: 'resumed' }));
+            }
+            result = { status: 'ok', message: 'Workout resumed' };
           } else {
             result = { status: 'error', message: 'No active session' };
           }
@@ -1358,19 +1409,34 @@ function buildVoiceSystemPrompt(user: any, activeSession: any, activeBundle: any
 - NEVER say weights in kg or lbs. Only say sets, rep ranges, and rest times.
 - Wait for the user to greet you first before starting the workout. Don't jump into instructions immediately.
 
-## CRITICAL: Use Function Calls for Actions (not just words)
-You have access to these functions: start_workout, complete_set, skip_exercise, report_pain.
-You MUST call the matching function whenever the user's intent matches it — regardless of their exact phrasing.
-This is not optional narration, it's a real action that updates their progress. Call the function FIRST, then respond naturally.
+## CRITICAL: Interpret INTENT, then Call Functions (this is your most important job)
+You have these functions: start_workout, complete_set, next_exercise, skip_exercise, pause_workout, resume_workout, report_pain.
 
-- User confirms/picks a workout ("start", "let's go", "the first one", a workout name, "yes") → call start_workout, THEN start coaching
-- User indicates any set is done, in ANY phrasing ("done", "finished", "I did it", "I did 6 reps", "that's 10", "got it") → call complete_set FIRST (pass actual_reps if they mentioned a number), THEN acknowledge and give the next instruction
-- User wants to skip the current exercise ("skip", "let's move on", "I don't want to do this") → call skip_exercise FIRST, then move on without judgment
-- User mentions pain or discomfort, in ANY phrasing → call report_pain FIRST with the body area, THEN stop, acknowledge, suggest rest, offer to skip or end. Also append [ACTION:update_injuries] at the end of your spoken response text so the app can update their profile.
-- Announce each exercise clearly: name, sets, rep range, and one brief form cue.
-- During rest periods, give brief encouragement or a form tip (1 sentence max).
-- NEVER invent exercises. ONLY reference exercises listed in the Current Workout Plan below.
-- If asked about an exercise not in the plan, say you can only coach what's in today's workout.`;
+The user is a real person mid-workout. They will almost NEVER say clean commands like "done" or "skip".
+They speak naturally and indirectly. Your job: for EVERY user utterance, first silently interpret what they MEAN,
+then check if that meaning matches one of your functions. If it does, CALL that function (this is a real action
+that logs their progress). If it genuinely matches nothing, just respond conversationally.
+
+Interpret loose, natural, indirect phrasing — examples of real speech and the function each maps to:
+- "phew, that was tough — what's next?" → next_exercise (they did it, want to advance)
+- "okay bring on the next one" / "let's keep going" / "move on" → next_exercise
+- "yeah I finished" / "that's my 10" / "got through it" / "all done with these" → complete_set
+- "I did like 6 or 7" → complete_set (actual_reps ~6)
+- "ugh my knee is acting up" / "that pinches a bit" → report_pain
+- "hmm I'll pass on this one" / "can we skip this" / "not feeling this exercise" → skip_exercise
+- "hold on gimme a sec" / "need a water break" → pause_workout
+- "okay I'm back, let's go" / "ready again" → resume_workout
+- "let's do it" / "yeah start" / "the first one sounds good" → start_workout
+
+Rules:
+- ALWAYS interpret intent first, then call the matching function BEFORE speaking. Don't wait for exact keywords.
+- next_exercise = they DID the exercise and want to move on (marks it completed). skip_exercise = they did NOT do it.
+- If unsure between two functions, pick the one that best matches what they actually did.
+- After calling the function, respond naturally and briefly.
+- If pain: call report_pain first, then stop/acknowledge, and append [ACTION:update_injuries] to your spoken text.
+- Announce each exercise clearly: name, sets, rep range, one brief form cue.
+- During rest, brief encouragement or form tip (1 sentence).
+- NEVER invent exercises. ONLY reference exercises in the Current Workout Plan below.`;
 
   // Add the workout plan from the Rules Engine
   if (activeSession && activeBundle) {
