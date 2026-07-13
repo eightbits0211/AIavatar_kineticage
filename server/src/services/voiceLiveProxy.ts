@@ -302,6 +302,17 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
           parts: [{ text: fullPrompt }]
         },
         tools: getWorkoutTools(),
+        // Reduce false VAD interruptions — Kin was cutting off mid-sentence when
+        // the mic picked up background noise / echo and Gemini thought the user
+        // was interrupting. LOW start sensitivity requires clearer speech to barge in.
+        realtimeInputConfig: {
+          automaticActivityDetection: {
+            startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+            endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+            prefixPaddingMs: 300,
+            silenceDurationMs: 800,
+          },
+        },
       }
     };
     geminiWs.send(JSON.stringify(setup));
@@ -744,6 +755,14 @@ async function handleOnboardingComplete(session: VoiceSession) {
                   },
                   systemInstruction: { parts: [{ text: newPrompt }] },
                   tools: getWorkoutTools(),
+                  realtimeInputConfig: {
+                    automaticActivityDetection: {
+                      startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+                      endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+                      prefixPaddingMs: 300,
+                      silenceDurationMs: 800,
+                    },
+                  },
                 }
               };
               newGeminiWs.send(JSON.stringify(setup));
