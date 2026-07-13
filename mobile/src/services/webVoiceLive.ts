@@ -322,6 +322,15 @@ export class WebVoiceLive {
       const ws = this.ws;
       if (!ws || ws.readyState !== 1 /* OPEN */) return;
 
+      // Half-duplex guard: while Kin's audio is still scheduled to play, don't
+      // stream the mic. On speakers the model's own voice leaks back into the
+      // mic and Gemini Live treats it as the user barging in — cutting Kin off
+      // after a few words. Muting the mic during playback prevents that echo
+      // loop. (Playback catches up → nextPlayTime passes → mic resumes.)
+      if (this.playbackCtx && this.playbackCtx.currentTime < this.nextPlayTime - 0.05) {
+        return;
+      }
+
       const input = e.inputBuffer.getChannelData(0);
       const pcm16 = new Int16Array(input.length);
       for (let i = 0; i < input.length; i++) {
