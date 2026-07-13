@@ -113,7 +113,11 @@ export class WebVoiceLive {
     // 1. Microphone (mono, 16 kHz preferred).
     this.mediaStream = await g.navigator.mediaDevices.getUserMedia({
       audio: {
-        sampleRate: INPUT_SAMPLE_RATE,
+        // NOTE: do NOT force sampleRate here. Chrome's acoustic echo canceller
+        // runs in the native capture pipeline (~48 kHz); pinning the mic to
+        // 16 kHz can silently disable it, so Kin's own voice leaks in and the
+        // model interrupts itself. The inputCtx AudioContext below already
+        // resamples the stream to 16 kHz, so the capture rate doesn't matter.
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
