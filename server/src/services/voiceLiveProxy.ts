@@ -59,6 +59,68 @@ interface VoiceSession {
 const activeSessions = new Map<WebSocket, VoiceSession>();
 
 /**
+ * Function declarations for Gemini Live tool calling.
+ * These replace fragile phrase-matching with deterministic, reliable actions —
+ * Gemini calls these based on user INTENT regardless of exact phrasing.
+ */
+function getWorkoutTools() {
+  return [{
+    functionDeclarations: [
+      {
+        name: 'start_workout',
+        description: 'Call this when the user confirms they want to start a specific workout (e.g. says "start", "let\'s go", "the first one", picks a workout by name or number). Starts the session and begins coaching.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            bundle_choice: {
+              type: 'STRING',
+              description: 'Which workout the user picked — either the bundle title, "recommended", or a number like "1", "2", "3" referring to the list order.',
+            },
+          },
+          required: ['bundle_choice'],
+        },
+      },
+      {
+        name: 'complete_set',
+        description: 'Call this whenever the user indicates they finished a set — e.g. "done", "I did it", "finished that set", "I did 6 reps", or any confirmation of completing the current set. Always call this before praising them.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            actual_reps: {
+              type: 'NUMBER',
+              description: 'Number of reps the user actually completed, if they mentioned it. Omit if not mentioned.',
+            },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'skip_exercise',
+        description: 'Call this when the user wants to skip the current exercise entirely — e.g. "skip this", "let\'s move on", "I don\'t want to do this one".',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            reason: { type: 'STRING', description: 'Why they want to skip, if mentioned.' },
+          },
+          required: [],
+        },
+      },
+      {
+        name: 'report_pain',
+        description: 'Call this immediately when the user mentions pain, discomfort, or injury during an exercise — e.g. "my knee hurts", "this is hurting my back". Always call this before responding with concern.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            body_area: { type: 'STRING', description: 'The body part in pain, e.g. "knee", "lower back", "shoulder".' },
+          },
+          required: ['body_area'],
+        },
+      },
+    ],
+  }];
+}
+
+/**
  * Handles a new client WebSocket connection for voice live.
  * Called from the WebSocket server setup in index.ts.
  */
@@ -238,7 +300,8 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
         },
         systemInstruction: {
           parts: [{ text: fullPrompt }]
-        }
+        },
+        tools: getWorkoutTools(),
       }
     };
     geminiWs.send(JSON.stringify(setup));
@@ -362,12 +425,19 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
  * Handle JSON messages from Gemini (intercept transcriptions and intents).
  */
 function handleGeminiJson(session: VoiceSession, data: any) {
+  // Deterministic function/tool calls — the primary mechanism for workout actions.
+  // Replaces fragile phrase-matching with explicit, reliable calls from Gemini.
+  if (data.toolCall?.functionCalls) {
+    handleToolCall(session, data.toolCall.functionCalls);
+    return;
+  }
+
   // Capture output transcription for persistence
   if (data.serverContent?.outputTranscription?.text) {
     const text = data.serverContent.outputTranscription.text;
     session.turnBuffer += text;
 
-    // WORKOUT MODE: Check for action intents in AI response
+    // WORKOUT MODE: Fallback phrase detection (in case a tool call wasn't triggered)
     if (session.mode === 'workout') {
       detectAndExecuteActions(session, text);
     }
@@ -452,6 +522,109 @@ function handleGeminiJson(session: VoiceSession, data: any) {
     } else if (session.mode !== 'onboarding') {
       persistTurn(session, 'user', userText);
     }
+  }
+}
+
+/**
+ * Handle a deterministic function/tool call from Gemini.
+ * This is the reliable mechanism for workout actions — Gemini decides when to call
+ * these based on user intent, regardless of exact phrasing (e.g. "done", "I did it",
+ * "finished that", "6 reps" all map to the same complete_set call).
+ */
+async function handleToolCall(session: VoiceSession, functionCalls: any[]) {
+  const responses: any[] = [];
+
+  for (const fc of functionCalls) {
+    const { name, args, id } = fc;
+    console.log(`[VoiceLive] Tool call: ${name}`, args);
+
+    let result: any = { status: 'ok' };
+
+    try {
+      switch (name) {
+        case 'start_workout': {
+          const choice = (args?.bundle_choice || '').toLowerCase();
+          let chosenBundleId = session.bundleId;
+
+          if (session.allBundles?.length > 1) {
+            // Match by number ("1", "2", "first", "second")
+            const numberMatch = choice.match(/\d+/);
+            const ordinalMap: Record<string, number> = { first: 1, second: 2, third: 3, fourth: 4 };
+            const ordinalMatch = Object.keys(ordinalMap).find(k => choice.includes(k));
+
+            if (numberMatch) {
+              const idx = parseInt(numberMatch[0]) - 1;
+              if (session.allBundles[idx]) chosenBundleId = session.allBundles[idx]._id.toString();
+            } else if (ordinalMatch) {
+              const idx = ordinalMap[ordinalMatch] - 1;
+              if (session.allBundles[idx]) chosenBundleId = session.allBundles[idx]._id.toString();
+            } else if (choice.includes('recommend')) {
+              const rec = session.allBundles.find((b: any) => b.is_recommended);
+              if (rec) chosenBundleId = rec._id.toString();
+            } else {
+              // Match by title substring
+              const match = session.allBundles.find((b: any) =>
+                choice.includes(b.title.toLowerCase()) || b.title.toLowerCase().includes(choice)
+              );
+              if (match) chosenBundleId = match._id.toString();
+            }
+          }
+
+          if (chosenBundleId) {
+            await startSessionFromVoice(session, chosenBundleId);
+            result = { status: 'ok', message: 'Session started' };
+          } else {
+            result = { status: 'error', message: 'No bundle available to start' };
+          }
+          break;
+        }
+
+        case 'complete_set': {
+          if (session.sessionId) {
+            await markSetComplete(session, args?.actual_reps);
+            result = { status: 'ok', message: 'Set marked complete' };
+          } else {
+            result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
+        case 'skip_exercise': {
+          if (session.sessionId) {
+            await markExerciseSkipped(session, args?.reason);
+            result = { status: 'ok', message: 'Exercise skipped' };
+          } else {
+            result = { status: 'error', message: 'No active session' };
+          }
+          break;
+        }
+
+        case 'report_pain': {
+          if (session.sessionId) {
+            await reportPain(session, args?.body_area);
+            result = { status: 'ok', message: 'Pain reported, exercise stopped' };
+          } else {
+            result = { status: 'ok', message: 'Noted — no active exercise to stop' };
+          }
+          break;
+        }
+
+        default:
+          result = { status: 'error', message: `Unknown function: ${name}` };
+      }
+    } catch (err) {
+      console.error(`[VoiceLive] Tool call error (${name}):`, (err as Error).message);
+      result = { status: 'error', message: (err as Error).message };
+    }
+
+    responses.push({ id, name, response: result });
+  }
+
+  // Send tool responses back to Gemini so it can continue the conversation
+  if (session.geminiWs && session.geminiWs.readyState === WebSocket.OPEN) {
+    session.geminiWs.send(JSON.stringify({
+      toolResponse: { functionResponses: responses },
+    }));
   }
 }
 
@@ -569,7 +742,8 @@ async function handleOnboardingComplete(session: VoiceSession) {
                     responseModalities: ['AUDIO'],
                     speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
                   },
-                  systemInstruction: { parts: [{ text: newPrompt }] }
+                  systemInstruction: { parts: [{ text: newPrompt }] },
+                  tools: getWorkoutTools(),
                 }
               };
               newGeminiWs.send(JSON.stringify(setup));
@@ -1164,10 +1338,16 @@ function buildVoiceSystemPrompt(user: any, activeSession: any, activeBundle: any
 - NEVER use markdown, asterisks, bullet points, or any formatting — plain speech only.
 - NEVER say weights in kg or lbs. Only say sets, rep ranges, and rest times.
 - Wait for the user to greet you first before starting the workout. Don't jump into instructions immediately.
-- When the user says "done", "finished", or "next" — acknowledge the completed set and give the next instruction.
-- When the user says "skip" — move to the next exercise without judgment.
-- When the user reports pain — STOP immediately, acknowledge, suggest rest, offer to skip or end. Then append [ACTION:update_injuries] at the end of your response.
-- If the user describes ongoing pain or an injury (knee pain, back pain, shoulder issues, etc.), acknowledge it and append [ACTION:update_injuries] so the app can update their profile and regenerate safer workouts.
+
+## CRITICAL: Use Function Calls for Actions (not just words)
+You have access to these functions: start_workout, complete_set, skip_exercise, report_pain.
+You MUST call the matching function whenever the user's intent matches it — regardless of their exact phrasing.
+This is not optional narration, it's a real action that updates their progress. Call the function FIRST, then respond naturally.
+
+- User confirms/picks a workout ("start", "let's go", "the first one", a workout name, "yes") → call start_workout, THEN start coaching
+- User indicates any set is done, in ANY phrasing ("done", "finished", "I did it", "I did 6 reps", "that's 10", "got it") → call complete_set FIRST (pass actual_reps if they mentioned a number), THEN acknowledge and give the next instruction
+- User wants to skip the current exercise ("skip", "let's move on", "I don't want to do this") → call skip_exercise FIRST, then move on without judgment
+- User mentions pain or discomfort, in ANY phrasing → call report_pain FIRST with the body area, THEN stop, acknowledge, suggest rest, offer to skip or end. Also append [ACTION:update_injuries] at the end of your spoken response text so the app can update their profile.
 - Announce each exercise clearly: name, sets, rep range, and one brief form cue.
 - During rest periods, give brief encouragement or a form tip (1 sentence max).
 - NEVER invent exercises. ONLY reference exercises listed in the Current Workout Plan below.
