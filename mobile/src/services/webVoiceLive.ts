@@ -113,7 +113,11 @@ export class WebVoiceLive {
     // 1. Microphone (mono, 16 kHz preferred).
     this.mediaStream = await g.navigator.mediaDevices.getUserMedia({
       audio: {
-        sampleRate: INPUT_SAMPLE_RATE,
+        // NOTE: do NOT force sampleRate here. Chrome's acoustic echo canceller
+        // runs in the native capture pipeline (~48 kHz); pinning the mic to
+        // 16 kHz can silently disable it, so Kin's own voice leaks in and the
+        // model interrupts itself. The inputCtx AudioContext below already
+        // resamples the stream to 16 kHz, so the capture rate doesn't matter.
         channelCount: 1,
         echoCancellation: true,
         noiseSuppression: true,
@@ -321,6 +325,15 @@ export class WebVoiceLive {
     this.processorNode.onaudioprocess = (e: any) => {
       const ws = this.ws;
       if (!ws || ws.readyState !== 1 /* OPEN */) return;
+
+      // Half-duplex guard: while Kin's audio is still scheduled to play, don't
+      // stream the mic. On speakers the model's own voice leaks back into the
+      // mic and Gemini Live treats it as the user barging in — cutting Kin off
+      // after a few words. Muting the mic during playback prevents that echo
+      // loop. (Playback catches up → nextPlayTime passes → mic resumes.)
+      if (this.playbackCtx && this.playbackCtx.currentTime < this.nextPlayTime - 0.05) {
+        return;
+      }
 
       const input = e.inputBuffer.getChannelData(0);
       const pcm16 = new Int16Array(input.length);
