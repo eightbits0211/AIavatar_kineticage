@@ -29,7 +29,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ],
-      "package": "com.anonymous.mobile"
+      "package": "com.kineticage.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
