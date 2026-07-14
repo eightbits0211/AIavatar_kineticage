@@ -289,3 +289,16 @@ Include a one-line note: "Requires Android; allow install from unknown sources. 
 1. **Whose Expo account** owns the build (affects EAS access in 2.3).
 2. **Whose Firebase / Google Cloud project** the OAuth client lives in (affects who can do 2.4).
 3. **Which host** for the backend, and who pays for / owns the deployment.
+
+---
+
+# Known follow-ups (post-demo, non-blocking)
+
+1. **iOS identifier is out of sync with Android.** The Android package was renamed to `com.kineticage.app`, but `ios.bundleIdentifier` in `app.json` is still `com.anonymous.mobile` (left unchanged on purpose — changing it would orphan the existing iOS OAuth client, same trap we hit on Android, and the demo is Android-only). iOS Google Sign-In still works because the iOS bundle ID matches its iOS OAuth client. When iOS becomes a real target, align it:
+   1. Set `ios.bundleIdentifier` in `app.json` to `com.kineticage.app`.
+   2. Create a **new iOS OAuth client** for bundle `com.kineticage.app` (fresh combo, no conflict).
+   3. Update `iosClientId` in `mobile/src/config/google.ts` to the new client.
+
+2. **Orphaned/misconfigured OAuth clients from the old package.** In Google Cloud there's a misconfigured Android client (`...dri1...`, bogus package name) and a hidden orphaned Android client for `com.anonymous.mobile`. Neither is used anymore. They can be cleaned up later; they're harmless but untidy.
+
+3. **Old `com.anonymous.mobile` Firebase Android app.** Still registered in Firebase alongside the new `com.kineticage.app` app. Safe to delete once nothing references the old package.
