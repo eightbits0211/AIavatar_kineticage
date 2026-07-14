@@ -1,11 +1,12 @@
 /**
  * AI Companion Service
  *
- * Uses Google Gemini API (gemini-2.5-flash) for the AI companion.
- * The file is still named claude.ts to avoid changing imports across the codebase.
+ * Uses Google Gemini API (gemini-2.5-flash) for the text-based AI companion.
+ * (Voice uses Gemini Live via voiceLiveProxy.ts.)
  *
- * The rest of the codebase (prompts, routes, frontend) stays UNCHANGED —
- * only this file needed to change.
+ * Exposes sendCompanionMessage() — used by the companion, bundles, and trigger
+ * routes to generate Kin's responses with retry, weight-stripping, and markdown
+ * cleanup for TTS.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';

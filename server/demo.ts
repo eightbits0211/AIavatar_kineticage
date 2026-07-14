@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-import { sendCompanionMessage } from './src/services/claude';
+import { sendCompanionMessage } from './src/services/aiCompanion';
 import { basePersonality } from './src/prompts/basePersonality';
 import { buildSystemPrompt } from './src/prompts/buildPrompt';
 import { generateBundles, AssembledBundle } from './src/services/rulesEngine';

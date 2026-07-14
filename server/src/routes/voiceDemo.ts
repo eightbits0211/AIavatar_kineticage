@@ -11,7 +11,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { transcribeAudio } from '../services/deepgram';
 import { textToSpeech } from '../services/elevenlabs';
-import { sendCompanionMessage } from '../services/claude';
+import { sendCompanionMessage } from '../services/aiCompanion';
 import { basePersonality } from '../prompts/basePersonality';
 
 const router = Router();

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { User, Session } from '../models';
-import { sendCompanionMessage } from '../services/claude';
+import { sendCompanionMessage } from '../services/aiCompanion';
 import { buildSystemPrompt } from '../prompts/buildPrompt';
 
 const router = Router();

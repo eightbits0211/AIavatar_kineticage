@@ -3,7 +3,7 @@ import { AuthRequest, authMiddleware } from '../middleware/auth';
 import { User } from '../models';
 import { Bundle } from '../models/Bundle';
 import { generateBundles } from '../services/rulesEngine';
-import { sendCompanionMessage } from '../services/claude';
+import { sendCompanionMessage } from '../services/aiCompanion';
 import { basePersonality } from '../prompts/basePersonality';
 import mongoose from 'mongoose';
 

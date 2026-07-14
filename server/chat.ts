@@ -5,7 +5,7 @@
  * Type your messages and press Enter. Type "quit" to exit.
  */
 import readline from 'readline';
-import { sendCompanionMessage } from './src/services/claude';
+import { sendCompanionMessage } from './src/services/aiCompanion';
 import { basePersonality } from './src/prompts/basePersonality';
 
 const rl = readline.createInterface({
