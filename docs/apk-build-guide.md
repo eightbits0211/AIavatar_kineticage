@@ -8,24 +8,31 @@ This is **Path B**: a real standalone build. The app is not self-contained — i
 
 ## Status
 
-- ✅ **Backend deployed and live:** `https://aiavatar-kineticage.onrender.com` (Render, branch `dev`). Health check passes, MongoDB connected, WebSocket voice proxy running.
+- ✅ **Backend deployed and live:** `https://aiavatar-kineticage.onrender.com` (Render, branch `dev`). Health check passes, MongoDB connected, WebSocket voice proxy running. Auto-deploy on `server/**` changes is wired via the GitHub App.
 - ✅ **App is URL-configurable:** `mobile/src/services/api.ts` reads `EXPO_PUBLIC_API_URL` (merged to `dev`).
-- ⬜ **Remaining (Pratham):** set env, register Android OAuth SHA-1, build APK, test, share.
+- ✅ **Google web client ID typo fixed** in `mobile/src/config/google.ts` (`ikqj` → `ikoj`, PR #56).
+- ⚠️ **Google Sign-In on Android is DEFERRED** — blocked by an orphaned hidden OAuth client (see 2.4b). **Demo with email/password + guest login**, which work today.
+- ⬜ **Remaining (Pratham):** set EAS env vars, build APK, test email/guest login, share.
+
+## Demo login path (IMPORTANT)
+
+Use **email/password** or **guest** login for the manager demo. Both are fully implemented in `mobile/src/services/auth.ts` and exercise the entire app (onboarding → voice coach → workout → dashboard). **Do not block the demo on Google Sign-In** — it's a known deferred item, not a code problem.
 
 ## TL;DR — the critical dependency
 
 ```
 Roshini (backend)                 Pratham (mobile)
 ─────────────────                 ────────────────
-Deploy server to a public URL  →  Point app at that URL
-Set all server env vars           Fill mobile/.env
-Verify /health responds           Register Android OAuth SHA-1
-Hand over the base URL       ───▶ eas build -p android --profile preview
-   ✅ DONE                          Test on a real device
-                                  Share the link with the manager
+Deploy server to a public URL  →  Set EAS env vars (preview)
+Set all server env vars           eas build -p android --profile preview
+Verify /health responds           Test EMAIL/GUEST login on device
+Hand over the base URL       ───▶ Share the link with the manager
+   ✅ DONE
 ```
 
 The backend is live, so Pratham is unblocked. Live base URL: **`https://aiavatar-kineticage.onrender.com`**
+
+> Note: cloud (EAS) builds do NOT read `mobile/.env` — it's gitignored and never uploaded. The `EXPO_PUBLIC_*` values must be registered as **EAS environment variables** for the `preview` environment, or the APK builds with no API URL / Firebase config and login silently fails.
 
 ---
 
@@ -197,23 +204,38 @@ Current state in the `aiavatar-de201` Google Cloud project (owner: Roshini):
 
 | Client | Client ID | Status |
 |--------|-----------|--------|
-| Web | `443799818657-ikqj1p75h7pufai69s36er4d0di6kedk...` | ✅ set in `google.ts` |
+| Web | `443799818657-ikoj1p75h7pufai69s36er4d0di6kedk...` | ✅ set in `google.ts` (typo `ikqj`→`ikoj` fixed, PR #56) |
 | iOS | `443799818657-h1kp18v1d7oo2el5qccn6qd22atdghc0...` | ✅ set in `google.ts`, Bundle ID `com.anonymous.mobile` |
 | Android | `443799818657-dri1v2f7u85seos2sf0q7lrlm4k0shqm...` | ❌ misconfigured — package name field holds the iOS client ID instead of `com.anonymous.mobile`; `androidClientId` is empty in `google.ts` |
 
-**Why Google Sign-In will fail in the APK until this is fixed:** `androidClientId` is empty → `useIdTokenAuthRequest` gets `undefined` → no valid Android OAuth client for the standalone build.
+**Why Google Sign-In fails on the Android APK:** `androidClientId` is empty → `useIdTokenAuthRequest` gets `undefined` → no valid Android OAuth client for the standalone build. Email/password and guest login are unaffected and are the demo path.
 
-**The blocker:** a correct Android client needs package name `com.anonymous.mobile` + the **SHA-1 of the keystore that signs the APK** (the EAS-managed keystore). Editing the broken client to `com.anonymous.mobile` + the old SHA-1 `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25` fails with "Requested entity already exists" — a soft-deleted client (restorable ~30 days) still holds that package+SHA-1 combo.
+**What we found (July 2026):** Pratham's EAS keystore SHA-1 is `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`. Attempts to create/fix an Android OAuth client for `com.anonymous.mobile` + this SHA-1 all fail with **"the Android package name and fingerprint are already in use"**, yet:
+- There are no deleted OAuth clients to restore.
+- No `client_type: 1` (Android) entry appears in the Firebase Android app's `google-services.json` (only the `client_type: 3` web client).
+- The only visible Android client (`443799818657-dri1...`) is misconfigured (package name holds the iOS client ID) and can't be repointed.
 
-**Resolution (needs Pratham's SHA-1 first):**
-1. Pratham runs `eas credentials` (Android) → reports the EAS keystore **SHA-1**.
-2. If it equals `5E:8F:...:F6:25` → restore the soft-deleted Android client; use its Client ID.
-3. If it differs (most likely) → create a fresh Android client: package `com.anonymous.mobile` + that SHA-1 (unique combo, saves clean). Delete the two junk Android entries afterward.
-4. Roshini also adds the same SHA-1 to Firebase → Project settings → Android app → Add fingerprint.
-5. Put the resulting Android Client ID into `mobile/src/config/google.ts` as `androidClientId`, commit via PR to `dev`.
-6. Pratham rebuilds and tests Google Sign-In on the installed APK.
+Conclusion: an **orphaned, Firebase-managed Android OAuth client** holds that package+SHA combo but is hidden from both consoles. It can't be read, edited, or duplicated through the UI.
 
-> Since the manager is on Android, only the Android client matters for this APK. The iOS client is irrelevant to the demo.
+**DECISION: Google Sign-In on Android is deferred. Demo with email/guest login.** `androidClientId` stays empty; the Google button no-ops on Android but email/guest are unaffected.
+
+**Post-demo fix (when there's time):**
+1. Use the `gcloud` CLI (which can see Firebase-managed clients) to list and **delete the orphaned Android OAuth client**, OR delete the Firebase Android app and let it fully deprovision.
+2. Create one clean Android client: package `com.anonymous.mobile` + SHA-1 `5E:8F:...:F6:25`.
+3. Put its Client ID into `mobile/src/config/google.ts` as `androidClientId`, commit via PR to `dev`.
+4. Rebuild and test Google Sign-In on the installed APK.
+
+> The web client ID typo (`ikqj` → `ikoj`) is already fixed, so once the Android client exists, Google Sign-In should work end-to-end.
+
+## 2.4c Register EAS environment variables (REQUIRED for cloud builds)
+
+`mobile/.env` is gitignored and is NOT uploaded to EAS cloud builds. Without these, the APK builds with no API URL / Firebase config and login silently fails. Register the `EXPO_PUBLIC_*` values as EAS environment variables for the **preview** environment (plaintext/"sensitive" visibility — not "secret", which isn't inlined). These are non-secret client values.
+
+Minimum set:
+- `EXPO_PUBLIC_API_URL=https://aiavatar-kineticage.onrender.com`
+- all six `EXPO_PUBLIC_FIREBASE_*` (from Firebase web config)
+
+Set them via the EAS dashboard (Project → Environment variables → preview) or `eas env:create` per variable.
 
 ## 2.5 Build the APK
 
@@ -230,12 +252,12 @@ EAS builds in the cloud (a few minutes) and prints a **download URL + QR code**.
 
 Install on a real Android device and run the whole flow against Roshini's deployed backend:
 
-- Sign up / Google login succeeds
+- **Sign up / sign in with email/password, or continue as guest** (Google Sign-In is deferred — see 2.4b)
 - Onboarding chat completes
 - Voice coach connects and responds (confirms WS + Gemini/Deepgram/ElevenLabs work)
 - A workout bundle loads and a session can be completed
 
-Only proceed once this works. A broken APK in front of a manager is worse than a recorded demo.
+Only proceed once this works. A broken APK in front of a manager is worse than a recorded demo. Note the free-tier backend cold-start: the first request after idle can take ~50s, so warm it (hit `/health` or open the app once) before a live demo.
 
 ## 2.7 Share with the manager
 
