@@ -11,5 +11,5 @@
 export const googleConfig = {
   webClientId: '443799818657-ikoj1p75h7pufai69s36er4d0di6kedk.apps.googleusercontent.com',
   iosClientId: '443799818657-h1kp18v1d7oo2el5qccn6qd22atdghc0.apps.googleusercontent.com',
-  androidClientId: '', // TODO: Create Android OAuth client with SHA-1 from your keystore
+  androidClientId: '443799818657-s7bvo18ngmjtvtpv0g5sr1pjiqhnbll8.apps.googleusercontent.com',
 };
