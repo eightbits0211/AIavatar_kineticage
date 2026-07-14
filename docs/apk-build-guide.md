@@ -10,13 +10,13 @@ This is **Path B**: a real standalone build. The app is not self-contained — i
 
 - ✅ **Backend deployed and live:** `https://aiavatar-kineticage.onrender.com` (Render, branch `dev`). Health check passes, MongoDB connected, WebSocket voice proxy running. Auto-deploy on `server/**` changes is wired via the GitHub App.
 - ✅ **App is URL-configurable:** `mobile/src/services/api.ts` reads `EXPO_PUBLIC_API_URL` (merged to `dev`).
-- ✅ **Google web client ID typo fixed** in `mobile/src/config/google.ts` (`ikqj` → `ikoj`, PR #56).
-- ⚠️ **Google Sign-In on Android is DEFERRED** — blocked by an orphaned hidden OAuth client (see 2.4b). **Demo with email/password + guest login**, which work today.
-- ⬜ **Remaining (Pratham):** set EAS env vars, build APK, test email/guest login, share.
+- ✅ **Google Sign-In configured** — all three client IDs set in `mobile/src/config/google.ts`: web `ikoj...` (typo fixed, PR #56), iOS `h1kp...`, Android `s7bvo18...` (PR #59). **Requires a rebuild to take effect.**
+- ✅ **Android package renamed** `com.anonymous.mobile` → `com.kineticage.app` (PR #58) — this unblocked the Android OAuth client.
+- ⬜ **Remaining (Pratham):** set EAS env vars, rebuild APK (new package), test login, share.
 
-## Demo login path (IMPORTANT)
+## Login options
 
-Use **email/password** or **guest** login for the manager demo. Both are fully implemented in `mobile/src/services/auth.ts` and exercise the entire app (onboarding → voice coach → workout → dashboard). **Do not block the demo on Google Sign-In** — it's a known deferred item, not a code problem.
+Google Sign-In is now configured for the new package `com.kineticage.app` and should work after a rebuild. Email/password and guest login (in `mobile/src/services/auth.ts`) also work and are good fallbacks for the demo — any of the three exercises the full app (onboarding → voice coach → workout → dashboard).
 
 ## TL;DR — the critical dependency
 
@@ -31,6 +31,8 @@ Hand over the base URL       ───▶ Share the link with the manager
 ```
 
 The backend is live, so Pratham is unblocked. Live base URL: **`https://aiavatar-kineticage.onrender.com`**
+
+> ⚠️ Package rename: the Android package is now `com.kineticage.app` (was `com.anonymous.mobile`). Pratham must rebuild; the new build is a separate app identity on-device (won't upgrade any old `com.anonymous.mobile` install — they coexist). The EAS keystore is per-project, so the SHA-1 is unchanged (`5E:8F...`) and stays valid.
 
 > Note: cloud (EAS) builds do NOT read `mobile/.env` — it's gitignored and never uploaded. The `EXPO_PUBLIC_*` values must be registered as **EAS environment variables** for the `preview` environment, or the APK builds with no API URL / Firebase config and login silently fails.
 
@@ -217,15 +219,11 @@ Current state in the `aiavatar-de201` Google Cloud project (owner: Roshini):
 
 Conclusion: an **orphaned, Firebase-managed Android OAuth client** holds that package+SHA combo but is hidden from both consoles. It can't be read, edited, or duplicated through the UI.
 
-**DECISION: Google Sign-In on Android is deferred. Demo with email/guest login.** `androidClientId` stays empty; the Google button no-ops on Android but email/guest are unaffected.
+**RESOLVED (July 2026):** rather than fight the orphaned/hidden client (OAuth sign-in clients are *not* manageable via `gcloud` — that was a dead end), we **renamed the Android package** `com.anonymous.mobile` → `com.kineticage.app` (PR #58). The new package + SHA-1 is a fresh combo with no conflict, so registering a Firebase Android app for it created a clean Android OAuth client:
+- `androidClientId = 443799818657-s7bvo18ngmjtvtpv0g5sr1pjiqhnbll8.apps.googleusercontent.com` (set in `google.ts`, PR #59)
+- Verified via the new Firebase Android app's `google-services.json`: `client_type: 1`, `certificate_hash` matches the EAS keystore SHA-1.
 
-**Post-demo fix (when there's time):**
-1. Use the `gcloud` CLI (which can see Firebase-managed clients) to list and **delete the orphaned Android OAuth client**, OR delete the Firebase Android app and let it fully deprovision.
-2. Create one clean Android client: package `com.anonymous.mobile` + SHA-1 `5E:8F:...:F6:25`.
-3. Put its Client ID into `mobile/src/config/google.ts` as `androidClientId`, commit via PR to `dev`.
-4. Rebuild and test Google Sign-In on the installed APK.
-
-> The web client ID typo (`ikqj` → `ikoj`) is already fixed, so once the Android client exists, Google Sign-In should work end-to-end.
+All three client IDs (`web` ikoj / `ios` h1kp / `android` s7bvo18) are now correct. **Google Sign-In should work after Pratham rebuilds with the new package.** Email/guest remain available as fallbacks.
 
 ## 2.4c Register EAS environment variables (REQUIRED for cloud builds)
 
@@ -252,7 +250,7 @@ EAS builds in the cloud (a few minutes) and prints a **download URL + QR code**.
 
 Install on a real Android device and run the whole flow against Roshini's deployed backend:
 
-- **Sign up / sign in with email/password, or continue as guest** (Google Sign-In is deferred — see 2.4b)
+- **Google Sign-In** (now configured for `com.kineticage.app`), and/or email/password / guest as fallbacks
 - Onboarding chat completes
 - Voice coach connects and responds (confirms WS + Gemini/Deepgram/ElevenLabs work)
 - A workout bundle loads and a session can be completed
