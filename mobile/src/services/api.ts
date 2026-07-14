@@ -1,6 +1,9 @@
-export const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000'
-  : 'https://your-production-url.com';
+// Backend base URL.
+// Priority: explicit EXPO_PUBLIC_API_URL (set in mobile/.env for real builds),
+// then dev localhost, then a production placeholder fallback.
+export const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (__DEV__ ? 'http://localhost:3000' : 'https://your-production-url.com');
 
 /**
  * WebSocket base URL derived from API_BASE_URL (http→ws, https→wss).
