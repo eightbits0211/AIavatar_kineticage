@@ -31,7 +31,7 @@ app.use(rateLimitMiddleware);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'kinetic-age-server', timestamp: new Date().toISOString() });
 });
 
 // Routes
