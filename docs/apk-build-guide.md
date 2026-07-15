@@ -12,7 +12,10 @@ This is **Path B**: a real standalone build. The app is not self-contained — i
 - ✅ **App is URL-configurable:** `mobile/src/services/api.ts` reads `EXPO_PUBLIC_API_URL` (merged to `dev`).
 - ✅ **Google Sign-In configured** — all three client IDs set in `mobile/src/config/google.ts`: web `ikoj...` (typo fixed, PR #56), iOS `h1kp...`, Android `s7bvo18...` (PR #59). **Requires a rebuild to take effect.**
 - ✅ **Android package renamed** `com.anonymous.mobile` → `com.kineticage.app` (PR #58) — this unblocked the Android OAuth client.
-- ⬜ **Remaining (Pratham):** set EAS env vars, rebuild APK (new package), test login, share.
+- ✅ **Build pipeline working:** EAS builds a signed, installable APK; SDK 56 version alignment fixed the earlier build failure. EAS `preview` env vars registered; `mobile/.env` set.
+- ✅ **Manager confirmed on Android.**
+- ⚠️ **First APK is obsolete:** it was built on the old package (`com.anonymous.mobile`) with `androidClientId` empty. A **rebuild from current `dev`** is required for Google Sign-In and the new package.
+- ⬜ **Pratham — remaining:** (1) commit the package.json/package-lock SDK-56 version fix (branch → PR → `dev`) so it isn't lost; (2) pull `dev`; (3) rebuild; (4) device-test full flow; (5) share.
 
 ## Login options
 
