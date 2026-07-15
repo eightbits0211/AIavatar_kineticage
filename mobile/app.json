@@ -27,7 +27,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.kineticage.app"
     },
@@ -39,6 +40,20 @@
         "expo-audio",
         {
           "microphonePermission": "Kinetic Age uses the microphone so you can talk to your AI coach Kin."
+        }
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "iosBackgroundMode": true,
+          "iosMicrophonePermission": "Kinetic Age uses the microphone so you can talk to your AI coach Kin.",
+          "androidPermissions": [
+            "android.permission.RECORD_AUDIO",
+            "android.permission.FOREGROUND_SERVICE",
+            "android.permission.FOREGROUND_SERVICE_MICROPHONE"
+          ],
+          "androidForegroundService": true,
+          "androidFSTypes": ["microphone"]
         }
       ],
       "expo-asset",

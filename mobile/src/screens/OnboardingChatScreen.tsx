@@ -18,7 +18,7 @@ import { useOnboardingStore } from '../stores/onboardingStore';
 import { useUserStore } from '../stores/userStore';
 import { apiPost, apiPut, WS_BASE_URL } from '../services/api';
 import { signOutCurrentUser, getFreshToken } from '../services/auth';
-import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
+import { createVoiceLive, type VoiceLive, type VoiceLivePhase } from '../services/voiceLive';
 import KinLogo from '../components/KinLogo';
 import ChatMessage from '../components/ChatMessage';
 import HorizontalButtons from '../components/HorizontalButtons';
@@ -58,7 +58,7 @@ export default function OnboardingChatScreen() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
   const [voiceProgress, setVoiceProgress] = useState(0);
-  const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+  const voiceLoopRef = useRef<VoiceLive | null>(null);
 
   // Finalize once the proxy reports onboarding is complete: it has already
   // saved the profile, so run the canonical personalization (same path the
@@ -118,7 +118,7 @@ export default function OnboardingChatScreen() {
       token = null;
     }
 
-    const live = new WebVoiceLive({
+    const live = createVoiceLive({
       wsBaseUrl: WS_BASE_URL,
       token,
       onPhase: setVoicePhase,
@@ -139,7 +139,7 @@ export default function OnboardingChatScreen() {
       voiceLoopRef.current = null;
       setVoiceMode(false);
       setVoicePhase('idle');
-      addMessage('kin', 'I need microphone access to talk. Allow it in your browser, then tap the button again.');
+      addMessage('kin', 'I need microphone access to talk. Please allow it, then tap the button again.');
     }
   };
 
