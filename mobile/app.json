@@ -53,12 +53,15 @@
             "android.permission.FOREGROUND_SERVICE_MICROPHONE"
           ],
           "androidForegroundService": true,
-          "androidFSTypes": ["microphone"]
+          "androidFSTypes": [
+            "microphone"
+          ]
         }
       ],
       "expo-asset",
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {
