@@ -20,7 +20,11 @@ const model = genAI.getGenerativeModel({
   generationConfig: {
     maxOutputTokens: 500,
     temperature: 0.7,
-  },
+    // Disable the "thinking" budget. For a conversational fitness coach we want
+    // fast, direct replies — thinking added ~370 hidden tokens per response,
+    // causing latency and truncation (answer got cut off before finishing).
+    thinkingConfig: { thinkingBudget: 0 },
+  } as any,
 });
 
 interface Message {
