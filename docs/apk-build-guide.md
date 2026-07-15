@@ -311,3 +311,12 @@ Include a one-line note: "Requires Android; allow install from unknown sources. 
 2. **Orphaned/misconfigured OAuth clients from the old package.** In Google Cloud there's a misconfigured Android client (`...dri1...`, bogus package name) and a hidden orphaned Android client for `com.anonymous.mobile`. Neither is used anymore. They can be cleaned up later; they're harmless but untidy.
 
 3. **Old `com.anonymous.mobile` Firebase Android app.** Still registered in Firebase alongside the new `com.kineticage.app` app. Safe to delete once nothing references the old package.
+
+---
+
+# Rule of thumb: what needs a rebuild vs a redeploy
+
+- **`server/` changes → backend redeploy, NO APK rebuild.** The app calls the backend over the network, so server-side changes (AI/voice pipeline, routes, prompts, models) take effect once Render redeploys `dev`. Example: the ElevenLabs TTS model migration (`eleven_flash_v2_5`) and the Gemini thinking-budget fix are server-side — they reflect in the existing APK automatically once the backend is live with them.
+- **`mobile/` changes → new APK build required.** Anything baked into the app at build time (client IDs, package name, screens, `EXPO_PUBLIC_*` values) only changes with a fresh `eas build`.
+
+Quick check that a `server/` change is live: confirm Render deployed the commit (Events tab) and hit `https://aiavatar-kineticage.onrender.com/health`.
