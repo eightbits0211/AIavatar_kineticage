@@ -73,7 +73,9 @@ export async function textToSpeech(
             },
             body: JSON.stringify({
               text,
-              model_id: 'eleven_monolingual_v1',
+              // eleven_flash_v2_5 = low-latency model (the old eleven_monolingual_v1
+              // was deprecated by ElevenLabs and now returns 400 unsupported_model).
+              model_id: 'eleven_flash_v2_5',
               voice_settings: {
                 stability: 0.5,
                 similarity_boost: 0.75,
@@ -95,6 +97,11 @@ export async function textToSpeech(
 
         if (!response.ok) {
           const error = await response.text();
+          // 400 = bad request (e.g. unsupported model/voice). Retrying won't help,
+          // so fail fast instead of burning through all retry attempts.
+          if (response.status === 400) {
+            throw new AbortError(`ElevenLabs error 400: ${error}`);
+          }
           throw new Error(`ElevenLabs error ${response.status}: ${error}`);
         }
 
