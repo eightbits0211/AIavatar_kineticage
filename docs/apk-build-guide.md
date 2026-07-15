@@ -12,10 +12,16 @@ This is **Path B**: a real standalone build. The app is not self-contained — i
 - ✅ **App is URL-configurable:** `mobile/src/services/api.ts` reads `EXPO_PUBLIC_API_URL` (merged to `dev`).
 - ✅ **Google Sign-In configured** — all three client IDs set in `mobile/src/config/google.ts`: web `ikoj...` (typo fixed, PR #56), iOS `h1kp...`, Android `s7bvo18...` (PR #59). **Requires a rebuild to take effect.**
 - ✅ **Android package renamed** `com.anonymous.mobile` → `com.kineticage.app` (PR #58) — this unblocked the Android OAuth client.
-- ✅ **Build pipeline working:** EAS builds a signed, installable APK; SDK 56 version alignment fixed the earlier build failure. EAS `preview` env vars registered; `mobile/.env` set.
+- ✅ **Demo-ready APK built:** build `91f31537`, compiled from a commit that includes the new package `com.kineticage.app` + `androidClientId` (`s7bvo18`). Installable via the EAS build page.
 - ✅ **Manager confirmed on Android.**
-- ⚠️ **First APK is obsolete:** it was built on the old package (`com.anonymous.mobile`) with `androidClientId` empty. A **rebuild from current `dev`** is required for Google Sign-In and the new package.
-- ⬜ **Pratham — remaining:** (1) commit the package.json/package-lock SDK-56 version fix (branch → PR → `dev`) so it isn't lost; (2) pull `dev`; (3) rebuild; (4) device-test full flow; (5) share.
+- ✅ **Login for demo:** email/password + guest work and are the intended demo path. Web Google sign-in works.
+- ⚠️ **Google sign-in on the APK is unverified** and treated as optional. Couldn't be device-tested (Roshini's phone is enterprise-managed and can't sideload; Pratham is on iOS). The build is signed with keystore `A5:8A...`; both `5E:8F...` and `A5:8A...` are registered as fingerprints on the `com.kineticage.app` Firebase app. If Google login fails on the APK, use email/guest. Confirm on any unmanaged Android device when convenient.
+- ⬜ **Pratham — outstanding (non-blocking):** (1) merge the SDK-56 version fix branch to `dev` so it isn't lost; (2) pin the EAS keystore to `A5:8A...` (interactive `eas credentials`) so future rebuilds don't change the SHA.
+
+## APK distribution
+
+- Build page (Install button + QR, Android): `https://expo.dev/accounts/losttadpole/projects/mobile/builds/91f31537-cb6b-4fe7-9657-66cdd7689c6b`
+- Manager note: "Android only. Open the link → Install → allow 'install from unknown source' if prompted. Log in with **email or Continue as Guest** (Google sign-in still being finalized). Test build on a live backend — the first screen may take ~30–50s to wake the server."
 
 ## Login options
 
