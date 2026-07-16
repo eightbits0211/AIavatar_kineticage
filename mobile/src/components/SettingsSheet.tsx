@@ -426,7 +426,11 @@ const styles = StyleSheet.create({
   scrim: { backgroundColor: 'rgba(24,24,26,0.5)' },
   sheet: {
     width: '100%',
-    maxHeight: SHEET_HEIGHT,
+    // Definite height (not just maxHeight): a flex:1 ScrollView inside a
+    // maxHeight-only parent collapses to ~0 height on Android, which hid all
+    // the option chips (only the header + Save button showed). A fixed height
+    // gives the ScrollView bounded space so the options render + scroll.
+    height: SHEET_HEIGHT,
     backgroundColor: '#1C1C1E',
     borderRadius: 24,
     overflow: 'hidden',

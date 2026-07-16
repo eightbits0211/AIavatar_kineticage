@@ -37,7 +37,7 @@ import {
   type AudioPlayer,
 } from 'expo-audio';
 import { apiGet, apiPost, apiPut, apiUploadAudio, apiFetchSpeech, WS_BASE_URL } from '../services/api';
-import { WebVoiceLive, type VoiceLivePhase } from '../services/webVoiceLive';
+import { createVoiceLive, type VoiceLive, type VoiceLivePhase } from '../services/voiceLive';
 import { WebPushToTalk } from '../services/webPushToTalk';
 import { getFreshToken } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
@@ -141,7 +141,7 @@ export default function HomeScreen() {
   // aloud, then auto-listens again until you tap the mic to turn it off.
   const [voiceMode, setVoiceMode] = useState(false);
   const [voicePhase, setVoicePhase] = useState<VoiceLivePhase>('idle');
-  const voiceLoopRef = useRef<WebVoiceLive | null>(null);
+  const voiceLoopRef = useRef<VoiceLive | null>(null);
   // Web REST voice fallback (§6): used when the live voice WebSocket is
   // unavailable — a simple tap-to-talk that records, transcribes, chats, speaks.
   const [voiceFallback, setVoiceFallback] = useState(false);
@@ -519,7 +519,7 @@ export default function HomeScreen() {
       token = null;
     }
 
-    const live = new WebVoiceLive({
+    const live = createVoiceLive({
       wsBaseUrl: WS_BASE_URL,
       token,
       // Ground the voice AI in the live workout so it coaches the actual
@@ -589,7 +589,7 @@ export default function HomeScreen() {
         {
           id: `${Date.now()}-k`,
           role: 'kin',
-          text: 'I need microphone access to talk. Allow it in your browser, then tap the mic again.',
+          text: 'I need microphone access to talk. Please allow it, then tap the mic again.',
         },
       ]);
     }
@@ -601,7 +601,9 @@ export default function HomeScreen() {
       // After a live-voice failure, the mic drives the REST tap-to-talk fallback.
       return voiceFallback ? toggleFallbackRecording() : toggleVoiceMode();
     }
-    return toggleRecording();
+    // Native: continuous voice-to-voice (react-native-audio-api). If live voice
+    // fell back after an error, the mic drives expo-audio press-to-talk instead.
+    return voiceFallback ? toggleRecording() : toggleVoiceMode();
   }, [voiceFallback, toggleFallbackRecording, toggleVoiceMode, toggleRecording]);
 
   // Clean up any active player/recorder/voice loop when leaving the screen.

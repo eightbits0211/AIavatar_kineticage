@@ -13,6 +13,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
 import AppButton from '../components/AppButton';
 import GoogleLogo from '../components/GoogleLogo';
@@ -49,6 +50,16 @@ export default function AuthScreen() {
     iosClientId: googleConfig.iosClientId,
     androidClientId: googleConfig.androidClientId || undefined,
   });
+
+  // Native Google Sign-In (Android/iOS) uses the native SDK — no fragile web
+  // redirect (which is the usual cause of redirect_uri/DEVELOPER_ERROR on
+  // standalone builds). It needs the WEB client ID to mint a Firebase-usable
+  // idToken; the Android OAuth client + SHA-1 handle the native handshake.
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      GoogleSignin.configure({ webClientId: googleConfig.webClientId });
+    }
+  }, []);
 
   // Debug: log the exact OAuth client ID and redirect URI being sent to Google.
   // If sign-in fails with "invalid_client / OAuth client was not found", this
@@ -120,11 +131,42 @@ export default function AuthScreen() {
 
   const handleGoogle = async () => {
     setError('');
-    if (!request) {
-      Alert.alert('Google sign-in unavailable', 'Google client IDs are not configured yet.');
+
+    // Web keeps the expo-auth-session redirect flow.
+    if (Platform.OS === 'web') {
+      if (!request) {
+        Alert.alert('Google sign-in unavailable', 'Google client IDs are not configured yet.');
+        return;
+      }
+      await promptAsync();
       return;
     }
-    await promptAsync();
+
+    // Native: use the Google Sign-In SDK directly (Android OAuth client + SHA-1,
+    // no web redirect). signInWithGoogleIdToken handles Firebase + backend and
+    // is shared with the web flow, so nothing downstream changes.
+    try {
+      setBusy(true);
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const result: any = await GoogleSignin.signIn();
+      // v13+: { type: 'success', data: { idToken } }. Older: { idToken }.
+      let idToken: string | null = result?.data?.idToken ?? result?.idToken ?? null;
+      if (!idToken) {
+        try {
+          idToken = (await GoogleSignin.getTokens())?.idToken ?? null;
+        } catch {
+          /* no token available */
+        }
+      }
+      if (!idToken) return; // user cancelled or dismissed the picker
+      await signInWithGoogleIdToken(idToken);
+    } catch (e: any) {
+      // Silently ignore explicit cancellations / in-progress taps.
+      if (e?.code === statusCodes?.SIGN_IN_CANCELLED || e?.code === statusCodes?.IN_PROGRESS) return;
+      setError(friendlyAuthError(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleApple = () => {
