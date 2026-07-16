@@ -6,14 +6,14 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 
 ## Glossary
 
-- **Companion**: The AI coaching layer powered by Claude API (claude-sonnet-4) that explains, motivates, and converses — it never invents exercises or prescribes weights
+- **Companion**: The AI coaching layer powered by Google Gemini (text: Gemini 2.5 Flash; voice: Gemini Live) that explains, motivates, and converses — it never invents exercises or prescribes weights
 - **Rules_Engine**: The deterministic, versioned service that generates workouts from user profile + exercise library. Not an LLM. Four stages: Filter → Category → Persona Modifier → Bundle Assembly
 - **Exercise_Bundle**: A complete, ready-to-do workout option containing a title, exercises with sets/reps/rest, estimated duration, and calorie burn range. 3-4 generated per cycle, exactly one flagged as recommended
 - **Session**: A single workout instance created when a user selects a bundle and begins exercising
 - **User_Profile**: All stored user data including physical attributes, goals, equipment, injuries, preferences, persona tags, and calculated metrics
 - **Persona_Tags**: An array of automatically-assigned behavioral/attribute labels (2-4 per user) derived from onboarding data and ongoing behavior. Not mutually exclusive.
 - **Exercise_Library**: The trainer-approved master library of 80-120 exercises with metadata (muscles, equipment, contraindications, substitution groups, category-specific set/rep defaults)
-- **Voice_Pipeline**: The chain of Deepgram (STT) → Claude API → ElevenLabs (TTS streaming) for spoken interaction
+- **Voice_Pipeline**: Real-time voice uses Gemini Live (native speech-to-speech). A legacy chain of Deepgram (STT) → Gemini → ElevenLabs (TTS streaming) remains available for text-to-speech and tap-to-talk fallback
 - **Text_Chat**: The persistent text interface providing the same AI companion intelligence
 - **Talkativeness**: User-controlled setting (Minimal/Balanced/High) governing how often the AI proactively initiates communication
 - **In_Session_Verbosity**: Separate setting (Quiet/Standard/Detailed) controlling how much the AI narrates during active exercises

@@ -2,7 +2,9 @@
 
 ## 1. System Overview
 
-KineticAge is an AI-powered fitness companion that combines a **deterministic, trainer-approved Rules Engine** for workout generation with an **AI conversational layer** (Claude) for explanation, motivation, and coaching. The Rules Engine guarantees safe, predictable, explainable workout content. The AI layer makes it feel human. These two systems are deliberately separated — the AI never invents exercises or prescribes weights.
+KineticAge is an AI-powered fitness companion that combines a **deterministic, trainer-approved Rules Engine** for workout generation with an **AI conversational layer** (Google Gemini) for explanation, motivation, and coaching. The Rules Engine guarantees safe, predictable, explainable workout content. The AI layer makes it feel human. These two systems are deliberately separated — the AI never invents exercises or prescribes weights.
+
+> **AI provider note:** Text coaching uses **Gemini 2.5 Flash**; real-time voice uses **Gemini Live** (`gemini-3.1-flash-live-preview`) for native speech-to-speech. (Earlier design drafts referenced Claude; the project standardized on Gemini.)
 
 ---
 
@@ -56,7 +58,7 @@ KineticAge is an AI-powered fitness companion that combines a **deterministic, t
 │  │  └───────────────────────────────────────────────────────────────┘  │ │
 │  │                                                                      │ │
 │  │  ┌───────────────────────────────────────────────────────────────┐  │ │
-│  │  │         AI SERVICE (Claude — explain & motivate only)         │  │ │
+│  │  │         AI SERVICE (Gemini — explain & motivate only)         │  │ │
 │  │  │  • Generate bundle rationale text                             │  │ │
 │  │  │  • Conversational coaching (voice + text)                     │  │ │
 │  │  │  • Exercise explanations from library data                    │  │ │
@@ -86,11 +88,11 @@ KineticAge is an AI-powered fitness companion that combines a **deterministic, t
            │                  │                    │
            ▼                  ▼                    ▼
 ┌──────────────────┐ ┌───────────────┐ ┌─────────────────────┐
-│  MongoDB Atlas   │ │  Claude API   │ │  Deepgram + 11Labs  │
-│  • users         │ │  (Anthropic)  │ │                     │
+│  MongoDB Atlas   │ │  Gemini API   │ │  Deepgram + 11Labs  │
+│  • users         │ │  (Google)     │ │                     │
 │  • exercises     │ │  Explain &    │ │                     │
-│  • bundles       │ │  motivate     │ │                     │
-│  • sessions      │ │  ONLY         │ │                     │
+│  • bundles       │ │  motivate +   │ │                     │
+│  • sessions      │ │  Live voice   │ │                     │
 │  • progression   │ └───────────────┘ └─────────────────────┘
 │  • gamification  │
 └──────────────────┘
@@ -424,9 +426,9 @@ IF user marks "felt easy" consistently:
 
 ---
 
-## 7. Claude System Prompt Architecture
+## 7. AI (Gemini) System Prompt Architecture
 
-Claude's role is strictly: **explain, motivate, answer, coach.** Never generate workout content.
+The AI's role is strictly: **explain, motivate, answer, coach.** Never generate workout content.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -505,11 +507,12 @@ kinetic-age/
 │       │   ├── progression.ts       # Per-exercise progression tracking
 │       │   ├── persona.ts           # Persona assignment rules
 │       │   ├── gamification.ts      # XP, streaks, badges
-│       │   ├── claude.ts            # AI companion (explain/motivate only)
+│       │   ├── aiCompanion.ts       # AI companion (Gemini — explain/motivate only)
+│       │   ├── voiceLiveProxy.ts    # Gemini Live WebSocket proxy (real-time voice)
 │       │   ├── deepgram.ts          # STT
 │       │   └── elevenlabs.ts        # TTS
 │       ├── models/                  # Mongoose schemas
-│       ├── prompts/                 # Claude system prompt layers
+│       ├── prompts/                 # Gemini system prompt layers
 │       └── utils/
 │
 ├── shared/                          # Shared TypeScript types
@@ -524,8 +527,8 @@ kinetic-age/
 
 - All API keys server-side only
 - Firebase Auth JWT on every request
-- Rate limiting: 60 req/min per user
-- p-retry on all external APIs (Claude, Deepgram, ElevenLabs)
+- Rate limiting: 600 req/min per user
+- p-retry on all external APIs (Gemini, Deepgram, ElevenLabs)
 - Voice latency target: < 4 seconds end-to-end
 - Rules Engine is pure computation — no network calls, runs in <100ms
 - Bundle generation (Rules Engine + AI rationale): < 5 seconds total
