@@ -1,5 +1,7 @@
 # Switching from Gemini to Claude (Before Demo)
 
+> **⚠️ OBSOLETE / NOT DONE.** This plan was **not** executed. The project deliberately **stayed on Google Gemini** (text: Gemini 2.5 Flash; voice: Gemini Live) through the demo — Gemini's guardrail adherence and quality proved sufficient, and Gemini Live enabled native real-time voice. This document is kept only for historical reference. Do not follow these steps unless a deliberate decision to move to Claude is made. Current AI setup: [backend-handover.md](./backend-handover.md).
+
 Currently using Google Gemini (free tier) for development.
 Switch to Anthropic Claude for the final demo — better guardrail adherence and personality consistency.
 

@@ -8,7 +8,7 @@
 
 | # | Task | Priority | Status |
 |---|------|----------|--------|
-| 1 | Proactive AI triggers — endpoint for contextual Kira messages at key workout moments | High | TODO |
+| 1 | Proactive AI triggers — endpoint for contextual Kin messages at key workout moments | High | TODO |
 | 2 | Exercise GIFs — map 80 exercises to GIF URLs, populate image_url field in seed data | High | TODO |
 | 3 | Weight logging prompt logic — decide when to ask user (weekly? at daily check-in?) | Low | TODO |
 | 4 | End-to-end testing with full demo flow | High | TODO (Jul 14-15) |

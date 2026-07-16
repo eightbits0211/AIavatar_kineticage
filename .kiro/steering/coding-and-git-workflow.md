@@ -30,14 +30,14 @@ This is a monorepo with:
 - **Backend:** Node.js, Express, TypeScript, Mongoose
 - **Database:** MongoDB Atlas
 - **Auth:** Firebase Auth (standalone — auth only)
-- **AI:** Anthropic Claude API (claude-sonnet-4)
+- **AI:** Google Gemini (text: Gemini 2.5 Flash; voice: Gemini Live `gemini-3.1-flash-live-preview`)
 - **STT:** Deepgram
 - **TTS:** ElevenLabs (streaming)
 - **Retry:** p-retry with exponential backoff on all external API calls
 
 ## Architecture Rules
 
-1. **API keys stay server-side only.** The mobile app never directly calls Claude, Deepgram, or ElevenLabs.
+1. **API keys stay server-side only.** The mobile app never directly calls Gemini, Deepgram, or ElevenLabs.
 2. **All external API calls go through the backend** and are wrapped with p-retry (3 attempts, exponential backoff).
 3. **State machine drives the workout session.** States: idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → session_summary → idle.
 4. **Zustand for state management** on mobile. Do not use React Context for frequently-changing state.
@@ -48,14 +48,14 @@ This is a monorepo with:
 
 **This is the most important architectural rule in the entire project.**
 
-1. **The Workout Recommendation Engine is a DETERMINISTIC RULES SERVICE.** It is NOT Claude. It is NOT an LLM. It is pure TypeScript logic that generates workouts from user profile + exercise library.
-2. **The AI (Claude) NEVER invents exercises, prescribes weights, or generates workout content.** It ONLY explains, motivates, answers questions, and adjusts tone.
+1. **The Workout Recommendation Engine is a DETERMINISTIC RULES SERVICE.** It is NOT Gemini. It is NOT an LLM. It is pure TypeScript logic that generates workouts from user profile + exercise library.
+2. **The AI (Gemini) NEVER invents exercises, prescribes weights, or generates workout content.** It ONLY explains, motivates, answers questions, and adjusts tone.
 3. **The Rules Engine runs four stages:** Filter (equipment/location/injuries) → Category (goal-specific rules) → Persona Modifier (persona-based additions) → Bundle Assembly (3-4 options).
 4. **No specific weights are ever shown to the user.** Only exercise name, sets, rep range, and rest interval.
-5. **Claude generates rationale text** explaining why a bundle was recommended, using ONLY structured data from the Rules Engine as input — never inventing content.
-6. **If Claude is unavailable, bundles still display** with a generic fallback rationale. Generation NEVER blocks on AI availability.
+5. **Gemini generates rationale text** explaining why a bundle was recommended, using ONLY structured data from the Rules Engine as input — never inventing content.
+6. **If Gemini is unavailable, bundles still display** with a generic fallback rationale. Generation NEVER blocks on AI availability.
 
-## Claude System Prompt
+## Gemini System Prompt
 
 The system prompt is assembled in layers:
 1. Base personality (static)
@@ -72,16 +72,16 @@ When modifying the system prompt, edit files in `server/src/prompts/`.
 - All routes must validate input (express-validator or zod).
 - All error responses must return a structured JSON error with a message.
 - Console.log is acceptable in development but must not be left in production code.
-- Each service (claude, deepgram, elevenlabs) must be behind an abstraction so it can be swapped.
+- Each service (aiCompanion, deepgram, elevenlabs) must be behind an abstraction so it can be swapped.
 
 ## Implementation Order
 
 Follow the steps defined in `development-workflow.md`:
 1. Project scaffolding
 2. Database & Auth
-3. Basic Claude chat & AI service (explain/motivate only)
+3. Basic Gemini chat & AI service (explain/motivate only)
 4. Voice (STT & TTS)
-5. Rules Engine & Bundle System (deterministic, NOT Claude)
+5. Rules Engine & Bundle System (deterministic, NOT Gemini)
 6. Workout session state machine
 7. Progression logic
 8. Onboarding & persona assignment
@@ -102,16 +102,16 @@ Do not skip steps or build later features before earlier ones are working.
 
 ## API & External Services
 
-1. **Never guess API signatures.** If you don't know how a Deepgram/ElevenLabs/Claude endpoint works, say so or look it up. Wrong API usage wastes time debugging.
+1. **Never guess API signatures.** If you don't know how a Deepgram/ElevenLabs/Gemini endpoint works, say so or look it up. Wrong API usage wastes time debugging.
 2. **Always wrap external API calls with p-retry** in the backend services layer.
-3. **All API calls from mobile go through OUR backend.** Never call Claude, Deepgram, or ElevenLabs directly from React Native code.
+3. **All API calls from mobile go through OUR backend.** Never call Gemini, Deepgram, or ElevenLabs directly from React Native code.
 4. **Use environment variables for all secrets and configuration.** Never hardcode API keys, URLs, or voice IDs.
 5. **Stream audio from ElevenLabs** — do not wait for the full response before starting playback.
 
 ## Error Handling
 
 1. **Every async function must have error handling.** try/catch in services, error middleware in Express, user-facing error messages on mobile.
-2. **Fail gracefully to the user.** If voice fails → show text fallback. If Claude fails → retry → then "I'm having trouble, try again."
+2. **Fail gracefully to the user.** If voice fails → show text fallback. If Gemini fails → retry → then "I'm having trouble, try again."
 3. **Never swallow errors silently.** At minimum, log them. Preferably surface them to the user in a friendly way.
 4. **Validate all user input** on both mobile (before sending) and backend (before processing).
 
@@ -122,12 +122,12 @@ Do not skip steps or build later features before earlier ones are working.
 3. **State transitions must be explicit** — triggered by user action or timer completion, never implicitly assumed.
 4. **When adding new session behavior**, decide which state it belongs to first, then implement within that state.
 
-## Claude System Prompt Rules
+## Gemini System Prompt Rules
 
 1. **The system prompt is assembled from layers** — never put everything in one massive string.
-2. **Keep the prompt concise.** Every token costs money. A 20-turn session at ~2,650 tokens/turn = ~$0.16. Verbose prompts multiply costs.
+2. **Keep the prompt concise.** Every token costs money. Verbose prompts multiply costs and latency.
 3. **Test prompt changes with at least 5 varied inputs** before committing. Bad prompts break the entire UX.
-4. **Never include user PII (email, password) in Claude prompts.** Only include: name, age, conditions, persona, session history.
+4. **Never include user PII (email, password) in Gemini prompts.** Only include: name, age, conditions, persona, session history.
 5. **Always include safety guardrails** in the system prompt: pain = stop, no medical advice, defer to clinical team.
 
 ## Mobile-Specific Rules

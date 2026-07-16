@@ -41,7 +41,7 @@ function ask() {
       history.push({ role: 'user', content: message });
       history.push({ role: 'assistant', content: result.reply });
 
-      console.log(`\nKira: ${result.reply}`);
+      console.log(`\nKin: ${result.reply}`);
       if (result.action_intent) {
         console.log(`  [Action: ${result.action_intent}]`);
       }
