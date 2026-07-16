@@ -299,15 +299,17 @@ function MetricTile({
           <Text style={styles.tileChevronText}>{expanded ? '▾' : '›'}</Text>
         </View>
       </View>
-      <Text
-        style={[styles.tileValue, { color }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.5}
-      >
-        {value}
-        <Text style={styles.tileUnit}>{` ${unit}`}</Text>
-      </Text>
+      <View style={styles.tileValueRow}>
+        <Text
+          style={[styles.tileValue, { color }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.5}
+        >
+          {value}
+        </Text>
+        <Text style={styles.tileUnit} numberOfLines={1}>{` ${unit}`}</Text>
+      </View>
       {chart ? (
         <View style={styles.miniChartWrap}>{chart}</View>
       ) : (
@@ -901,8 +903,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   tileChevronText: { color: '#FFFFFF', fontSize: 14, fontFamily: 'Inter_700Bold', lineHeight: 16 },
-  tileValue: { fontSize: 26, fontFamily: 'Inter_700Bold', marginTop: spacing.sm },
-  tileUnit: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold' },
+  // Row so the value auto-fits on its own (Android mis-measures + vertically
+  // clips large text when a smaller unit is nested inside an adjustsFontSizeToFit
+  // Text). marginTop moved here from tileValue.
+  tileValueRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: spacing.sm },
+  // lineHeight is REQUIRED for custom fonts on Android — without it the Inter
+  // glyphs get clipped top & bottom (web/CSS adds line-height automatically).
+  tileValue: { fontSize: 26, lineHeight: 34, fontFamily: 'Inter_700Bold', flexShrink: 1 },
+  tileUnit: { ...typography.small, color: colors.textSecondary, fontFamily: 'Inter_600SemiBold', marginLeft: 4, flexShrink: 0 },
   miniBars: { flexDirection: 'row', alignItems: 'flex-end', height: 46, gap: 3, marginTop: spacing.md },
   miniBarCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   miniBar: { width: 4, borderRadius: 2, minHeight: 3 },

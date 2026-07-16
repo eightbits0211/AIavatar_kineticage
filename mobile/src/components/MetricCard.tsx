@@ -63,6 +63,9 @@ const styles = StyleSheet.create({
   value: {
     fontFamily: 'Inter_700Bold',
     fontSize: 26,
+    // lineHeight is required for custom fonts on Android or the glyphs clip
+    // top & bottom (web adds line-height automatically, so it only shows on device).
+    lineHeight: 34,
     color: colors.text,
     flexShrink: 1,
   },

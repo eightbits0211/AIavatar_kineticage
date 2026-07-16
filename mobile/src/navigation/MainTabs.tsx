@@ -35,8 +35,14 @@ export default function MainTabs() {
           ? { display: 'none' }
           : {
           position: 'absolute',
-          left: TAB_SIDE,
-          right: TAB_SIDE,
+          // NOTE: use marginHorizontal, NOT left/right. React Navigation v7's
+          // base tab bar style pins the bar with logical `start: 0, end: 0`
+          // (see BottomTabBar `styles.bottom`). On native those win over our
+          // physical `left`/`right`, so the bar stayed edge-to-edge on device
+          // (it only looked like a pill on web, where start/end map to left/
+          // right). marginHorizontal is a separate property that always insets
+          // both sides, giving the centered pill on web AND native.
+          marginHorizontal: TAB_SIDE,
           bottom: Math.max(insets.bottom, 10),
           height: 78,
           borderRadius: 39,
