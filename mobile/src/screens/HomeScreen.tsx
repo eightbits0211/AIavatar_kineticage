@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path } from 'react-native-svg';
 
 import KinAvatar from '../components/KinAvatar';
 import TabBarIcon from '../components/TabBarIcon';
@@ -1650,7 +1651,12 @@ function WorkoutTile({ bundle, onPress, onStart }: { bundle: any; onPress: () =>
         {!!cal && <Text style={styles.wTileMeta} numberOfLines={1}>{cal.low}-{cal.high} cal</Text>}
       </View>
       <Pressable style={styles.wStartBtn} onPress={onStart} accessibilityRole="button" accessibilityLabel={`Start ${bundle.title}`}>
-        <Text style={styles.wStartIcon}>▶</Text>
+        {/* SVG triangle (not the ▶ text glyph): the system-font glyph renders
+            tiny inside its em-box on Android, so it looked shrunk on device
+            while fine on web. An SVG path is a fixed size everywhere. */}
+        <Svg width={18} height={18} viewBox="0 0 24 24">
+          <Path d="M7 5l11 7-11 7z" fill="#000000" />
+        </Svg>
       </Pressable>
     </Pressable>
   );
