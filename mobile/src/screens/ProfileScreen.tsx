@@ -386,8 +386,8 @@ export default function ProfileScreen() {
               </View>
             </Pressable>
             <View style={styles.headerInfo}>
-              <Text style={styles.name}>{name}</Text>
-              <Text style={styles.email}>{email}</Text>
+              <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{name}</Text>
+              <Text style={styles.email} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{email}</Text>
               <View style={styles.levelPill}>
                 <Text style={styles.levelPillText}>Level {level} Achiever</Text>
               </View>

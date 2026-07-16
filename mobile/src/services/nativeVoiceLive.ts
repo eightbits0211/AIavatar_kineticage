@@ -19,7 +19,7 @@
 
 import { AudioContext, AudioManager, AudioRecorder } from 'react-native-audio-api';
 
-import type { VoiceLiveOptions, VoiceLivePhase } from './voiceLive';
+import type { VoiceLiveOptions } from './voiceLive';
 
 // Gemini Live audio formats (fixed by the API / proxy).
 const INPUT_SAMPLE_RATE = 16000; // mic capture + upload
@@ -77,15 +77,26 @@ export class NativeVoiceLive {
       AudioManager.setAudioSessionOptions({
         iosCategory: 'playAndRecord',
         iosMode: 'voiceChat',
-        iosOptions: ['defaultToSpeaker', 'allowBluetooth'],
+        iosOptions: ['defaultToSpeaker', 'allowBluetoothHFP'],
       });
       await AudioManager.setAudioSessionActivity(true);
     } catch {
       /* non-fatal — proceed with defaults */
     }
 
-    // 3. Playback context at the model's 24 kHz output rate.
-    this.playbackCtx = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+    // 3. Playback context at the model's 24 kHz output rate. Wrapped so a
+    //    device that rejects a custom rate falls back to its default context.
+    try {
+      this.playbackCtx = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+    } catch {
+      this.playbackCtx = new AudioContext();
+    }
+    try {
+      // Some platforms start the context suspended until explicitly resumed.
+      (this.playbackCtx as any).resume?.();
+    } catch {
+      /* ignore */
+    }
 
     // 4. Mic recorder in data-callback mode → raw PCM frames (~100 ms each).
     this.recorder = new AudioRecorder();
@@ -345,7 +356,7 @@ export class NativeVoiceLive {
     this.nextPlayTime = startAt + buffer.duration;
 
     if (this.active) this.opts.onPhase('speaking');
-    src.onended = () => {
+    src.onEnded = () => {
       if (this.active && this.playbackCtx && this.playbackCtx.currentTime >= this.nextPlayTime - 0.02) {
         this.opts.onPhase('listening');
       }

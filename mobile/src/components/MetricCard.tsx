@@ -19,8 +19,19 @@ export default function MetricCard({ label, value, unit, caption, accent }: Metr
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
       <View style={styles.valueRow}>
-        <Text style={[styles.value, accent ? { color: accent } : null]}>{value}</Text>
-        {!!unit && <Text style={styles.unit}>{unit}</Text>}
+        <Text
+          style={[styles.value, accent ? { color: accent } : null]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {value}
+        </Text>
+        {!!unit && (
+          <Text style={styles.unit} numberOfLines={1}>
+            {unit}
+          </Text>
+        )}
       </View>
       {!!caption && <Text style={styles.caption}>{caption}</Text>}
     </View>
@@ -53,11 +64,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontSize: 26,
     color: colors.text,
+    flexShrink: 1,
   },
   unit: {
     ...typography.caption,
     color: colors.textSecondary,
     marginLeft: spacing.xs,
+    flexShrink: 0,
   },
   caption: {
     ...typography.small,

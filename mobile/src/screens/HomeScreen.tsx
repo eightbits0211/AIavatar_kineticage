@@ -1346,7 +1346,7 @@ export default function HomeScreen() {
             )}
             <View style={styles.greetingBlock}>
               <Text style={styles.greetingSmall}>{timeGreeting()}</Text>
-              <Text style={styles.name}>{name}</Text>
+              <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{name}</Text>
               <Text style={styles.greetingSub} numberOfLines={1}>
                 {dash?.persona_label ?? 'Ready when you are.'}
               </Text>

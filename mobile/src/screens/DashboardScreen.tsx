@@ -790,7 +790,14 @@ export default function DashboardScreen() {
 function SummaryCard({ value, label, valueColor }: { value: string; label: string; valueColor?: string }) {
   return (
     <View style={styles.summaryCard}>
-      <Text style={[styles.summaryValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+      <Text
+        style={[styles.summaryValue, valueColor ? { color: valueColor } : null]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {value}
+      </Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
