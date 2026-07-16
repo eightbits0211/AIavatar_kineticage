@@ -59,7 +59,7 @@ router.post('/stream', authMiddleware, async (req: AuthRequest, res: Response) =
     if (error instanceof ServiceUnavailableError) {
       res.status(200).json({
         error: 'service_unavailable',
-        message: 'Voice is temporarily unavailable. Here\'s what Kira wanted to say:',
+        message: 'Voice is temporarily unavailable. Here\'s what Kin wanted to say:',
         text: fallbackText,
         fallback: true,
       });

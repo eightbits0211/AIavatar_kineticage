@@ -96,7 +96,7 @@
 |------|---------|-------|
 | Session model (full schema) | `server/src/models/Session.ts` | Exercises with statuses (completed/skipped/pain_stopped/in_progress/pending), per-set tracking (target reps, actual reps, completed_at), pain_events, xp_awarded, progression_flags |
 | SessionTurn model | `server/src/models/SessionTurn.ts` | Conversation turns with input_mode (voice/text), timestamps |
-| AI prompt system — base personality | `server/src/prompts/basePersonality.ts` | "Kira" companion identity; strict guardrails (never invents exercises, never prescribes weights, never gives medical advice); tone rules; pain handling; response format rules |
+| AI prompt system — base personality | `server/src/prompts/basePersonality.ts` | "Kin" companion identity; strict guardrails (never invents exercises, never prescribes weights, never gives medical advice); tone rules; pain handling; response format rules |
 | AI prompt system — buildPrompt (4-layer) | `server/src/prompts/buildPrompt.ts` | Layer 1: Base personality (static) → Layer 2: User context (per-user: name, age, goal, personas, injuries, preferences with tone adjustments per persona tag) → Layer 3: Session context (per-turn: bundle, exercise, set, reps, rest) → Layer 4: History context (recent session summaries) |
 | Session state machine store (Zustand) | `mobile/src/stores/sessionStore.ts` | Full state machine: idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → session_summary → idle; actions: startSession, nextExercise, nextSet, completeSet, endSession, reset |
 | Chat store (Zustand) | `mobile/src/stores/chatStore.ts` | Messages array (role, content, input_mode, timestamp), addMessage, setLoading, clearMessages |

@@ -39,7 +39,7 @@ Client → POST /api/auth/upgrade → Server
 ### Edge Cases
 - **Expired token**: Server returns 401, client refreshes via `getIdToken(true)` and retries
 - **Invalid token**: Server returns 401 "Invalid or expired token"
-- **Rate limiting**: 60 requests/min per user (keyed by UID or IP)
+- **Rate limiting**: 600 requests/min per user (keyed by UID, falling back to IP)
 
 ---
 
@@ -62,7 +62,13 @@ Collects (in guided conversational flow on mobile):
 - **injuries**: multi-select array (none, knee, lower_back, shoulder, wrist, ankle, other) + free text notes
 - **workout_duration**: 15 | 30 | 45 | 60 minutes
 - **prior_program_experience**: boolean
-- **companion_preferences**: { talkativeness: minimal|balanced|high, in_session_verbosity: quiet|standard|detailed }
+- **companion_preferences**: {
+    - `talkativeness`: minimal | balanced | high
+    - `in_session_verbosity`: quiet | standard | detailed
+    - `voice_style`: calm | energetic | friendly | professional (maps to a TTS + Gemini Live voice)
+    - `coaching_style`: motivational | friendly | strict | zen (injected into the AI system prompt)
+  }
+- **avatar_url**: string (optional profile avatar)
 
 ### 2.2 Personalization
 ```
@@ -246,10 +252,12 @@ Client → POST /api/session/:id/end → Server
 Calculates:
 - **Completion ratio**: completed_exercises / total_exercises
 - **Status**: full (100%) | partial (≥50%) | abandoned (<50%)
-- **XP**: full=50, partial=25, abandoned=0 + first workout bonus=30 + progression milestones×20
+- **XP**: full=50, partial=25, abandoned=0 + first workout bonus=30 + progression milestones×20 + streak-milestone bonuses
 - **Streak**: Incremented for full/partial, not for abandoned
 - **Progression**: Evaluates per-exercise history (see Section 7)
 - **Badges**: Evaluates all badge criteria (see Section 8)
+- **Calories burned**: from actual reps × per-muscle-group rate × (user weight / 70) + a base rate for session duration (see backend-handover.md §12 for the exact formula)
+- **Auto-regeneration**: old active bundles are deactivated and a fresh set is generated for the next workout (with a soreness-aware muscle-group rotation); one retry after 2s if it fails
 
 ### 5.5 Session Pause + Resume
 ```
@@ -288,7 +296,7 @@ Client → GET /api/session/active (checks for resumable session)
 ```
 
 **Connection flow:**
-1. Client connects to `ws://server/ws/voice-live?token=<jwt>&voice=Kore&session_id=<id>&bundle_id=<id>`
+1. Client connects to `wss://server/ws/voice-live?token=<jwt>&voice_style=friendly&session_id=<id>&bundle_id=<id>` (no token → demo mode)
 2. Server authenticates via Firebase JWT
 3. Server loads user profile, active session, bundle from MongoDB
 4. Server builds full system prompt (persona + Rules Engine data + voice rules)
@@ -302,12 +310,32 @@ Client → GET /api/session/active (checks for resumable session)
 
 **Server intercepts:**
 - `inputTranscription` → persists as user turn in SessionTurn
-- `outputTranscription` → persists as companion turn, checks for action intents
-- Client `{ action: 'complete_set' }` → updates session in MongoDB (NOT relayed to Gemini)
-- Detects phrases like "great set", "skip", "pain" → auto-marks in DB
+- `outputTranscription` → persists as companion turn
+- `toolCall` (Gemini function calling) → executes the action against MongoDB and emits a client event (this is the primary, reliable mechanism — see below)
+- Client `{ action: 'complete_set' }` → updates session in MongoDB (NOT relayed to Gemini) for on-screen button presses
+- A legacy phrase-detection fallback still exists in workout mode in case a tool call isn't triggered
+
+**Deterministic voice actions (Gemini function calling):**
+Gemini is given a set of tools and calls the matching one based on the user's intent, regardless of exact phrasing (e.g. "done", "I did 6 reps", "that was tough what's next"). Each handler updates the session and emits a `workout_state` / `session_end` event to the client:
+- `start_workout(bundle_choice)` — start a session (choice by title / "recommended" / number)
+- `complete_set(actual_reps?)` — mark current set complete
+- `next_exercise()` — mark current exercise **completed** and advance
+- `skip_exercise(reason?)` — mark current exercise **skipped** (without doing it)
+- `pause_workout()` / `resume_workout()` — pause / resume
+- `end_workout()` — end early, trigger summary
+- `report_pain(body_area)` — mark `pain_stopped`, record pain
+
+**Voice modes** (chosen from user + session state at connect time):
+- `onboarding` — user hasn't finished onboarding; Kin collects the 12 profile fields conversationally (server extracts values from the user's speech; defaults a field after 3 failed attempts so it never gets stuck)
+- `workout` — an in-progress session exists; Kin asks resume-or-fresh, then coaches
+- `chat` — has a bundle (or none) but no active session
+
+**Voice style → Gemini Live voice:** calm→Aoede, energetic→Kore, friendly→Puck (default), professional→Charon.
+
+**VAD tuning:** LOW start-of-speech sensitivity (`prefixPaddingMs: 300`, `silenceDurationMs: 800`) to prevent false barge-in cutting Kin off mid-sentence.
 
 **System prompt layers:**
-1. Base personality (Kira identity, guardrails, tone)
+1. Base personality (Kin identity, guardrails, tone)
 2. User context (name, age, goal, persona tags, injuries)
 3. Session context (current exercise, set number, reps, rest time)
 4. Voice rules (short responses, no markdown, wait for user, never invent exercises)
@@ -566,4 +594,4 @@ End Session
 
 ---
 
-*Document generated: June 2026*
+*Document generated: June 2026 · Updated 15 July 2026 to match the shipped implementation (Gemini Live voice, function-calling actions, voice/coaching styles, calories + auto-regeneration).*

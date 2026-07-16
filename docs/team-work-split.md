@@ -46,7 +46,7 @@
 |--------|------|
 | Done | Session model (exercises, sets, pain events, progression flags) |
 | Done | SessionTurn model (conversation tracking — voice/text) |
-| Done | AI personality prompt — "Kira" with full guardrails |
+| Done | AI personality prompt — "Kin" with full guardrails |
 | Done | AI buildPrompt — 4-layer system (base, user, session, history) |
 | Done | Session state machine in Zustand (full state flow) |
 | Done | Chat store in Zustand (messages, loading) |
@@ -74,7 +74,7 @@
 |--------|------|
 | TODO | Progress routes |
 | TODO | Progress UI |
-| TODO | Switch to Claude API |
+| Done | Switch to Gemini API (chosen over Claude) |
 | TODO | Prompt tuning |
 | TODO | Error hardening |
 | TODO | UI polish + testing |
@@ -123,7 +123,7 @@
 | Dashboard route (today's workout, XP, streak, history, weekly summary) | Sprint 4 |
 | Progress routes (history, weekly, goal, insights) | Sprint 5 |
 | Motivational prompts service | Sprint 4 |
-| Switch from Groq to Claude API | Sprint 5 |
+| Switch from Groq to Gemini API | Sprint 5 |
 
 #### Week 4 (Jul 9-15)
 

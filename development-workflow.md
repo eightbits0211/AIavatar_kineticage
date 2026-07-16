@@ -1,5 +1,7 @@
 # Kinetic Age AI Companion — Development Workflow & Git Guide
 
+> **Note (historical):** This guide reflects the original build plan. Branch names (e.g. `feature/claude-chat`) and step titles that mention "Claude" are kept as historical record — the shipped AI provider is **Google Gemini** (text: Gemini 2.5 Flash; voice: Gemini Live), and the companion service is `server/src/services/aiCompanion.ts`. For current setup/env, see [docs/backend-handover.md](./docs/backend-handover.md) and `server/.env.example`.
+
 ## 1. Git Strategy
 
 ### Branch Structure
@@ -437,8 +439,8 @@ FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk@your-project.iam.gserviceaccount.com
 
-# Anthropic (Claude)
-ANTHROPIC_API_KEY=sk-ant-api03-...
+# Google Gemini (text companion + Gemini Live voice)
+GEMINI_API_KEY=...
 
 # Deepgram
 DEEPGRAM_API_KEY=...
@@ -460,7 +462,7 @@ MONGODB_URI=
 FIREBASE_PROJECT_ID=
 FIREBASE_PRIVATE_KEY=
 FIREBASE_CLIENT_EMAIL=
-ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
 DEEPGRAM_API_KEY=
 ELEVENLABS_API_KEY=
 ELEVENLABS_VOICE_ID_MALE=

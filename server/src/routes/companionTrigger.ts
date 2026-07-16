@@ -8,13 +8,13 @@ const router = Router();
 
 /**
  * Proactive AI trigger types:
- * - session_start: Kira greets the user and previews the workout
- * - exercise_intro: Kira introduces the upcoming exercise
- * - set_complete: Kira reacts to a completed set (uses feedback if provided)
- * - rest_start: Kira gives a brief encouragement during rest
- * - exercise_complete: Kira acknowledges completing an exercise, transitions to next
- * - session_end: Kira gives a short personalized summary/celebration
- * - milestone: Kira celebrates a streak, badge, or progression milestone
+ * - session_start: Kin greets the user and previews the workout
+ * - exercise_intro: Kin introduces the upcoming exercise
+ * - set_complete: Kin reacts to a completed set (uses feedback if provided)
+ * - rest_start: Kin gives a brief encouragement during rest
+ * - exercise_complete: Kin acknowledges completing an exercise, transitions to next
+ * - session_end: Kin gives a short personalized summary/celebration
+ * - milestone: Kin celebrates a streak, badge, or progression milestone
  */
 type TriggerType = 'session_start' | 'exercise_intro' | 'set_complete' | 'rest_start' | 'exercise_complete' | 'session_end' | 'milestone';
 
@@ -53,7 +53,7 @@ interface TriggerContext {
 
 /**
  * POST /api/companion/trigger
- * Returns a proactive Kira message for a specific workout moment.
+ * Returns a proactive Kin message for a specific workout moment.
  *
  * Body: {
  *   trigger: TriggerType,

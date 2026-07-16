@@ -17,6 +17,9 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 - **Text_Chat**: The persistent text interface providing the same AI companion intelligence
 - **Talkativeness**: User-controlled setting (Minimal/Balanced/High) governing how often the AI proactively initiates communication
 - **In_Session_Verbosity**: Separate setting (Quiet/Standard/Detailed) controlling how much the AI narrates during active exercises
+- **Voice_Style**: User-selectable companion voice (Calm/Energetic/Friendly/Professional) mapped to a Gemini Live voice for real-time speech and to an ElevenLabs voice for the TTS fallback
+- **Coaching_Style**: User-selectable coaching delivery (Motivational/Friendly/Strict/Zen) injected into the AI system prompt to shape how Kin coaches
+- **Function_Calling**: The mechanism by which Gemini Live executes deterministic workout actions (start/complete/next/skip/pause/resume/end/report_pain) based on user intent, replacing fragile phrase-matching
 - **Progression_Logic**: Deterministic rules tracking per-exercise completion history to trigger rep/set increases or deloads
 - **Backend**: The Node.js + Express server handling auth, rules engine, AI relay, session management, and gamification
 - **State_Machine**: The Zustand-managed session state: idle → session_starting → exercise_intro → set_active → set_complete → check_in → rest → session_summary → idle
@@ -33,7 +36,8 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 #### Acceptance Criteria
 
 1. WHEN a new user opens the App for the first time after account creation, THE App SHALL present onboarding as a guided conversation (text by default, with optional voice) rather than a static form, while still collecting all required structured fields
-2. THE onboarding flow SHALL collect the following required fields in sequential steps: age (integer, 16-100), height (cm or ft/in, user-selectable unit), weight (kg or lb, user-selectable unit), gender (Male/Female/Other/Prefer not to say), fitness goal (single-select: Strength, Hypertrophy, Mobility, General Fitness, Weight Loss, Home Workout), activity level (Sedentary/Lightly Active/Moderately Active/Very Active), workout location (Gym/Home/Outdoors/Hybrid), available equipment (multi-select from: None, Dumbbells, Barbell, Resistance Bands, Kettlebell, Pull-up Bar, Bench, Machines, Cardio Equipment), injury information (multi-select + free text: None, Knee, Lower Back, Shoulder, Wrist, Ankle, Other), preferred workout duration (15/30/45/60 minutes), and prior program experience ("Have you followed a structured workout program before?" — Yes/No)
+2. THE onboarding flow SHALL collect the following required fields in sequential steps: name, age (integer, 16-100), height (cm or ft/in, user-selectable unit), weight (kg or lb, user-selectable unit), gender (Male/Female/Other/Prefer not to say), fitness goal (single-select: Strength, Hypertrophy, Mobility, General Fitness, Weight Loss, Home Workout), activity level (Sedentary/Lightly Active/Moderately Active/Very Active), workout location (Gym/Home/Outdoors/Hybrid), available equipment (multi-select from: None, Dumbbells, Barbell, Resistance Bands, Kettlebell, Pull-up Bar, Bench, Machines, Cardio Equipment), injury information (multi-select + free text: None, Knee, Lower Back, Shoulder, Wrist, Ankle, Other), preferred workout duration (15/30/45/60 minutes), and prior program experience ("Have you followed a structured workout program before?" — Yes/No). Onboarding MAY be completed conversationally by voice, in which case the Backend extracts each field from the user's speech and defaults any field that cannot be parsed after repeated attempts so the flow never stalls
+2a. THE App SHALL also let the user set companion preferences — voice_style (Calm/Energetic/Friendly/Professional), coaching_style (Motivational/Friendly/Strict/Zen), talkativeness (Minimal/Balanced/High), and in-session verbosity (Quiet/Standard/Detailed) — during onboarding or later in Settings
 3. THE App SHALL display a progress indicator throughout (e.g., "Step 4 of 10") with an estimated completion time of 3-5 minutes
 4. THE App SHALL validate all inputs client-side before submission (age 16-100, height/weight within plausible ranges) and prompt confirmation for unusually high/low values
 5. IF the user provides an age below 16, THEN THE App SHALL display an age-appropriate message and SHALL NOT permit them to proceed
@@ -62,7 +66,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 #### Acceptance Criteria
 
 1. WHEN onboarding is completed, THE Backend SHALL run persona assignment rules synchronously and store resulting tags as an array on the user profile BEFORE the user reaches the workout recommendation screen
-2. THE system SHALL support the following persona types assigned based on these rules: Complete Beginner (Activity Level = Sedentary + no prior program), Regular Gym-Goer (Activity Level = Moderate/Very Active + Gym + prior program), Weight Loss Seeker (Fitness Goal = Weight Loss), Home Workout User (Location = Home + None/minimal equipment), Office Professional (Sedentary/Light activity + 15 or 30 min duration preference), Injury Recovery User (Injury Information ≠ None), AI Companion Seeker (Talkativeness = High or high engagement behavior in first week), Inconsistent Enthusiast (behavioral — workout completion rate < 50% over rolling 2 weeks, applied after first 2 weeks)
+2. THE system SHALL support the following persona types assigned based on these rules: Complete Beginner (Activity Level = Sedentary + no prior program), Regular Gym-Goer (Activity Level = Moderate/Very Active + Gym + prior program), Weight Loss Seeker (Fitness Goal = Weight Loss), Strength Training User (Fitness Goal = Strength), Home Workout User (Location = Home + None/minimal equipment), Office Professional (Sedentary/Light activity + 15 or 30 min duration preference), Injury Recovery User (Injury Information ≠ None), AI Companion Seeker (Talkativeness = High or high engagement behavior in first week), Inconsistent Enthusiast (behavioral — workout completion rate < 50% over rolling 2 weeks, applied after first 2 weeks)
 3. A user SHALL carry 2-4 active persona tags simultaneously (tags are NOT mutually exclusive)
 4. Persona tags SHALL be re-evaluated weekly (for behavioral personas) or whenever the profile is edited (for attribute-based personas)
 5. THE Companion SHALL adapt its tone, proactivity, and message framing based on all active persona tags without altering the underlying workout content
@@ -143,11 +147,11 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 
 #### Acceptance Criteria
 
-1. THE App SHALL provide a press-to-talk voice interface (always-on/wake-word listening is out of scope for MVP)
-2. WHEN the user activates voice input, THE Voice_Pipeline SHALL capture audio and send to Deepgram for STT within 500ms of activation
-3. WHEN Deepgram returns a transcription, THE Backend SHALL forward to Claude API with current context (profile, persona tags, session state, recent conversation) within 1 second
-4. IF Deepgram fails within 5 seconds, THEN THE Backend SHALL retry once with 2-second delay
-5. IF voice transcription fails after retry, THEN THE App SHALL prompt the user to try again or switch to text, preserving session state
+1. THE PRIMARY voice interface SHALL be a real-time, continuous speech-to-speech conversation powered by **Gemini Live** over a server-side WebSocket proxy (`/ws/voice-live`). The user talks and Kin talks back with no per-turn round trips. A press-to-talk mode using Deepgram STT SHALL remain available as a fallback (e.g. when the live connection or microphone streaming is unavailable). Always-on/wake-word listening is out of scope for MVP
+2. IN the Gemini Live path, THE Voice_Pipeline SHALL stream microphone audio (16 kHz PCM) to the proxy, which relays it to Gemini Live; Kin's spoken reply (24 kHz PCM) is relayed back and played in real time. Automatic voice-activity detection SHALL use LOW start-of-speech sensitivity to avoid false interruptions cutting Kin off
+3. IN the press-to-talk FALLBACK path, when the user activates voice input, THE Voice_Pipeline SHALL capture audio and send to Deepgram for STT, then forward the transcription to the Gemini API with current context (profile, persona tags, session state, recent conversation)
+4. IF Deepgram fails (fallback path), THEN THE Backend SHALL retry once and, if still failing, prompt the user to try again or switch to text, preserving session state
+5. IN the Gemini Live path, workout actions SHALL be detected via **Gemini function calling** (deterministic tools) rather than phrase-matching — see Requirement 12
 6. DURING an active session, voice SHALL be the primary interaction mode — users can ask "how many reps left", "what's next", "how do I do this exercise" without touching the screen
 7. Voice responses during active sets SHALL be kept concise (1-2 sentences); longer explanations offered only between sets or on request
 8. IF voice command is ambiguous, THE Companion SHALL ask a brief clarifying question rather than guessing at an action
@@ -159,10 +163,10 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 
 #### Acceptance Criteria
 
-1. WHEN Claude returns a response, THE Backend SHALL stream to ElevenLabs for TTS conversion
-2. THE Voice_Pipeline SHALL use ElevenLabs streaming so first audio chunk plays within 2 seconds
-3. THE Companion SHALL use a single consistent ElevenLabs voice ID across all sessions
-4. IF ElevenLabs fails within 5 seconds, THEN retry once; if still fails, display text and notify voice is temporarily unavailable
+1. IN the primary Gemini Live path, Kin's spoken audio SHALL be generated **natively by Gemini Live** (no separate TTS step). The voice SHALL map from the user's `voice_style` preference: Calm→Aoede, Energetic→Kore, Friendly→Puck, Professional→Charon
+2. IN the fallback / text-to-speech path (text chat replies, or when Gemini Live is unavailable), WHEN the AI returns a response THE Backend SHALL stream it to ElevenLabs (`eleven_flash_v2_5`) for TTS conversion. The `voice_style` preference maps to a matching ElevenLabs voice
+3. THE Companion SHALL use a single consistent voice per session, chosen from the user's `voice_style` preference
+4. IF ElevenLabs fails, THEN retry once; if still fails, display text and notify voice is temporarily unavailable
 5. WHILE voice plays, corresponding text SHALL display on screen simultaneously
 6. IF the user initiates new voice input while the Companion is speaking, THE Voice_Pipeline SHALL interrupt playback and process new input
 7. THE response text SHALL also be displayed in the chat interface for accessibility and reference
@@ -174,11 +178,11 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 #### Acceptance Criteria
 
 1. THE App SHALL provide a persistent chat interface accessible from any screen
-2. THE Text_Chat SHALL use the same Claude API system prompt and context as voice, providing identical companion behavior
+2. THE Text_Chat SHALL use the same Gemini system prompt and context as voice, providing identical companion behavior
 3. Chat history SHALL be retained per user and used as short-term context for the AI (with appropriate context window management)
 4. WHEN a user switches between voice and text mid-session, THE Companion SHALL continue without interruption or context loss
 5. THE Text_Chat SHALL display messages with clear visual distinction between user and companion, minimum 16sp font
-6. IF Claude fails to respond within 10 seconds, retry once; if still fails, display error message
+6. IF the AI fails to respond within 10 seconds, retry once; if still fails, display error message
 
 ### Requirement 12: AI Companion Behavior
 
@@ -192,7 +196,8 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 4. WEEKLY, THE Companion SHALL provide a longer recap referencing the Dashboard's weekly progress data
 5. Motivational messaging SHALL be template-driven with AI-personalized phrasing, tied to real events: streaks, personal bests, returning after a break, milestone workout counts
 6. THE Companion's tone SHALL adapt to active personas: educational for Complete Beginner, peer-like for Regular Gym-Goer, avoids appearance-based language for Weight Loss Seeker
-7. IF a user's voice query maps to a structured action (e.g., "skip this exercise", "start my workout"), THE Companion SHALL return both a conversational response AND a structured action intent for the frontend to execute
+7. THE Companion's delivery SHALL additionally reflect the user's chosen `coaching_style`: Motivational (high-energy, pushes effort), Friendly (casual workout buddy), Strict (disciplined, precise, minimal chit-chat during sets), or Zen (calm, breath- and body-awareness focused)
+8. IN voice mode, workout actions SHALL be executed via **Gemini function calling**: Gemini interprets the user's intent (regardless of exact phrasing) and calls the matching tool — `start_workout`, `complete_set`, `next_exercise`, `skip_exercise`, `pause_workout`, `resume_workout`, `end_workout`, or `report_pain`. Each call updates the session server-side and emits an event to the frontend. This replaces fragile phrase-matching so unusual phrasings ("that was tough, what's next") still reliably advance the workout
 
 ### Requirement 13: Adjustable Talkativeness
 
@@ -288,7 +293,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 1. THE App SHALL support account creation via email/password or social sign-in using Firebase Auth
 2. THE Backend SHALL authenticate all API requests via Firebase JWT verification
 3. THE Backend SHALL store all data (profile, sessions, progression history, gamification) in MongoDB associated with the authenticated user ID
-4. IF an API call to Claude, Deepgram, or ElevenLabs fails, THE Backend SHALL retry up to 3 times with exponential backoff before returning an error
+4. IF an API call to Gemini, Deepgram, or ElevenLabs fails, THE Backend SHALL retry up to 3 times with exponential backoff before returning an error
 5. ALL third-party API keys SHALL remain server-side and never be exposed to the mobile client
 6. IF all retries are exhausted, THE Backend SHALL return a structured error indicating which service is unavailable
 
@@ -299,7 +304,7 @@ KineticAge is an AI-powered fitness companion that delivers personalized workout
 #### Acceptance Criteria
 
 1. THE Companion SHALL have a defined name used consistently across all interactions
-2. THE Companion's personality SHALL be defined via the Claude API system prompt, persisting across sessions
+2. THE Companion's personality SHALL be defined via the Gemini system prompt, persisting across sessions
 3. THE Companion SHALL use warm, patient, encouraging communication with simple vocabulary
 4. THE Companion SHALL NOT use fitness jargon without plain-language explanation
 5. THE Companion SHALL address the user by their preferred name

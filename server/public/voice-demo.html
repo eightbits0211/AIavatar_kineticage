@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KineticAge Voice Demo — Talk to Kira</title>
+  <title>KineticAge Voice Demo — Talk to Kin</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a2e; color: #e0e0e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
@@ -30,7 +30,7 @@
 </head>
 <body>
   <h1>🏋️ KineticAge Voice Demo</h1>
-  <p class="subtitle">Talk to Kira — your AI fitness companion</p>
+  <p class="subtitle">Talk to Kin — your AI fitness companion</p>
   
   <div class="chat-container" id="chat"></div>
   
@@ -170,12 +170,12 @@
     async function resetChat() {
       await fetch(`${BASE}/reset`, { method: 'POST' });
       document.getElementById('chat').innerHTML = '';
-      addMessage('system', 'Conversation reset. Say hi to Kira!');
+      addMessage('system', 'Conversation reset. Say hi to Kin!');
       setStatus('');
     }
 
     // Init
-    addMessage('system', 'Click the mic button and speak, or type below. Kira will respond with voice!');
+    addMessage('system', 'Click the mic button and speak, or type below. Kin will respond with voice!');
   </script>
 </body>
 </html>

@@ -95,7 +95,7 @@ async function main() {
 
   // ──── WORKOUT SESSION WITH AI COMPANION ────
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🏋️  STEP 4: Workout Session (chat with Kira)\n');
+  console.log('🏋️  STEP 4: Workout Session (chat with Kin)\n');
 
   const systemPrompt = buildSystemPrompt({
     user,
@@ -110,9 +110,9 @@ async function main() {
     },
   });
 
-  // Kira greets the user
+  // Kin greets the user
   const greeting = await chat(systemPrompt, `I just selected the "${selectedBundle.title}" workout. Let's go!`);
-  console.log(`  Kira: ${greeting}\n`);
+  console.log(`  Kin: ${greeting}\n`);
 
   // Interactive loop
   console.log('  (Type your messages. Type "quit" to end session)\n');
@@ -122,13 +122,13 @@ async function main() {
     if (!input.trim()) continue;
 
     const reply = await chat(systemPrompt, input.trim());
-    console.log(`\n  Kira: ${reply}\n`);
+    console.log(`\n  Kin: ${reply}\n`);
   }
 
   // ──── SESSION SUMMARY ────
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   const summary = await chat(systemPrompt, 'I\'m done with my workout. Can you give me a summary?');
-  console.log(`\n  📋 Session Summary:\n  Kira: ${summary}\n`);
+  console.log(`\n  📋 Session Summary:\n  Kin: ${summary}\n`);
 
   console.log('  🎉 +50 XP earned! Great session.\n');
 

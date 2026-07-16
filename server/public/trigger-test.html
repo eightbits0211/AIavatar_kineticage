@@ -16,7 +16,7 @@
     .trigger-btn .desc { font-size: 0.8rem; color: #888; }
     .response-area { max-width: 800px; margin-top: 2rem; }
     .response { background: #1b2838; border: 1px solid #2a3a4a; border-radius: 10px; padding: 1rem; margin-top: 0.5rem; min-height: 60px; }
-    .response .kira { color: #4a90c2; font-weight: 600; margin-bottom: 0.3rem; }
+    .response .kin { color: #4a90c2; font-weight: 600; margin-bottom: 0.3rem; }
     .response .msg { line-height: 1.5; }
     .response .meta { color: #555; font-size: 0.75rem; margin-top: 0.5rem; }
     .loading { color: #888; font-style: italic; }
@@ -28,7 +28,7 @@
 </head>
 <body>
   <h1>Proactive AI Trigger Test</h1>
-  <p class="subtitle">Test Kira's proactive messages at key workout moments (no auth required)</p>
+  <p class="subtitle">Test Kin's proactive messages at key workout moments (no auth required)</p>
 
   <div class="user-select">
     <label>Demo user:</label>
@@ -75,7 +75,7 @@
   </div>
 
   <div class="response-area">
-    <h3 style="color:#aaa; margin-bottom:0.5rem;">Kira's Response</h3>
+    <h3 style="color:#aaa; margin-bottom:0.5rem;">Kin's Response</h3>
     <div class="response" id="response">
       <div class="msg" style="color:#555;">Click a trigger button above...</div>
     </div>
@@ -85,7 +85,7 @@
     async function fire(trigger, context) {
       const responseDiv = document.getElementById('response');
       const userId = document.getElementById('userSelect').value;
-      responseDiv.innerHTML = '<div class="loading">Kira is thinking...</div>';
+      responseDiv.innerHTML = '<div class="loading">Kin is thinking...</div>';
 
       try {
         const res = await fetch('/api/companion/trigger-test', {
@@ -96,7 +96,7 @@
         const data = await res.json();
 
         responseDiv.innerHTML = `
-          <div class="kira">Kira (${trigger})</div>
+          <div class="kin">Kin (${trigger})</div>
           <div class="msg">${data.message}</div>
           <div class="meta">Trigger: ${data.trigger} | User: ${userId}${data.fallback ? ' | ⚠️ FALLBACK' : ''}</div>
         `;
