@@ -141,17 +141,25 @@ export default function WorkoutDeck({ exercise, index, total, paused, onDone, on
   // ended". Purely informational: it never skips/advances the exercise. Resets
   // when the exercise changes.
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
+  // Initialize (and reset) the countdown ONLY when the exercise itself changes —
+  // not on pause/resume — so resuming continues from where it left off.
   useEffect(() => {
     if (!timed) {
       setSecondsLeft(0);
       return;
     }
     setSecondsLeft(Math.max(1, timedMinutes(exercise, index, total) * 60));
+  }, [exercise, timed, index, total]);
+  // Tick once per second, but only while running (timed and not paused). Pausing
+  // clears the interval — freezing the value — and resuming starts a fresh
+  // interval from the current value instead of restarting from the top.
+  useEffect(() => {
+    if (!timed || paused) return;
     const id = setInterval(() => {
       setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
     }, 1000);
     return () => clearInterval(id);
-  }, [exercise, timed, index, total]);
+  }, [timed, paused]);
 
   const surface = transparent ? 'rgba(24,24,26,0.96)' : undefined;
 

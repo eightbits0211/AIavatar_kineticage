@@ -727,12 +727,15 @@ export default function HomeScreen() {
   // Mark the current exercise complete with the reps the user logged, then advance.
   const handleDone = useCallback(
     async (reps: number) => {
-      // Voice mode: the proxy is the sole DB writer. Send the action over the
-      // socket; the card advances when the proxy emits workout_state (doc §13).
-      if (voiceModeRef.current) {
-        voiceLoopRef.current?.sendAction('complete_set', { actual_reps: reps });
-        return;
-      }
+      // Button taps are the authoritative workout driver in BOTH text and voice
+      // mode. We log completion via REST (complete_set for every set, then
+      // complete_exercise) — that's what advances the card, ends the session,
+      // and makes the workout show up in history/progress. In voice mode we
+      // deliberately do NOT also send the action over the socket: the proxy is
+      // the other DB writer and its per-set `complete_set` would only finish one
+      // set per tap (so an exercise-level Done never completes the exercise) and
+      // would desync the proxy's exercise index. REST writes by exercise_id and
+      // the proxy's own handlers are idempotent, so this stays consistent.
       const w = workout;
       if (!w) return;
       const ex = w.exercises[w.index];
@@ -773,11 +776,9 @@ export default function HomeScreen() {
 
   // Skip the current exercise, then advance.
   const handleSkip = useCallback(async () => {
-    // Voice mode: send the action to the proxy (sole writer); card follows workout_state.
-    if (voiceModeRef.current) {
-      voiceLoopRef.current?.sendAction('skip_exercise');
-      return;
-    }
+    // Button taps drive completion via REST in both modes (see handleDone) so
+    // the skip is logged and the session can finish. We don't also notify the
+    // proxy — that would double-write and desync its exercise index.
     const w = workout;
     if (!w) return;
     const ex = w.exercises[w.index];
@@ -1119,10 +1120,12 @@ export default function HomeScreen() {
   const openRecommended = () =>
     recommended ? navigation.navigate('BundleDetail', { bundle: recommended }) : openBundles();
 
-  // Focus mode: an active (non-paused) workout takes over the whole screen —
-  // header + tab bar hide, a large exercise GIF sits up top, the deck drops to
-  // just above the Ask Kin bar. Pausing or ending exits back to the normal UI.
-  const focusMode = !!workout && !workout.paused;
+  // Focus mode: an active workout takes over the whole screen — header + tab bar
+  // hide, a large exercise GIF sits up top, the deck drops to just above the Ask
+  // Kin bar. It stays on for the WHOLE workout, including while paused, so the
+  // deck (and its per-exercise countdown) keeps its state instead of unmounting
+  // and resetting on every pause/resume. Only ending the workout exits focus.
+  const focusMode = !!workout;
   const setHideTabBar = useUIStore((s) => s.setHideTabBar);
   useEffect(() => {
     setHideTabBar(focusMode);
