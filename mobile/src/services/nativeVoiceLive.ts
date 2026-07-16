@@ -34,8 +34,6 @@ export class NativeVoiceLive {
   private connected = false;
   private audioStreamStarted = false;
   private nextPlayTime = 0;
-  private micDiagShown = false;
-  private rxDiagShown = false;
 
   constructor(opts: VoiceLiveOptions) {
     this.opts = opts;
@@ -280,16 +278,9 @@ export class NativeVoiceLive {
         ? Math.round(buffer.sampleRate)
         : INPUT_SAMPLE_RATE;
 
-    // One-time on-screen confirmation that capture is actually flowing (and at
-    // what rate) — visible in the chat thread so we can debug without adb.
-    if (!this.micDiagShown) {
-      this.micDiagShown = true;
-      this.opts.onNotice?.(`🎙️ mic capturing at ${srcRate} Hz (${input.length} samples/frame)`);
-    }
-
     // Half-duplex guard: while Kin's audio is still scheduled to play, don't
     // stream the mic (prevents the model's own voice echoing back and cutting
-    // it off). Checked after the diagnostic so we always confirm capture.
+    // it off).
     if (this.playbackCtx && this.playbackCtx.currentTime < this.nextPlayTime - 0.05) {
       return;
     }
@@ -335,14 +326,6 @@ export class NativeVoiceLive {
   private playChunk(float32: Float32Array): void {
     const ctx = this.playbackCtx;
     if (!ctx || float32.length === 0) return;
-
-    // One-time confirmation that Kin's audio is arriving + reaching playback.
-    // If this shows but you hear nothing → output/playback issue. If it never
-    // shows (but the mic diagnostic did) → Gemini isn't hearing us yet.
-    if (!this.rxDiagShown) {
-      this.rxDiagShown = true;
-      this.opts.onNotice?.('🔊 receiving Kin audio…');
-    }
 
     const buffer = ctx.createBuffer(1, float32.length, OUTPUT_SAMPLE_RATE);
     buffer.getChannelData(0).set(float32);
