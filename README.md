@@ -10,7 +10,8 @@ A voice + text AI companion for guided strength training. The companion announce
 - **Backend:** Node.js, Express, TypeScript, Mongoose
 - **Database:** MongoDB Atlas
 - **Auth:** Firebase Auth
-- **AI:** Anthropic Claude API (claude-sonnet-4)
+- **AI (text):** Google Gemini 2.5 Flash
+- **AI (voice):** Google Gemini Live (real-time speech-to-speech)
 - **STT:** Deepgram
 - **TTS:** ElevenLabs (streaming)
 
@@ -50,4 +51,5 @@ npx expo start
 - [Development Workflow](./development-workflow.md)
 - [Requirements](/.kiro/specs/ai-companion-workout/requirements.md)
 - [MVP Sprint Plan (Google Sheet)](https://docs.google.com/spreadsheets/d/1KPKkFdosmel64x8E4ffpjbLUP-zJZJdOKdf4kVfOGZM/edit?usp=sharing)
-- [Switching to Claude (before demo)](./docs/switching-to-claude.md)
+
+> Note: Full documentation (backend handover, demo links, up-to-date design) lives on the `dev` branch, which has the latest work.
