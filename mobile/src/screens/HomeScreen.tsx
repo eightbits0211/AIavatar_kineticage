@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   InteractionManager,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -1271,7 +1272,10 @@ export default function HomeScreen() {
   if (focusMode && workout) {
     const currentEx = workout.exercises[workout.index];
     return (
-      <View style={styles.focusContainer}>
+      <KeyboardAvoidingView
+        style={styles.focusContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         <View style={[styles.focusGifWrap, { marginTop: Math.max(insets.top, 24) + spacing.md }]}>
           {currentEx?.image_url ? (
             <Image source={{ uri: currentEx.image_url }} style={styles.focusGif} resizeMode="cover" />
@@ -1312,12 +1316,15 @@ export default function HomeScreen() {
         {askBar}
 
         {overlays}
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       {/* ── Fixed header (stays put while the content scrolls) ── */}
       <LinearGradient
         colors={['#000000', '#000000']}
@@ -1582,7 +1589,7 @@ export default function HomeScreen() {
       </View>
 
       {overlays}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

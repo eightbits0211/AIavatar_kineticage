@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Dimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import HomeStack from './HomeStack';
@@ -13,10 +13,13 @@ const Tab = createBottomTabNavigator();
 
 // Keep the floating pill just wide enough for 3 tabs, centered on screen.
 const TAB_WIDTH = 300;
-const TAB_SIDE = Math.max(16, (Dimensions.get('window').width - TAB_WIDTH) / 2);
 
 export default function MainTabs() {
   const insets = useSafeAreaInsets();
+  // Reactive width (recomputes on rotation / different devices) so the pill
+  // stays centered and correctly sized instead of using a stale module value.
+  const { width } = useWindowDimensions();
+  const TAB_SIDE = Math.max(16, (width - TAB_WIDTH) / 2);
   // During an active workout (focus mode) the tab bar is hidden entirely.
   const hideTabBar = useUIStore((s) => s.hideTabBar);
   return (

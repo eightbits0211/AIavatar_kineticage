@@ -299,7 +299,12 @@ function MetricTile({
           <Text style={styles.tileChevronText}>{expanded ? '▾' : '›'}</Text>
         </View>
       </View>
-      <Text style={[styles.tileValue, { color }]}>
+      <Text
+        style={[styles.tileValue, { color }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.5}
+      >
         {value}
         <Text style={styles.tileUnit}>{` ${unit}`}</Text>
       </Text>
