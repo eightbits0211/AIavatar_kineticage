@@ -34,6 +34,11 @@ export class NativeVoiceLive {
   private connected = false;
   private audioStreamStarted = false;
   private nextPlayTime = 0;
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
+  // How long to wait for Gemini's setupComplete before giving up. Setup is
+  // normally 1-3s; if it never arrives (e.g. a server-side setup failure) we
+  // bail instead of hanging on "connecting" forever.
+  private static readonly CONNECT_TIMEOUT_MS = 15000;
 
   constructor(opts: VoiceLiveOptions) {
     this.opts = opts;
@@ -120,14 +125,29 @@ export class NativeVoiceLive {
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
 
+    // Don't hang on "connecting" forever if setup never completes. If we're
+    // still not connected after the grace period, tear down and surface an
+    // error so the UI falls back to tap-to-talk instead of a dead spinner.
+    this.connectTimer = setTimeout(() => {
+      if (this.active && !this.connected) {
+        this.stop();
+        this.opts.onError?.();
+      }
+    }, NativeVoiceLive.CONNECT_TIMEOUT_MS);
+
     ws.onmessage = (event: any) => this.onMessage(event);
     ws.onerror = () => {
       if (this.active && !this.connected) this.opts.onError?.();
     };
     ws.onclose = () => {
+      // Capture state BEFORE stop() resets it.
       const failedToConnect = this.active && !this.connected;
+      const droppedMidSession = this.active && this.connected;
       this.stop();
       if (failedToConnect) this.opts.onError?.();
+      // Server/proxy ended a live session (e.g. Gemini session limit). Tell the
+      // caller so the UI resets instead of getting stuck on "Voice mode on".
+      else if (droppedMidSession) this.opts.onClosed?.();
     };
   }
 
@@ -136,6 +156,10 @@ export class NativeVoiceLive {
     this.connected = false;
     this.audioStreamStarted = false;
     this.nextPlayTime = 0;
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
 
     if (this.ws) {
       try {
@@ -217,7 +241,16 @@ export class NativeVoiceLive {
 
     if (typeof data.type === 'string') {
       this.opts.onEvent?.(data);
-      if (data.type === 'context_loaded' && !this.connected) this.markConnected();
+      // IMPORTANT: do NOT markConnected() on 'context_loaded'. The proxy sends
+      // that event the instant the client connects — BEFORE Gemini has finished
+      // its setup handshake. markConnected() starts the mic, which streams
+      // realtimeInput audio; Gemini rejects audio sent before its setupComplete
+      // and closes the socket (protocol violation). That's exactly why voice
+      // dropped instantly during a workout: the large workout system prompt
+      // makes Gemini's setup slower, so mic audio beats setupComplete and kills
+      // the session (→ onClosed → "Voice chat ended"). In plain chat the tiny
+      // prompt sets up fast enough to win the race, so it seemed to "work".
+      // We now wait for Gemini's setupComplete (below) before starting the mic.
       return;
     }
 
@@ -247,6 +280,10 @@ export class NativeVoiceLive {
   private markConnected(): void {
     if (this.connected || !this.active) return;
     this.connected = true;
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
+    }
     this.opts.onPhase('listening');
     this.startAudioStream();
   }
@@ -280,8 +317,16 @@ export class NativeVoiceLive {
 
     // Half-duplex guard: while Kin's audio is still scheduled to play, don't
     // stream the mic (prevents the model's own voice echoing back and cutting
-    // it off).
-    if (this.playbackCtx && this.playbackCtx.currentTime < this.nextPlayTime - 0.05) {
+    // it off). BUT only when the playback clock is actually running — if the
+    // context is suspended/stalled, currentTime freezes while nextPlayTime keeps
+    // growing, which would mute the mic FOREVER (Kin never hears us again).
+    // When suspended there's no audio playing, so there's nothing to echo.
+    const pbState = (this.playbackCtx as any)?.state;
+    if (
+      this.playbackCtx &&
+      pbState !== 'suspended' &&
+      this.playbackCtx.currentTime < this.nextPlayTime - 0.05
+    ) {
       return;
     }
 
@@ -326,6 +371,15 @@ export class NativeVoiceLive {
   private playChunk(float32: Float32Array): void {
     const ctx = this.playbackCtx;
     if (!ctx || float32.length === 0) return;
+
+    // Resume if the context started/became suspended — otherwise no sound plays
+    // and its clock (currentTime) never advances. The web engine already does
+    // this; the native one was missing it.
+    try {
+      if ((ctx as any).state && (ctx as any).state !== 'running') (ctx as any).resume?.();
+    } catch {
+      /* ignore */
+    }
 
     const buffer = ctx.createBuffer(1, float32.length, OUTPUT_SAMPLE_RATE);
     buffer.getChannelData(0).set(float32);

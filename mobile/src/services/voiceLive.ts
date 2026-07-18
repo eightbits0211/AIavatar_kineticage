@@ -33,6 +33,13 @@ export interface VoiceLiveOptions {
   onNotice?: (message: string) => void;
   /** Fired when the socket fails/drops before a successful session. */
   onError?: () => void;
+  /**
+   * Fired when a SUCCESSFULLY-connected session's socket closes on its own
+   * (e.g. the proxy/Gemini ended the session), as opposed to the user stopping
+   * it. Lets the caller reset the UI instead of getting stuck showing
+   * "Voice mode on".
+   */
+  onClosed?: () => void;
   /** App-level proxy events (any JSON message carrying a `type`). */
   onEvent?: (event: any) => void;
 }

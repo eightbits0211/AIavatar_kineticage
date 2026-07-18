@@ -48,6 +48,11 @@ interface WebVoiceLiveOptions {
    */
   onError?: () => void;
   /**
+   * Fired when a successfully-connected session's socket closes on its own
+   * (proxy/Gemini ended it) rather than the user stopping it.
+   */
+  onClosed?: () => void;
+  /**
    * App-level proxy events (any JSON message carrying a `type`), e.g.
    * `context_loaded`, `onboarding_progress`, `onboarding_complete`,
    * `bundles_generated`, `session_started`. Used mainly by voice onboarding.
@@ -154,7 +159,8 @@ export class WebVoiceLive {
     this.ws = ws;
 
     ws.onopen = () => {
-      // Wait for Gemini setupComplete / context_loaded before streaming mic.
+      // Wait for Gemini's setupComplete before streaming mic (see handleJson) —
+      // sending audio before setup completes makes Gemini drop the session.
     };
     ws.onmessage = (event: any) => this.onMessage(event);
     ws.onerror = () => {
@@ -163,8 +169,11 @@ export class WebVoiceLive {
     ws.onclose = (event: any) => {
       // Failed before we ever connected → signal the caller to fall back to REST.
       const failedToConnect = this.active && !this.connected;
+      const droppedMidSession = this.active && this.connected;
       this.stop();
       if (failedToConnect) this.opts.onError?.();
+      // A live session ended on its own → let the caller reset the UI.
+      else if (droppedMidSession) this.opts.onClosed?.();
     };
   }
 
@@ -278,7 +287,13 @@ export class WebVoiceLive {
     // on this) and stop — none of them carry audio.
     if (typeof data.type === 'string') {
       this.opts.onEvent?.(data);
-      if (data.type === 'context_loaded' && !this.connected) this.markConnected();
+      // IMPORTANT: do NOT markConnected() on 'context_loaded'. The proxy sends
+      // it the instant the client connects — BEFORE Gemini finishes its setup
+      // handshake. markConnected() starts the mic, and streaming realtimeInput
+      // audio before Gemini's setupComplete makes Gemini close the socket
+      // (protocol violation). During a workout the larger system prompt slows
+      // Gemini's setup, so mic audio beats setupComplete and kills the session.
+      // Wait for setupComplete (below) before starting the mic.
       return;
     }
 
@@ -331,7 +346,13 @@ export class WebVoiceLive {
       // mic and Gemini Live treats it as the user barging in — cutting Kin off
       // after a few words. Muting the mic during playback prevents that echo
       // loop. (Playback catches up → nextPlayTime passes → mic resumes.)
-      if (this.playbackCtx && this.playbackCtx.currentTime < this.nextPlayTime - 0.05) {
+      // Skip the guard if the context is suspended (clock frozen) so the mic
+      // can't get muted forever when playback stalls.
+      if (
+        this.playbackCtx &&
+        this.playbackCtx.state !== 'suspended' &&
+        this.playbackCtx.currentTime < this.nextPlayTime - 0.05
+      ) {
         return;
       }
 

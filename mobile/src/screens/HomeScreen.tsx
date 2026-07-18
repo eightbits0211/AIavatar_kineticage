@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Image,
   InteractionManager,
   KeyboardAvoidingView,
@@ -558,6 +559,19 @@ export default function HomeScreen() {
       onEvent: handleWorkoutEvent,
       onNotice: (message: string) =>
         setMessages((prev) => [...prev, { id: `${Date.now()}-k`, role: 'kin', text: message }]),
+      // The proxy/Gemini ended a connected session on its own (e.g. session
+      // time limit). Reset the UI so it doesn't get stuck on "Voice mode on"
+      // with a dead mic, and let the user restart with one tap.
+      onClosed: () => {
+        voiceLoopRef.current = null;
+        voiceTurnRef.current = null;
+        setVoiceMode(false);
+        setVoicePhase('idle');
+        setMessages((prev) => [
+          ...prev,
+          { id: `${Date.now()}-k`, role: 'kin', text: 'Voice chat ended — tap the mic to start again.' },
+        ]);
+      },
       // WebSocket unavailable → drop into the REST tap-to-talk fallback (§6).
       onError: () => {
         voiceLoopRef.current = null;
@@ -608,7 +622,15 @@ export default function HomeScreen() {
     return voiceFallback ? toggleRecording() : toggleVoiceMode();
   }, [voiceFallback, toggleFallbackRecording, toggleVoiceMode, toggleRecording]);
 
-  // Clean up any active player/recorder/voice loop when leaving the screen.
+  // Keep a ref to the recorder so the unmount cleanup below can reference it
+  // WITHOUT depending on it. Depending on `audioRecorder` made this cleanup
+  // fire on any re-render where the hook's identity changed — which tore down
+  // the LIVE VOICE LOOP mid-session (voiceLoopRef.current.stop()), leaving the
+  // pill stuck on "Voice mode on" with a dead mic ("not listening").
+  const audioRecorderRef = useRef(audioRecorder);
+  audioRecorderRef.current = audioRecorder;
+
+  // Clean up player / recorder / voice loop ONLY when the screen unmounts.
   useEffect(() => {
     return () => {
       playerRef.current?.remove();
@@ -616,9 +638,10 @@ export default function HomeScreen() {
       voiceLoopRef.current = null;
       pttRef.current?.stop();
       pttRef.current = null;
-      if (audioRecorder.isRecording) audioRecorder.stop().catch(() => {});
+      const rec = audioRecorderRef.current;
+      if (rec?.isRecording) rec.stop().catch(() => {});
     };
-  }, [audioRecorder]);
+  }, []);
 
   // ── In-chat workout session ──
   type WorkoutState = { exercises: BundleExercise[]; index: number; paused: boolean; title: string; sessionId: string | null };
@@ -874,6 +897,27 @@ export default function HomeScreen() {
       ]);
     }
   }, [finishSession]);
+
+  // ── Android hardware back button (during a workout) ──
+  // Without this, pressing the phone's back button while a workout is on screen
+  // exits the app (focus mode hides the tab bar and has no on-screen back), which
+  // leaves the session stuck 'in_progress' on the backend — it never gets
+  // classified full/partial, so the workout is INVISIBLE in History and Progress
+  // and today's stats (calories/XP/streak) never update. Intercept back so it
+  // prompts to end + save the session (finishSession → /end) instead of killing
+  // the app. Returning true swallows the event so Android doesn't also exit.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const onBack = () => {
+      if (workoutRef.current) {
+        confirmEndWorkout();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [confirmEndWorkout]);
 
   // Expose the latest workout handlers to the stable voice-command + workout
   // event handlers.
@@ -1639,17 +1683,24 @@ function KinLogo({ size = 36 }: { size?: number }) {
 function WorkoutTile({ bundle, onPress, onStart }: { bundle: any; onPress: () => void; onStart: () => void }) {
   const cal = bundle.estimated_calorie_burn;
   const focus = String(bundle.focus || 'general').replace(/_/g, ' ').toUpperCase();
+  // NOTE: body + start button are SIBLING Pressables inside a plain View — not
+  // nested. On web a Pressable renders as a <button>, and a <button> inside a
+  // <button> is invalid HTML, which React reports as a hard error (and made the
+  // start tap unreliable). The absolutely-positioned start button still anchors
+  // to this View since it's the positioned parent.
   return (
-    <Pressable style={styles.wTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={bundle.title}>
-      <Text style={styles.wTileTitle} numberOfLines={2}>{bundle.title}</Text>
-      <View style={styles.wTag}>
-        <Text style={styles.wTagText}>{focus}</Text>
-      </View>
-      <View style={styles.wTileMetaWrap}>
-        <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.estimated_duration_min} min</Text>
-        <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.exercises.length} exercises</Text>
-        {!!cal && <Text style={styles.wTileMeta} numberOfLines={1}>{cal.low}-{cal.high} cal</Text>}
-      </View>
+    <View style={styles.wTile}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={bundle.title}>
+        <Text style={styles.wTileTitle} numberOfLines={2}>{bundle.title}</Text>
+        <View style={styles.wTag}>
+          <Text style={styles.wTagText}>{focus}</Text>
+        </View>
+        <View style={styles.wTileMetaWrap}>
+          <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.estimated_duration_min} min</Text>
+          <Text style={styles.wTileMeta} numberOfLines={1}>{bundle.exercises.length} exercises</Text>
+          {!!cal && <Text style={styles.wTileMeta} numberOfLines={1}>{cal.low}-{cal.high} cal</Text>}
+        </View>
+      </Pressable>
       <Pressable style={styles.wStartBtn} onPress={onStart} accessibilityRole="button" accessibilityLabel={`Start ${bundle.title}`}>
         {/* SVG triangle (not the ▶ text glyph): the system-font glyph renders
             tiny inside its em-box on Android, so it looked shrunk on device
@@ -1658,7 +1709,7 @@ function WorkoutTile({ bundle, onPress, onStart }: { bundle: any; onPress: () =>
           <Path d="M7 5l11 7-11 7z" fill="#000000" />
         </Svg>
       </Pressable>
-    </Pressable>
+    </View>
   );
 }
 
