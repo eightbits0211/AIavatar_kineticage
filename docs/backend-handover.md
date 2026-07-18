@@ -1,7 +1,7 @@
 # KineticAge — Backend Handover (Complete Reference)
 
 **Author:** Roshini Kotte (backend owner)
-**Last updated:** 15 July 2026
+**Last updated:** 16 July 2026
 **Repository:** eightbits0211/AIavatar_kineticage
 **Live backend:** `https://aiavatar-kineticage.onrender.com` (Render, deploys branch `dev`)
 
@@ -11,7 +11,7 @@
 
 This is the full handover for the KineticAge backend. If you're taking this over, read Sections 1–5 first (what it is, how to run it, how it deploys), then keep Sections 7–17 as a reference while working. Every enum value, formula, and constant below is quoted from the actual code as of 15 July 2026, so you can trust it without re-deriving.
 
-If you only have five minutes: the backend is a Node/Express/TypeScript API on MongoDB. It generates workouts with a **deterministic Rules Engine** (no AI) and layers **Google Gemini** on top for conversation (text) and real-time voice. It's deployed and working. Two open items (voice + Google sign-in inside the Android APK) are **frontend**, not backend.
+If you only have five minutes: the backend is a Node/Express/TypeScript API on MongoDB. It generates workouts with a **deterministic Rules Engine** (no AI) and layers **Google Gemini** on top for conversation (text) and real-time voice. It's deployed and working. The APK's voice + Google sign-in gaps were **frontend** (not backend) and have since been addressed on the mobile side in PR #70 (pending on-device verification — see Section 20).
 
 ### Table of contents
 
@@ -564,12 +564,15 @@ All under `/api` and behind auth unless noted.
 - **`image_url_end` is legacy.** It dates from the 2-frame-animation approach; the final animated GIFs (single `image_url`) don't need it. The field is still present across models/types but is effectively unused — safe to ignore or remove later.
 - **`chat.ts` and `demo.ts`** at the server root are standalone CLI dev scripts (interactive companion testing), not part of the running server. Handy for prompt iteration.
 
-## 20. Known OPEN items — FRONTEND, not backend
+## 20. Frontend items — addressed by PR #70 (pending on-device verification)
 
-Both verified as mobile-side; the backend voice pipeline works on local and the live deployment.
+These were the mobile-side gaps found during APK testing. The backend voice pipeline works on local and the live deployment throughout; **none of these required a backend change.** They were fixed on the frontend in **PR #70** (`fix/final-bug-fixing`, merged to `dev` 16 Jul 2026). The code builds and `tsc` compiles, but the fixes were flagged as **needing verification on a physical Android device** — treat them as "implemented, not yet field-confirmed."
 
-1. **Live voice inside the Android APK** — the app's voice code uses browser APIs (`getUserMedia` / Web `AudioContext`); no native audio path was wired up, so mic/playback don't work in the standalone APK (they work on web). Fix: native audio integration (e.g. `react-native-audio-api`) mirroring the web client, gated by `Platform.OS`. New dependency + EAS rebuild + device test. No backend change.
-2. **Google Sign-In on the APK** — client-side OAuth issue (works on web). `/api/auth/google` runs only after Firebase auth succeeds and shares the middleware guest/email login use (both work), so the server is fine. Fix plan is in `demo-and-handover.md`. Demo fallback: email/guest login.
+1. **Live voice inside the Android APK** — the original voice code used browser APIs (`getUserMedia` / Web `AudioContext`), so mic/playback didn't work in the standalone APK (they worked on web). **Fixed:** a native voice engine (`mobile/src/services/nativeVoiceLive.ts` using `react-native-audio-api`) selected via a `createVoiceLive` platform factory (`voiceLive.ts`); web still uses `WebVoiceLive`. It connects to the same unchanged backend `/ws/voice-live` proxy.
+2. **Google Sign-In on the APK** — client-side OAuth issue (worked on web). **Fixed:** Android migrated to the native `@react-native-google-signin` SDK; web keeps `expo-auth-session`. Reuses the existing `signInWithGoogleIdToken` → `POST /api/auth/google` path — **backend unchanged.**
+3. **Preferences / Edit Profile showed no options** — the sheets' `flex:1` ScrollView collapsed to zero height on Android. **Fixed:** gave the sheets a definite height.
+
+Demo fallback if any of the above isn't confirmed on-device in time: **email/guest login + workouts work regardless.** For frontend detail, see `docs/frontend-handover.md`.
 
 ## 21. Testing & demo
 

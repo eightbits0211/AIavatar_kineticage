@@ -285,10 +285,13 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
     || 'friendly';
   const geminiVoiceName = VOICE_STYLE_TO_GEMINI[resolvedVoiceStyle] || 'Puck';
 
-  const geminiWs = new WebSocket(GEMINI_WS_URL);
-  voiceSession.geminiWs = geminiWs;
-
-  // Load recent conversation history (from text chat) so voice continues seamlessly
+  // Load recent conversation history (from text chat) so voice continues seamlessly.
+  // IMPORTANT: this await MUST run BEFORE `new WebSocket(...)` below. If it sits between
+  // socket creation and `geminiWs.on('open', …)`, and the socket finishes connecting
+  // during the await, the 'open' event fires before the listener is attached — so the
+  // setup frame is never sent and Gemini never returns setupComplete (client hangs on
+  // "Connecting…"). This only surfaced in workout mode, the only mode with an
+  // activeSession to load history for (chat/onboarding skip this block entirely).
   let conversationContext = '';
   if (activeSession?._id) {
     try {
@@ -305,6 +308,11 @@ You have an unfinished workout from earlier (${completedCount}/${totalCount} exe
     } catch { /* non-critical */ }
   }
   const fullPrompt = systemPrompt + conversationContext;
+
+  // Create the socket AFTER the await above, so the 'open' handler is registered
+  // synchronously with no await in between (see comment above).
+  const geminiWs = new WebSocket(GEMINI_WS_URL);
+  voiceSession.geminiWs = geminiWs;
 
   geminiWs.on('open', () => {
     console.log('[VoiceLive] Connected to Gemini, sending setup...');
