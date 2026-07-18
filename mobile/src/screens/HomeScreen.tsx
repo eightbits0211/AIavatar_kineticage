@@ -1031,6 +1031,20 @@ export default function HomeScreen() {
     });
   }, []);
 
+  // Consume a cross-tab request to open History (from the Profile tab's
+  // "Workouts" stat). When this tab gains focus and the flag is set, open the
+  // drawer and clear the flag so it fires exactly once.
+  const pendingOpenHistory = useUIStore((s) => s.pendingOpenHistory);
+  const setPendingOpenHistory = useUIStore((s) => s.setPendingOpenHistory);
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingOpenHistory) {
+        setPendingOpenHistory(false);
+        openHistory();
+      }
+    }, [pendingOpenHistory, setPendingOpenHistory, openHistory])
+  );
+
   // Regenerate the full bundle set via the Rules Engine. The backend deactivates
   // the old active bundles and returns a fresh set, which we swap in.
   const regenerateWorkouts = useCallback(async () => {

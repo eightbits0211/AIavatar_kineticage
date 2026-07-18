@@ -13,10 +13,17 @@ import {
   type User as FirebaseUser,
 } from 'firebase/auth';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { auth } from '../config/firebase';
 import { apiGet, apiPost, setAuthToken, registerTokenRefresher } from './api';
 import { useUserStore } from '../stores/userStore';
 import type { UserProfile } from '../../../shared/types';
+
+// Local cache of "this uid finished onboarding" so app launch can route
+// optimistically to the app WITHOUT waiting on a cold backend (see
+// initAuthListener). Keyed by Firebase uid.
+const onboardedKey = (uid: string) => `@kin/onboarded/${uid}`;
 
 // ─────────────────────────────────────────────────────────────
 // Backend response shapes (auth routes)
@@ -64,9 +71,21 @@ export async function getFreshToken(forceRefresh = false): Promise<string | null
  * update. Safe to call once a valid auth token is set.
  */
 export async function hydrateUserProfile(): Promise<void> {
+  // Store the profile AND cache its onboarding flag so the next launch can
+  // skip the loading-screen wait (optimistic routing in initAuthListener).
+  const apply = async (profile: UserProfile) => {
+    useUserStore.getState().setUser(profile);
+    try {
+      const uid = auth.currentUser?.uid;
+      if (uid) await AsyncStorage.setItem(onboardedKey(uid), profile.onboarding_completed ? '1' : '0');
+    } catch {
+      /* cache is best-effort */
+    }
+  };
+
   try {
     const profile = await apiGet<UserProfile>('/api/profile');
-    useUserStore.getState().setUser(profile);
+    await apply(profile);
   } catch {
     // No profile row yet — create one for this Firebase user, then re-fetch.
     try {
@@ -76,7 +95,7 @@ export async function hydrateUserProfile(): Promise<void> {
         email: current?.email ?? '',
       });
       const profile = await apiGet<UserProfile>('/api/profile');
-      useUserStore.getState().setUser(profile);
+      await apply(profile);
     } catch (createError) {
       if (__DEV__) console.warn('hydrateUserProfile: could not create profile:', createError);
     }
@@ -101,11 +120,38 @@ export function initAuthListener(): () => void {
         setAuthToken(token);
         store.setFirebaseUid(firebaseUser.uid);
         store.setAuthenticated(true);
+
+        // Optimistic launch: if a previous session recorded that this uid
+        // finished onboarding, leave the loading screen IMMEDIATELY and hydrate
+        // the profile in the background. Otherwise the splash is held for the
+        // full GET /api/profile round-trip, which on a cold Render free-tier
+        // backend is ~50s. First-time users (no cache) still wait, so routing
+        // to onboarding stays correct.
+        let optimistic = false;
+        try {
+          const cached = await AsyncStorage.getItem(onboardedKey(firebaseUser.uid));
+          if (cached === '1') {
+            store.setOnboarded(true);
+            store.setInitializing(false);
+            optimistic = true;
+          }
+        } catch {
+          /* fall through to the blocking path */
+        }
+
+        if (optimistic) {
+          // Background refresh — do NOT await (keeps the UI responsive).
+          hydrateUserProfile();
+          return;
+        }
+
         await hydrateUserProfile();
-      } else {
-        setAuthToken(null);
-        store.logout();
+        store.setInitializing(false);
+        return;
       }
+
+      setAuthToken(null);
+      store.logout();
       store.setInitializing(false);
     });
   } catch (error) {

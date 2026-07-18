@@ -10,18 +10,20 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import KinAvatar from '../components/KinAvatar';
 import BadgesModal, { type BadgeItem } from '../components/BadgesModal';
 import LevelsModal from '../components/LevelsModal';
+import StreakModal from '../components/StreakModal';
 import AvatarPickerModal from '../components/AvatarPickerModal';
 import EditProfileModal from '../components/EditProfileModal';
 import { apiGet, apiPut } from '../services/api';
 import { signOutCurrentUser } from '../services/auth';
 import { useUserStore } from '../stores/userStore';
+import { useUIStore } from '../stores/uiStore';
 import { colors, spacing, typography } from '../theme';
 
 const NAVY = '#16365A';
@@ -217,10 +219,13 @@ const SHOW_CURRENT_PLAN = false;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<any>();
   const user = useUserStore((st) => st.user);
   const setUser = useUserStore((st) => st.setUser);
+  const setPendingOpenHistory = useUIStore((s) => s.setPendingOpenHistory);
 
   const [workouts, setWorkouts] = useState(0);
+  const [streakOpen, setStreakOpen] = useState(false);
   const [plan, setPlan] = useState<{ completed: number; planned: number; title: string } | null>(null);
   const [allBadges, setAllBadges] = useState<BadgeItem[]>([]);
   const [badgesOpen, setBadgesOpen] = useState(false);
@@ -367,6 +372,14 @@ export default function ProfileScreen() {
     }
   }, []);
 
+  // Workouts stat → open the workout History drawer. It lives in HomeScreen
+  // (AI Coach tab), so flag the request and jump to that tab; HomeScreen opens
+  // the drawer on focus and clears the flag.
+  const openHistory = useCallback(() => {
+    setPendingOpenHistory(true);
+    navigation.navigate('AICoach');
+  }, [navigation, setPendingOpenHistory]);
+
   return (
     <View style={styles.container}>
       {/* ── Fixed header (stays put while content scrolls) ── */}
@@ -395,8 +408,8 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <Stat value={workouts} label="Workouts" valueColor="rgb(255, 0, 73)" />
-            <Stat value={streak} label="Streak" valueColor={ORANGE} />
+            <Stat value={workouts} label="Workouts" onPress={openHistory} valueColor="rgb(255, 0, 73)" />
+            <Stat value={streak} label="Streak" onPress={() => setStreakOpen(true)} valueColor={ORANGE} />
             <Stat value={level} label="Level" onPress={() => setLevelsOpen(true)} valueColor="rgb(246, 208, 0)" />
             <Stat value={badges} label="Badges" onPress={() => setBadgesOpen(true)} valueColor={colors.primary} />
           </View>
@@ -606,6 +619,13 @@ export default function ProfileScreen() {
         xpNeeded={xpInfo?.xp_needed ?? (xpInfo?.level ?? level) * 200}
         onClose={() => setLevelsOpen(false)}
       />
+
+      <StreakModal
+        visible={streakOpen}
+        streak={streak}
+        longestStreak={user?.gamification?.longest_streak ?? streak}
+        onClose={() => setStreakOpen(false)}
+      />
     </View>
   );
 }
@@ -613,7 +633,16 @@ export default function ProfileScreen() {
 function Stat({ value, label, onPress, valueColor }: { value: number; label: string; onPress?: () => void; valueColor?: string }) {
   const inner = (
     <>
-      <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+      <View style={styles.statValueWrap}>
+        <Text style={[styles.statValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+        {onPress && (
+          // Small grey affordance badge (matching the system close-button style)
+          // so it's obvious the stat is tappable, like the Levels/Badges popups.
+          <View style={styles.statArrow}>
+            <Icon name="chevron" size={11} color="rgba(255,255,255,0.9)" />
+          </View>
+        )}
+      </View>
       <Text style={styles.statLabel}>{label}</Text>
     </>
   );
@@ -693,7 +722,21 @@ const styles = StyleSheet.create({
 
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xl },
   stat: { alignItems: 'center', flex: 1 },
+  statValueWrap: { position: 'relative', alignSelf: 'center' },
   statValue: { ...typography.h2, color: '#FFFFFF' },
+  // Tiny "tap me" affordance pinned to the top-right of the number, styled like
+  // the system close/cross buttons (translucent grey circle).
+  statArrow: {
+    position: 'absolute',
+    top: -6,
+    right: -16,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   statLabel: { ...typography.caption, fontSize: 13, color: '#FFFFFF', marginTop: 2 },
 
   body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
